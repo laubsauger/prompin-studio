@@ -7,10 +7,10 @@ import { Input } from './ui/input';
 import { Select } from './ui/select';
 import { ASSET_STATUSES, STATUS_OPTIONS } from '../config/constants';
 import { cn } from '../lib/utils';
-import { MessageSquare, Film, Image as ImageIcon } from 'lucide-react';
+import { MessageSquare, Film, Image as ImageIcon, Heart } from 'lucide-react';
 
 export const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
-    const { updateAssetStatus, addComment, updateMetadata, toggleSelection, selectRange } = useStore();
+    const { updateAssetStatus, addComment, updateMetadata, toggleSelection, selectRange, toggleLike } = useStore();
     const isSelected = useStore(state => state.selectedIds.has(asset.id));
 
     const handleClick = (e: React.MouseEvent) => {
@@ -47,7 +47,21 @@ export const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
                     </div>
                 )}
 
-                <div className="absolute right-2 top-2 z-10">
+                <div className="absolute right-2 top-2 z-10 flex gap-2">
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            toggleLike(asset.id);
+                        }}
+                        className={cn(
+                            "rounded-full p-1.5 backdrop-blur-md transition-colors",
+                            asset.metadata.liked
+                                ? "bg-red-500/80 text-white hover:bg-red-600/80"
+                                : "bg-black/20 text-white/70 hover:bg-black/40 hover:text-white"
+                        )}
+                    >
+                        <Heart className={cn("h-3.5 w-3.5", asset.metadata.liked && "fill-current")} />
+                    </button>
                     <Badge variant="secondary" className={cn("shadow-sm backdrop-blur-md", statusConfig.color, "text-white border-none")}>
                         {statusConfig.label}
                     </Badge>

@@ -26,6 +26,9 @@ describe('AssetCard', () => {
             updateAssetStatus: mockUpdateStatus,
             addComment: vi.fn(),
             updateMetadata: vi.fn(),
+            selectedIds: new Set(),
+            toggleSelection: vi.fn(),
+            selectRange: vi.fn(),
         });
     });
 
@@ -39,5 +42,43 @@ describe('AssetCard', () => {
         const select = screen.getByRole('combobox');
         fireEvent.change(select, { target: { value: 'approved' } });
         expect(mockUpdateStatus).toHaveBeenCalledWith('1', 'approved');
+    });
+
+    it('calls updateMetadata on blur', () => {
+        const mockUpdateMetadata = vi.fn();
+        (useStore as any).mockReturnValue({
+            updateAssetStatus: mockUpdateStatus,
+            addComment: vi.fn(),
+            updateMetadata: mockUpdateMetadata,
+            selectedIds: new Set(),
+            toggleSelection: vi.fn(),
+            selectRange: vi.fn(),
+        });
+
+        render(<AssetCard asset={mockAsset as any} />);
+        const projectInput = screen.getByPlaceholderText('Project');
+        fireEvent.change(projectInput, { target: { value: 'New Project' } });
+        fireEvent.blur(projectInput);
+
+        expect(mockUpdateMetadata).toHaveBeenCalledWith('1', 'project', 'New Project');
+    });
+
+    it('calls addComment on Enter', () => {
+        const mockAddComment = vi.fn();
+        (useStore as any).mockReturnValue({
+            updateAssetStatus: mockUpdateStatus,
+            addComment: mockAddComment,
+            updateMetadata: vi.fn(),
+            selectedIds: new Set(),
+            toggleSelection: vi.fn(),
+            selectRange: vi.fn(),
+        });
+
+        render(<AssetCard asset={mockAsset as any} />);
+        const commentInput = screen.getByPlaceholderText('Add comment...');
+        fireEvent.change(commentInput, { target: { value: 'Nice!' } });
+        fireEvent.keyDown(commentInput, { key: 'Enter' });
+
+        expect(mockAddComment).toHaveBeenCalledWith('1', 'Nice!');
     });
 });

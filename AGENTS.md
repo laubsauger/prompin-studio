@@ -20,3 +20,4 @@ This project, "Generative AI Studio", is a high-performance, cross-platform medi
 - When implementing features, always consider the "Multiplayer" aspect. How does this change propagate to other users?
 - Prioritize non-destructive edits.
 - Ensure all media paths are relative to the "Project Root" (the shared Drive folder) so they work across different machines where the drive might be mounted at different paths (e.g., `X:\` vs `/Volumes/GoogleDrive`).
+- **Testing Requirement**: Any new functionality or changes to existing functionality MUST be accompanied by updated unit and/or integration tests. A task is not considered "done" until the relevant tests are passing.

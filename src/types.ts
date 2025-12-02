@@ -22,6 +22,7 @@ export interface AssetMetadata {
     scene?: string;
     shot?: string;
     comments?: Comment[];
+    liked?: boolean;
 }
 
 export interface Comment {

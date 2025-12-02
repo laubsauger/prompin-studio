@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { IndexerService } from './IndexerService';
+import { IndexerService } from './IndexerService.js';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
@@ -15,7 +15,7 @@ vi.mock('../db.js', () => {
             if (sql.includes('INSERT INTO assets')) {
                 return {
                     run: (params: any) => {
-                        const asset = { ...params, metadata: params.metadata }; // Already stringified in service
+                        const asset = { ...params, metadata: typeof params.metadata === 'string' ? JSON.parse(params.metadata) : params.metadata };
                         assets.set(asset.id, asset);
                         // Handle ON CONFLICT update (simplified)
                         if (params.path) {
@@ -41,6 +41,16 @@ vi.mock('../db.js', () => {
                         const asset = assets.get(id);
                         if (asset) {
                             assets.set(id, { ...asset, status });
+                        }
+                    }
+                };
+            }
+            if (sql.includes('UPDATE assets SET metadata')) {
+                return {
+                    run: ({ id, metadata }: any) => {
+                        const asset = assets.get(id);
+                        if (asset) {
+                            assets.set(id, { ...asset, metadata: JSON.parse(metadata) }); // Store as object in mock
                         }
                     }
                 };
@@ -107,5 +117,39 @@ describe('IndexerService Integration', () => {
 
         const updatedAssets = service.getAssets();
         expect(updatedAssets[0].status).toBe('approved');
+    });
+
+    it('should add comments', async () => {
+        const filePath = path.join(tempDir, 'test.jpg');
+        await fs.writeFile(filePath, 'dummy content');
+        await service.setRootPath(tempDir);
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        const assets = service.getAssets();
+        const id = assets[0].id;
+
+        service.addComment(id, 'Great shot!', 'User1');
+
+        const updatedAssets = service.getAssets();
+        expect(updatedAssets[0].metadata.comments).toHaveLength(1);
+        expect(updatedAssets[0].metadata.comments?.[0].text).toBe('Great shot!');
+        expect(updatedAssets[0].metadata.comments?.[0].authorId).toBe('User1');
+    });
+
+    it('should update metadata', async () => {
+        const filePath = path.join(tempDir, 'test.jpg');
+        await fs.writeFile(filePath, 'dummy content');
+        await service.setRootPath(tempDir);
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        const assets = service.getAssets();
+        const id = assets[0].id;
+
+        service.updateMetadata(id, 'project', 'Project X');
+        service.updateMetadata(id, 'scene', 'Scene 1');
+
+        const updatedAssets = service.getAssets();
+        expect(updatedAssets[0].metadata.project).toBe('Project X');
+        expect(updatedAssets[0].metadata.scene).toBe('Scene 1');
     });
 });

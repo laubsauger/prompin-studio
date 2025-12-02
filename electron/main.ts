@@ -1,88 +1,188 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, shell } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { indexerService } from './services/IndexerService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Handle creating/removing shortcuts on Windows when installing/uninstalling.
-if (require('electron-squirrel-startup')) {
-  app.quit();
-}
+process.env.APP_ROOT = path.join(__dirname, '..');
 
-const createWindow = () => {
-  // Create the browser window.
-  const mainWindow = new BrowserWindow({
-    width: 1280,
+export const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
+export const MAIN_DIST = path.join(process.env.APP_ROOT, 'dist-electron');
+export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist');
+
+process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 'public') : RENDERER_DIST;
+
+let win: BrowserWindow | null;
+
+function createWindow() {
+  win = new BrowserWindow({
+    width: 1200,
     height: 800,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
-      nodeIntegration: true,
-      contextIsolation: false,
+      contextIsolation: true,
+      nodeIntegration: false,
     },
-    titleBarStyle: 'hidden',
-    trafficLightPosition: { x: 10, y: 10 },
+    titleBarStyle: 'hiddenInset',
+    vibrancy: 'under-window',
+    visualEffectState: 'active',
   });
 
-  // Initialize Indexer with a default path for testing (e.g. user's pictures)
-  // In real app, this would be set via IPC from user selection
-  const picturesPath = app.getPath('pictures');
-  indexerService.setRootPath(picturesPath).catch(console.error);
-
-  ipcMain.handle('get-assets', async () => {
-    return indexerService.getAssets();
+  win.webContents.on('did-finish-load', () => {
+    win?.webContents.send('main-process-message', (new Date).toLocaleString());
   });
 
-  ipcMain.handle('update-asset-status', async (event, id, status) => {
-    return indexerService.updateAssetStatus(id, status);
-  });
-
-  ipcMain.handle('get-sync-stats', async () => {
-    return indexerService.getStats();
-  });
-
-  ipcMain.handle('trigger-resync', async () => {
-    return indexerService.resync();
-  });
-
-  ipcMain.handle('add-comment', async (event, assetId, text, authorId) => {
-    return indexerService.addComment(assetId, text, authorId);
-  });
-
-  ipcMain.handle('update-metadata', async (event, assetId, key, value) => {
-    return indexerService.updateMetadata(assetId, key, value);
-  });
-
-  // and load the index.html of the app.
-  if (process.env.VITE_DEV_SERVER_URL) {
-    mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
-    mainWindow.webContents.openDevTools();
+  if (VITE_DEV_SERVER_URL) {
+    win.loadURL(VITE_DEV_SERVER_URL);
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    win.loadFile(path.join(RENDERER_DIST, 'index.html'));
   }
-};
+}
 
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
-app.on('ready', createWindow);
+function createMenu() {
+  const isMac = process.platform === 'darwin';
 
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
+  const template: any[] = [
+    ...(isMac
+      ? [{
+        label: app.name,
+        submenu: [
+          { role: 'about' },
+          { type: 'separator' },
+          {
+            label: 'Settings...',
+            accelerator: 'CmdOrCtrl+,',
+            click: () => {
+              win?.webContents.send('open-settings');
+            }
+          },
+          { type: 'separator' },
+          { role: 'services' },
+          { type: 'separator' },
+          { role: 'hide' },
+          { role: 'hideOthers' },
+          { role: 'unhide' },
+          { type: 'separator' },
+          { role: 'quit' }
+        ]
+      }]
+      : []),
+    {
+      label: 'File',
+      submenu: [
+        isMac ? { role: 'close' } : { role: 'quit' }
+      ]
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'delete' },
+        { role: 'selectAll' }
+      ]
+    },
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload' },
+        { role: 'forceReload' },
+        { role: 'toggleDevTools' },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' }
+      ]
+    },
+    {
+      label: 'Window',
+      submenu: [
+        { role: 'minimize' },
+        { role: 'zoom' },
+        ...(isMac
+          ? [
+            { type: 'separator' },
+            { role: 'front' },
+            { type: 'separator' },
+            { role: 'window' }
+          ]
+          : [
+            { role: 'close' }
+          ])
+      ]
+    },
+    {
+      role: 'help',
+      submenu: [
+        {
+          label: 'Learn More',
+          click: async () => {
+            await shell.openExternal('https://electronjs.org');
+          }
+        },
+        {
+          label: 'Check for Updates...',
+          click: async () => {
+            win?.webContents.send('check-for-updates');
+          }
+        }
+      ]
+    }
+  ];
+
+  const menu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(menu);
+}
+
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
+    win = null;
   }
 });
 
 app.on('activate', () => {
-  // On OS X it's common to re-create a window in the app when the
-  // dock icon is clicked and there are no other windows open.
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow();
   }
 });
 
-// In this file you can include the rest of your app's specific main process
-// code. You can also put them in separate files and import them here.
+app.whenReady().then(() => {
+  createMenu();
+  createWindow();
+
+  const defaultPath = path.join(app.getPath('home'), 'GenStudioMedia');
+  indexerService.setRootPath(defaultPath);
+});
+
+// IPC Handlers
+ipcMain.handle('get-assets', async () => {
+  return indexerService.getAssets();
+});
+
+ipcMain.handle('update-asset-status', async (event, id, status) => {
+  return indexerService.updateAssetStatus(id, status);
+});
+
+ipcMain.handle('get-sync-stats', async () => {
+  return indexerService.getStats();
+});
+
+ipcMain.handle('trigger-resync', async () => {
+  return indexerService.resync();
+});
+
+ipcMain.handle('add-comment', async (event, assetId, text, authorId) => {
+  return indexerService.addComment(assetId, text, authorId);
+});
+
+ipcMain.handle('update-metadata', async (event, assetId, key, value) => {
+  return indexerService.updateMetadata(assetId, key, value);
+});
