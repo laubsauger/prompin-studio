@@ -1,5 +1,6 @@
+<img src="https://github.com/user-attachments/assets/68145096-c21c-457b-b084-1d226dd14caa" width="250" height="250">
+
 # Generative AI Studio
-![icon](https://github.com/user-attachments/assets/68145096-c21c-457b-b084-1d226dd14caa)
 High-performance media workflow app for Generative AI teams.
 
 ## Features
