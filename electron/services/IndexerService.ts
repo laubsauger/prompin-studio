@@ -5,7 +5,7 @@ import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { app } from 'electron';
 import db from '../db.js';
-import { Asset, SyncStats } from '../../src/types.js';
+import { Asset, SyncStats, AssetMetadata } from '../../src/types.js';
 // @ts-ignore
 import ffmpeg from 'fluent-ffmpeg';
 // @ts-ignore
@@ -23,6 +23,7 @@ export class IndexerService {
     private stats: SyncStats = {
         totalFiles: 0,
         processedFiles: 0,
+        totalFolders: 0,
         status: 'idle',
         lastSync: Date.now(),
         thumbnailsGenerated: 0,
@@ -80,32 +81,14 @@ export class IndexerService {
         console.log(`Starting watcher on ${rootPath}`);
         this.stats.status = 'scanning';
 
-        // Initialize stats from DB if possible
-        try {
-            const assetCount = db.prepare('SELECT COUNT(*) as count FROM assets').get() as { count: number };
-            this.stats.totalFiles = assetCount.count;
-            this.stats.processedFiles = assetCount.count; // Assume existing are processed
-
-            // Get breakdown
-            const typeCount = db.prepare('SELECT type, COUNT(*) as count FROM assets GROUP BY type').all() as { type: string, count: number }[];
-            this.stats.filesByType = { images: 0, videos: 0, other: 0 };
-            typeCount.forEach(row => {
-                if (row.type === 'image') this.stats.filesByType!.images = row.count;
-                else if (row.type === 'video') this.stats.filesByType!.videos = row.count;
-                else this.stats.filesByType!.other += row.count;
-            });
-
-            console.log('[IndexerService] Initialized stats from DB:', this.stats);
-        } catch (e) {
-            console.error('[IndexerService] Failed to initialize stats from DB:', e);
-            this.stats.totalFiles = 0;
-            this.stats.processedFiles = 0;
-            this.stats.filesByType = { images: 0, videos: 0, other: 0 };
-        }
-
+        // Reset stats for fresh count
+        this.stats.totalFiles = 0;
+        this.stats.processedFiles = 0;
+        this.stats.totalFolders = 0;
         this.stats.thumbnailsGenerated = 0;
         this.stats.thumbnailsFailed = 0;
         this.stats.errors = [];
+        this.stats.filesByType = { images: 0, videos: 0, other: 0 };
 
         this.watcher = watch(rootPath, {
             ignored: /(^|[\/\\])\../, // ignore dotfiles
@@ -121,29 +104,16 @@ export class IndexerService {
 
         this.watcher
             .on('add', (path: string) => {
-                // Only increment if not already in DB (to avoid double counting during initial scan if we pre-filled)
-                // Actually, chokidar 'add' fires for all existing files too on startup.
-                // If we pre-filled from DB, we might double count if we just ++.
-                // Strategy: Reset stats on start? Or rely on upsert?
-                // If we rely on upsert, we should probably reset totalFiles to 0 and let it count up.
-                // BUT user wants to see "76" immediately.
-                // Let's reset totalFiles to 0 for the scan, BUT if the scan is slow, they see 0.
-                // Better: Keep DB count, but don't increment for existing files?
-                // Hard to know if existing without querying.
-                // Let's stick to: Reset to 0, but maybe chokidar will be fast enough?
-                // The user's issue was it stayed at 0.
-                // If I add followSymlinks, hopefully it works.
-                // Let's try resetting to 0 to be accurate to what the watcher sees, 
-                // BUT if watcher fails, we see 0.
-                // Compromise: Set totalFiles from DB, but when watcher fires 'add', 
-                // we check if we've seen this file in this session? No that's memory intensive.
-                // Let's just reset to 0. The issue was likely `followSymlinks`.
-                // If I fix `followSymlinks`, it should count up quickly.
-                // I will comment out the DB pre-fill for now and rely on the fix.
-                // Wait, if I pre-fill, I need to handle the 'add' events carefully.
-                // Let's just fix the watcher first.
                 this.stats.totalFiles++;
                 this.handleFileAdd(path);
+            })
+            .on('addDir', (path: string) => {
+                this.stats.totalFolders = (this.stats.totalFolders || 0) + 1;
+                console.log(`Folder added: ${path} (total: ${this.stats.totalFolders})`);
+            })
+            .on('unlinkDir', (path: string) => {
+                this.stats.totalFolders = Math.max(0, (this.stats.totalFolders || 0) - 1);
+                console.log(`Folder removed: ${path} (total: ${this.stats.totalFolders})`);
             })
             .on('change', (path: string) => this.handleFileChange(path))
             .on('unlink', (path: string) => {
@@ -153,7 +123,7 @@ export class IndexerService {
             .on('ready', () => {
                 this.stats.status = 'idle';
                 this.stats.lastSync = Date.now();
-                console.log('Initial scan complete. Total files found:', this.stats.totalFiles);
+                console.log('Initial scan complete. Total files:', this.stats.totalFiles, 'Total folders:', this.stats.totalFolders);
             });
     }
 
@@ -437,6 +407,15 @@ export class IndexerService {
         });
     }
 
+    public updateAssetMetadata(assetId: string, metadata: AssetMetadata) {
+        const stmt = db.prepare('UPDATE assets SET metadata = @metadata, updatedAt = @updatedAt WHERE id = @id');
+        stmt.run({
+            id: assetId,
+            metadata: JSON.stringify(metadata),
+            updatedAt: Date.now()
+        });
+    }
+
     private upsertAsset(asset: Asset) {
         const stmt = db.prepare(`
       INSERT INTO assets (id, path, type, status, createdAt, updatedAt, metadata, thumbnailPath)
@@ -496,7 +475,7 @@ export class IndexerService {
     public addTagToAsset(assetId: string, tagId: string) {
         const stmt = db.prepare('INSERT OR IGNORE INTO asset_tags (assetId, tagId) VALUES (?, ?)');
         stmt.run(assetId, tagId);
-        this.updateAssetStatus(assetId, 'tagged'); // Optional: update status
+
     }
 
     public removeTagFromAsset(assetId: string, tagId: string) {

@@ -19,6 +19,7 @@ function createWindow() {
   win = new BrowserWindow({
     width: 1200,
     height: 800,
+    icon: path.join(process.env.VITE_PUBLIC || '', 'white_alpha.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -197,7 +198,11 @@ app.whenReady().then(() => {
         return new Response('File not found', { status: 404 });
       }
 
-      return net.fetch(fileUrl);
+      return net.fetch(fileUrl, {
+        method: request.method,
+        headers: request.headers,
+        bypassCustomProtocolHandlers: true
+      });
     } catch (error) {
       console.error('[Media Protocol] Error:', error);
       return new Response('Error loading media', { status: 500 });
@@ -251,6 +256,21 @@ ipcMain.handle('open-directory-dialog', async () => {
   return result.filePaths[0];
 });
 
+ipcMain.handle('show-confirm-dialog', async (event, options) => {
+  const result = await dialog.showMessageBox(win!, {
+    type: 'question',
+    buttons: ['Cancel', 'OK'],
+    defaultId: 1,
+    cancelId: 0,
+    title: options.title || 'Confirm',
+    message: options.message,
+    detail: options.detail,
+    icon: path.join(process.env.VITE_PUBLIC || '', 'white_alpha.png'),
+    ...options
+  });
+  return result.response === 1;
+});
+
 ipcMain.handle('set-root-path', async (event, path) => {
   console.log('[Main] set-root-path called with:', path);
   indexerService.setRootPath(path);
@@ -281,6 +301,10 @@ ipcMain.handle('add-comment', async (event, assetId, text, authorId) => {
 
 ipcMain.handle('update-metadata', async (event, assetId, key, value) => {
   return indexerService.updateMetadata(assetId, key, value);
+});
+
+ipcMain.handle('update-asset-metadata', async (event, assetId, metadata) => {
+  return indexerService.updateAssetMetadata(assetId, metadata);
 });
 
 ipcMain.handle('regenerate-thumbnails', async () => {

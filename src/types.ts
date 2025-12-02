@@ -1,4 +1,4 @@
-export type AssetStatus = 'unsorted' | 'review_requested' | 'pending' | 'approved' | 'archived' | 'offline' | 'tagged';
+export type AssetStatus = 'unsorted' | 'review_requested' | 'pending' | 'approved' | 'archived' | 'offline';
 
 export interface Asset {
     id: string;
@@ -26,6 +26,7 @@ export interface AssetMetadata {
     shot?: string;
     comments?: Comment[];
     liked?: boolean;
+    inputs?: string[]; // IDs of input assets
 }
 
 export interface Comment {
@@ -59,6 +60,7 @@ export interface Folder {
 export interface SyncStats {
     totalFiles: number;
     processedFiles: number;
+    totalFolders?: number;
     status: 'idle' | 'scanning' | 'syncing';
     lastSync: number;
     thumbnailsGenerated?: number;

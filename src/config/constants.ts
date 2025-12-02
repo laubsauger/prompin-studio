@@ -7,7 +7,6 @@ export const ASSET_STATUSES: Record<AssetStatus, { label: string; color: string 
     approved: { label: 'Approved', color: 'bg-green-500' },
     archived: { label: 'Archived', color: 'bg-slate-700' },
     offline: { label: 'Offline', color: 'bg-red-500' },
-    tagged: { label: 'Tagged', color: 'bg-blue-500' },
 };
 
 export const STATUS_OPTIONS = Object.entries(ASSET_STATUSES).map(([value, { label }]) => ({

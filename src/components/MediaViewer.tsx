@@ -11,6 +11,7 @@ import '@vidstack/react/player/styles/default/layouts/video.css';
 import { ASSET_STATUSES } from '../config/constants';
 import { cn } from '../lib/utils';
 import { CreateTagDialog } from './CreateTagDialog';
+import { MetadataEditor } from './MetadataEditor';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -23,6 +24,7 @@ export const MediaViewer: React.FC = () => {
     const { viewingAssetId, setViewingAssetId, assets, toggleLike, tags, addTagToAsset, removeTagFromAsset, createTag, updateAssetStatus } = useStore();
     const [showMetadata, setShowMetadata] = useState(false);
     const [isCreateTagDialogOpen, setIsCreateTagDialogOpen] = useState(false);
+    const [isMetadataEditorOpen, setIsMetadataEditorOpen] = useState(false);
 
     const asset = assets.find(a => a.id === viewingAssetId);
 
@@ -56,7 +58,7 @@ export const MediaViewer: React.FC = () => {
 
     return (
         <>
-            <div className="fixed inset-0 z-[100] flex flex-col bg-background/98 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="fixed inset-x-0 bottom-0 top-10 z-[50] flex flex-col bg-background/98 backdrop-blur-sm animate-in fade-in duration-200">
                 {/* Header Bar */}
                 <div className="flex items-center justify-between p-4 border-b border-border bg-background/80 backdrop-blur-sm">
                     <div className="flex items-center gap-4 min-w-0 flex-1">
@@ -174,6 +176,15 @@ export const MediaViewer: React.FC = () => {
                                 Info
                                 {showMetadata ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />}
                             </Button>
+
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setIsMetadataEditorOpen(true)}
+                            >
+                                <Edit className="h-4 w-4 mr-1" />
+                                Edit
+                            </Button>
                         </div>
 
                         <Button variant="ghost" size="icon" onClick={() => setViewingAssetId(null)}>
@@ -279,6 +290,12 @@ export const MediaViewer: React.FC = () => {
                 isOpen={isCreateTagDialogOpen}
                 onClose={() => setIsCreateTagDialogOpen(false)}
                 onCreateTag={handleCreateTag}
+            />
+
+            <MetadataEditor
+                isOpen={isMetadataEditorOpen}
+                onClose={() => setIsMetadataEditorOpen(false)}
+                asset={asset}
             />
         </>
     );

@@ -98,7 +98,7 @@ export const Explorer: React.FC = () => {
             if (valA > valB) return direction === 'asc' ? 1 : -1;
             return 0;
         });
-    }, [assets, filter, filterConfig, sortConfig, useStore((state) => state.currentPath)]);
+    }, [assets, filter, filterConfig, sortConfig, currentPath]);
 
     const handleRangeChanged = useCallback((range: { startIndex: number; endIndex: number }) => {
         // Throttle position saving - only save every 10 items to reduce writes
@@ -177,15 +177,15 @@ export const Explorer: React.FC = () => {
                             }}
                         />
 
-                            {/* Scroll Position Indicator - minimal, aligned with scrollbar */}
+                        {/* Scroll Position Indicator - minimal, aligned with scrollbar */}
                         {isScrolling && filteredAssets.length > 10 && (
-                                <div className="fixed right-2 top-20 bottom-20 flex items-center pointer-events-none z-50" style={{ willChange: 'opacity' }}>
-                                    <div className="flex flex-col items-end gap-1">
-                                        <div className="bg-background/90 backdrop-blur-sm border border-border rounded px-2 py-1 shadow-lg text-xs font-medium">
+                            <div className="fixed right-2 top-20 bottom-20 flex items-center pointer-events-none z-50" style={{ willChange: 'opacity' }}>
+                                <div className="flex flex-col items-end gap-1">
+                                    <div className="bg-background/90 backdrop-blur-sm border border-border rounded px-2 py-1 shadow-lg text-xs font-medium">
                                         {Math.round(scrollProgress)}%
                                     </div>
-                                        <div className="text-[10px] text-muted-foreground bg-background/80 backdrop-blur-sm px-1.5 py-0.5 rounded">
-                                            {filteredAssets.length}
+                                    <div className="text-[10px] text-muted-foreground bg-background/80 backdrop-blur-sm px-1.5 py-0.5 rounded">
+                                        {filteredAssets.length}
                                     </div>
                                 </div>
                             </div>

@@ -60,7 +60,7 @@ function App() {
     : undefined;
 
   const loadingDetails = syncStats && syncStats.status === 'scanning'
-    ? `Scanning ${syncStats.processedFiles} of ${syncStats.totalFiles} files`
+    ? `Found ${syncStats.totalFiles} files${syncStats.totalFolders ? ` in ${syncStats.totalFolders} folders` : ''}`
     : undefined;
 
   return (

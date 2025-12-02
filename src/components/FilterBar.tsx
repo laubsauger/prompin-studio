@@ -1,27 +1,45 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useStore } from '../store';
 import { Select } from './ui/select';
 import { STATUS_OPTIONS } from '../config/constants';
-import { Filter, Heart, ArrowUpDown, LayoutGrid, List } from 'lucide-react';
+import { Filter, Heart, ArrowUpDown, LayoutGrid, List, ArrowUp, ArrowDown } from 'lucide-react';
 import { Button } from './ui/button';
 import { cn } from '../lib/utils';
 import { Slider } from './ui/slider';
+import type { AssetStatus } from '../types';
 
-interface FilterBarProps {
+export interface FilterBarUIProps {
     thumbnailSize: number;
     onThumbnailSizeChange: (size: number) => void;
+    filter: AssetStatus | 'all';
+    onFilterChange: (filter: AssetStatus | 'all') => void;
+    sortConfig: { key: 'createdAt' | 'updatedAt' | 'path'; direction: 'asc' | 'desc' };
+    onSortConfigChange: (key: 'createdAt' | 'updatedAt' | 'path', direction: 'asc' | 'desc') => void;
+    filterConfig: { likedOnly: boolean; type: 'all' | 'image' | 'video'; tagId?: string | null; status?: AssetStatus | 'all' };
+    onFilterConfigChange: (config: Partial<{ likedOnly: boolean; type: 'all' | 'image' | 'video'; tagId?: string | null; status?: AssetStatus | 'all' }>) => void;
+    viewMode: 'grid' | 'list';
+    onViewModeChange: (mode: 'grid' | 'list') => void;
 }
 
-export const FilterBar: React.FC<FilterBarProps> = ({ thumbnailSize, onThumbnailSizeChange }) => {
-    const { filter, setFilter, sortConfig, setSortConfig, filterConfig, setFilterConfig, viewMode, setViewMode } = useStore();
-
+export const FilterBarUI: React.FC<FilterBarUIProps> = ({
+    thumbnailSize,
+    onThumbnailSizeChange,
+    filter,
+    onFilterChange,
+    sortConfig,
+    onSortConfigChange,
+    filterConfig,
+    onFilterConfigChange,
+    viewMode,
+    onViewModeChange
+}) => {
     return (
         <div className="flex items-center gap-2 w-full">
             <div className="flex items-center gap-2 border-r border-border pr-2 mr-2">
                 <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => setFilterConfig({ likedOnly: !filterConfig.likedOnly })}
+                    onClick={() => onFilterConfigChange({ likedOnly: !filterConfig.likedOnly })}
                     className={cn(
                         "h-8 w-8 p-0",
                         filterConfig.likedOnly && "text-red-500 hover:text-red-600"
@@ -33,7 +51,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({ thumbnailSize, onThumbnail
 
                 <Select
                     value={filterConfig.type || 'all'}
-                    onChange={(e) => setFilterConfig({ type: e.target.value as any })}
+                    onChange={(e) => onFilterConfigChange({ type: e.target.value as any })}
                     className="w-[100px] h-8 text-xs"
                 >
                     <option value="all">All Types</option>
@@ -46,7 +64,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({ thumbnailSize, onThumbnail
                 <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
                 <Select
                     value={sortConfig.key}
-                    onChange={(e) => setSortConfig(e.target.value as any, sortConfig.direction)}
+                    onChange={(e) => onSortConfigChange(e.target.value as any, sortConfig.direction)}
                     className="w-[130px] h-8 text-xs"
                 >
                     <option value="createdAt">Date Created</option>
@@ -56,11 +74,15 @@ export const FilterBar: React.FC<FilterBarProps> = ({ thumbnailSize, onThumbnail
                 <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => setSortConfig(sortConfig.key, sortConfig.direction === 'asc' ? 'desc' : 'asc')}
+                    onClick={() => onSortConfigChange(sortConfig.key, sortConfig.direction === 'asc' ? 'desc' : 'asc')}
                     className="h-8 w-8 p-0"
                     title={sortConfig.direction === 'asc' ? 'Ascending' : 'Descending'}
                 >
-                    <ArrowUpDown className={cn("h-4 w-4 transition-transform", sortConfig.direction === 'desc' && "rotate-180")} />
+                    {sortConfig.direction === 'asc' ? (
+                        <ArrowUp className="h-4 w-4" />
+                    ) : (
+                        <ArrowDown className="h-4 w-4" />
+                    )}
                 </Button>
             </div>
 
@@ -68,7 +90,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({ thumbnailSize, onThumbnail
                 <Filter className="h-4 w-4 text-muted-foreground" />
                 <Select
                     value={filter}
-                    onChange={(e) => setFilter(e.target.value as any)}
+                    onChange={(e) => onFilterChange(e.target.value as any)}
                     className="w-[150px] h-8 text-xs"
                 >
                     <option value="all">All Statuses</option>
@@ -99,7 +121,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({ thumbnailSize, onThumbnail
                     <Button
                         variant={viewMode === 'grid' ? 'default' : 'ghost'}
                         size="sm"
-                        onClick={() => setViewMode('grid')}
+                        onClick={() => onViewModeChange('grid')}
                         className="h-7 px-2 rounded-r-none"
                         title="Grid View"
                     >
@@ -108,7 +130,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({ thumbnailSize, onThumbnail
                     <Button
                         variant={viewMode === 'list' ? 'default' : 'ghost'}
                         size="sm"
-                        onClick={() => setViewMode('list')}
+                        onClick={() => onViewModeChange('list')}
                         className="h-7 px-2 rounded-l-none border-l"
                         title="List View"
                     >
@@ -117,5 +139,36 @@ export const FilterBar: React.FC<FilterBarProps> = ({ thumbnailSize, onThumbnail
                 </div>
             </div>
         </div>
+    );
+};
+
+interface FilterBarProps {
+    thumbnailSize: number;
+    onThumbnailSizeChange: (size: number) => void;
+}
+
+export const FilterBar: React.FC<FilterBarProps> = ({ thumbnailSize, onThumbnailSizeChange }) => {
+    const filter = useStore(state => state.filter);
+    const setFilter = useStore(state => state.setFilter);
+    const sortConfig = useStore(state => state.sortConfig);
+    const setSortConfig = useStore(state => state.setSortConfig);
+    const filterConfig = useStore(state => state.filterConfig);
+    const setFilterConfig = useStore(state => state.setFilterConfig);
+    const viewMode = useStore(state => state.viewMode);
+    const setViewMode = useStore(state => state.setViewMode);
+
+    return (
+        <FilterBarUI
+            thumbnailSize={thumbnailSize}
+            onThumbnailSizeChange={onThumbnailSizeChange}
+            filter={filter}
+            onFilterChange={setFilter}
+            sortConfig={sortConfig}
+            onSortConfigChange={setSortConfig}
+            filterConfig={filterConfig}
+            onFilterConfigChange={setFilterConfig}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+        />
     );
 };

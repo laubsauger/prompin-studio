@@ -21,6 +21,7 @@ interface SettingsState {
     setUserAvatar: (avatar: string | null) => void;
     setScrollPosition: (path: string, position: number) => void;
     getScrollPosition: (path: string) => number;
+    resetSettings: () => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -47,6 +48,22 @@ export const useSettingsStore = create<SettingsState>()(
                 scrollPositions: { ...state.scrollPositions, [path]: position }
             })),
             getScrollPosition: (path) => get().scrollPositions[path] || 0,
+            resetSettings: () => {
+                localStorage.removeItem('gen-studio-settings');
+                localStorage.removeItem('gen-studio-storage'); // Clear main store too if needed
+                set({
+                    theme: 'system',
+                    defaultView: 'grid',
+                    autoCheckUpdates: true,
+                    isSettingsOpen: false,
+                    rootFolder: null,
+                    gridSize: 300,
+                    userName: null,
+                    userAvatar: null,
+                    scrollPositions: {},
+                });
+                window.location.reload();
+            },
         }),
         {
             name: 'gen-studio-settings',

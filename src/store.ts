@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Asset, SyncStats, AssetStatus } from './types';
+import type { Asset, SyncStats, AssetStatus, AssetMetadata } from './types';
 
 // Lazily load ipcRenderer to avoid issues during test initialization if window.require is not yet mocked
 // Lazily load ipcRenderer to avoid issues during test initialization if window.require is not yet mocked
@@ -82,6 +82,7 @@ interface AppState {
     updateAssetStatus: (id: string, status: Asset['status']) => Promise<void>;
     addComment: (id: string, text: string) => Promise<void>;
     updateMetadata: (id: string, key: string, value: any) => Promise<void>;
+    updateAssetMetadata: (id: string, metadata: AssetMetadata) => Promise<void>;
     regenerateThumbnails: () => Promise<void>;
 
     // Selection Actions
@@ -234,6 +235,7 @@ export const useStore = create<AppState>((set, get) => ({
                 currentStats.status !== syncStats.status ||
                 currentStats.totalFiles !== syncStats.totalFiles ||
                 currentStats.processedFiles !== syncStats.processedFiles ||
+                currentStats.totalFolders !== syncStats.totalFolders ||
                 currentStats.thumbnailsGenerated !== syncStats.thumbnailsGenerated ||
                 currentStats.thumbnailsFailed !== syncStats.thumbnailsFailed ||
                 (currentStats.errors?.length || 0) !== (syncStats.errors?.length || 0);
@@ -274,6 +276,15 @@ export const useStore = create<AppState>((set, get) => ({
 
     updateMetadata: async (id, key, value) => {
         await getIpcRenderer().invoke('update-metadata', id, key, value);
+        get().loadAssets();
+    },
+
+    updateAssetMetadata: async (id, metadata) => {
+        // Optimistic update
+        set(state => ({
+            assets: state.assets.map(a => a.id === id ? { ...a, metadata } : a)
+        }));
+        await getIpcRenderer().invoke('update-asset-metadata', id, metadata);
         get().loadAssets();
     },
 
