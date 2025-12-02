@@ -1,24 +1,27 @@
 import React from 'react';
 import { useStore } from '../store';
-import type { Asset } from '../types';
+import { Select } from './ui/select';
+import { STATUS_OPTIONS } from '../config/constants';
+import { Filter } from 'lucide-react';
 
 export const FilterBar: React.FC = () => {
     const { filter, setFilter } = useStore();
 
     return (
-        <div className="filters">
-            <select
+        <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <Select
                 value={filter}
-                onChange={(e) => setFilter(e.target.value as Asset['status'] | 'all')}
-                style={{ padding: '0.5rem', borderRadius: '4px', background: '#333', color: '#fff', border: '1px solid #444' }}
+                onChange={(e) => setFilter(e.target.value as any)}
+                className="w-[180px] h-9"
             >
                 <option value="all">All Statuses</option>
-                <option value="unsorted">Unsorted</option>
-                <option value="review_requested">Review Requested</option>
-                <option value="pending">Pending</option>
-                <option value="approved">Approved</option>
-                <option value="archived">Archived</option>
-            </select>
+                {STATUS_OPTIONS.map(option => (
+                    <option key={option.value} value={option.value}>
+                        {option.label}
+                    </option>
+                ))}
+            </Select>
         </div>
     );
 };

@@ -1,6 +1,8 @@
 import React, { useEffect } from 'react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { useStore } from '../store';
+import { Button } from './ui/button';
+import { X } from 'lucide-react';
 
 export const MediaViewer: React.FC = () => {
     const { viewingAssetId, setViewingAssetId, assets } = useStore();
@@ -20,32 +22,23 @@ export const MediaViewer: React.FC = () => {
     if (!asset) return null;
 
     return (
-        <div
-            className="media-viewer-overlay"
-            style={{
-                position: 'fixed',
-                inset: 0,
-                background: 'rgba(0, 0, 0, 0.9)',
-                zIndex: 1000,
-                display: 'flex',
-                flexDirection: 'column'
-            }}
-        >
-            <div style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between', color: '#fff' }}>
-                <span>{asset.path}</span>
-                <button onClick={() => setViewingAssetId(null)} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}>
-                    ✕ Close
-                </button>
+        <div className="fixed inset-0 z-[100] flex flex-col bg-background/95 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+                <span className="font-mono text-sm text-muted-foreground">{asset.path}</span>
+                <Button variant="ghost" size="icon" onClick={() => setViewingAssetId(null)}>
+                    <X className="h-4 w-4" />
+                    <span className="sr-only">Close</span>
+                </Button>
             </div>
 
-            <div style={{ flex: 1, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div className="flex-1 overflow-hidden flex items-center justify-center p-4">
                 {asset.type === 'image' ? (
                     <TransformWrapper>
                         <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }}>
                             <img
                                 src={`file://${asset.path}`}
                                 alt={asset.path}
-                                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                                className="max-w-full max-h-full object-contain"
                             />
                         </TransformComponent>
                     </TransformWrapper>
@@ -54,7 +47,7 @@ export const MediaViewer: React.FC = () => {
                         src={`file://${asset.path}`}
                         controls
                         autoPlay
-                        style={{ maxWidth: '100%', maxHeight: '100%' }}
+                        className="max-w-full max-h-full"
                     />
                 )}
             </div>

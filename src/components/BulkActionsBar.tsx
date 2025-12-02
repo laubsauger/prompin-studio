@@ -1,5 +1,9 @@
 import React from 'react';
 import { useStore } from '../store';
+import { Button } from './ui/button';
+import { Badge } from './ui/badge';
+import { Card } from './ui/card';
+import { X, Check, Archive, RotateCcw } from 'lucide-react';
 
 export const BulkActionsBar: React.FC = () => {
     const { selectedIds, clearSelection, updateAssetStatus, loadAssets } = useStore();
@@ -7,58 +11,34 @@ export const BulkActionsBar: React.FC = () => {
     if (selectedIds.size === 0) return null;
 
     const handleBulkStatusUpdate = async (status: 'approved' | 'archived' | 'unsorted') => {
-        // Optimistic updates could be complex here, so we'll just await all
         const promises = Array.from(selectedIds).map(id => updateAssetStatus(id, status));
         await Promise.all(promises);
         clearSelection();
-        loadAssets(); // Refresh to ensure consistency
+        loadAssets();
     };
 
     return (
-        <div className="bulk-actions-bar" style={{
-            position: 'fixed',
-            bottom: '2rem',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            background: '#333',
-            padding: '0.5rem 1rem',
-            borderRadius: '8px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '1rem',
-            zIndex: 100,
-            color: '#fff'
-        }}>
-            <span>{selectedIds.size} selected</span>
+        <Card className="fixed bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4 p-2 px-4 shadow-2xl bg-card border-border z-50 animate-in slide-in-from-bottom-5 fade-in duration-300">
+            <div className="flex items-center gap-2 border-r border-border pr-4">
+                <Badge variant="secondary" className="h-6">
+                    {selectedIds.size} selected
+                </Badge>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={clearSelection}>
+                    <X className="h-4 w-4" />
+                </Button>
+            </div>
 
-            <div style={{ height: '20px', width: '1px', background: '#555' }} />
-
-            <button onClick={() => handleBulkStatusUpdate('approved')} style={btnStyle}>
-                Approve
-            </button>
-            <button onClick={() => handleBulkStatusUpdate('archived')} style={btnStyle}>
-                Archive
-            </button>
-            <button onClick={() => handleBulkStatusUpdate('unsorted')} style={btnStyle}>
-                Reset
-            </button>
-
-            <div style={{ height: '20px', width: '1px', background: '#555' }} />
-
-            <button onClick={clearSelection} style={{ ...btnStyle, color: '#aaa' }}>
-                Clear
-            </button>
-        </div>
+            <div className="flex items-center gap-2">
+                <Button size="sm" onClick={() => handleBulkStatusUpdate('approved')} className="bg-green-600 hover:bg-green-700 text-white">
+                    <Check className="mr-2 h-4 w-4" /> Approve
+                </Button>
+                <Button size="sm" variant="secondary" onClick={() => handleBulkStatusUpdate('archived')}>
+                    <Archive className="mr-2 h-4 w-4" /> Archive
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => handleBulkStatusUpdate('unsorted')}>
+                    <RotateCcw className="mr-2 h-4 w-4" /> Reset
+                </Button>
+            </div>
+        </Card>
     );
-};
-
-const btnStyle = {
-    background: 'transparent',
-    border: 'none',
-    color: '#fff',
-    cursor: 'pointer',
-    padding: '4px 8px',
-    borderRadius: '4px',
-    fontSize: '0.9rem'
 };
