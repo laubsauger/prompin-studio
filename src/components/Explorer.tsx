@@ -1,7 +1,5 @@
-// @ts-nocheck
 import React, { useEffect, useMemo } from 'react';
-import AutoSizer from 'react-virtualized-auto-sizer';
-import { Grid } from 'react-window';
+import { VirtuosoGrid } from 'react-virtuoso';
 import { useStore } from '../store';
 import { useSettingsStore } from '../store/settings';
 import { useIpcListeners } from '../hooks/useIpcListeners';
@@ -12,8 +10,8 @@ import { BulkActionsBar } from './BulkActionsBar';
 import { SettingsModal } from './SettingsModal';
 import { ExplorerCell } from './ExplorerCell';
 
-const GAP = 16;
 const MIN_COLUMN_WIDTH = 300;
+const GAP = 16;
 
 export const Explorer: React.FC = () => {
     const { assets, filter, loadAssets, setViewingAssetId } = useStore();
@@ -27,7 +25,7 @@ export const Explorer: React.FC = () => {
     }, [loadAssets]);
 
     const filteredAssets = useMemo(() => {
-        let result = assets;
+        let result = assets || [];
 
         // 1. Filter by Status
         if (filter !== 'all') {
@@ -35,12 +33,13 @@ export const Explorer: React.FC = () => {
         }
 
         // 2. Filter by Liked
-        const { filterConfig, sortConfig } = useStore.getState(); // Access latest config
+        const { filterConfig } = useStore.getState();
         if (filterConfig.likedOnly) {
             result = result.filter(a => a.metadata.liked);
         }
 
         // 3. Sort
+        const { sortConfig } = useStore.getState();
         return [...result].sort((a, b) => {
             const { key, direction } = sortConfig;
             let valA = key === 'path' ? a.path : (a.metadata as any)[key] || 0;
@@ -52,8 +51,6 @@ export const Explorer: React.FC = () => {
         });
     }, [assets, filter, useStore((state) => state.filterConfig), useStore((state) => state.sortConfig)]);
 
-
-
     return (
         <div className="flex h-screen flex-col bg-background text-foreground">
             <div className="flex items-center justify-between border-b border-border bg-card p-4 shadow-sm z-10">
@@ -62,27 +59,45 @@ export const Explorer: React.FC = () => {
             </div>
 
             <div className="flex-1 p-4">
-                <AutoSizer>
-                    {({ height, width }: { height: number; width: number }) => {
-                        const columnCount = Math.max(1, Math.floor((width) / (MIN_COLUMN_WIDTH + GAP)));
-                        const columnWidth = (width - GAP) / columnCount; // Distribute remaining space
-                        const rowHeight = columnWidth * (9 / 16) + 200; // Aspect ratio + info height
-
-                        return (
-                            // @ts-ignore
-                            <Grid
-                                columnCount={columnCount}
-                                columnWidth={columnWidth}
-                                height={height}
-                                rowCount={Math.ceil(filteredAssets.length / columnCount)}
-                                rowHeight={rowHeight}
-                                width={width}
-                                itemData={{ assets: filteredAssets, columnCount, setViewingAssetId }}
-                                children={ExplorerCell as any}
-                            />
-                        );
-                    }}
-                </AutoSizer>
+                {filteredAssets.length === 0 ? (
+                    <div className="flex h-full items-center justify-center text-muted-foreground">
+                        No assets found
+                    </div>
+                ) : (
+                    <VirtuosoGrid
+                        style={{ height: '100%' }}
+                        totalCount={filteredAssets.length}
+                        components={{
+                            List: React.forwardRef((props, ref) => (
+                                <div
+                                    {...props}
+                                    ref={ref}
+                                    style={{
+                                        ...props.style,
+                                        display: 'grid',
+                                        gridTemplateColumns: `repeat(auto-fill, minmax(${MIN_COLUMN_WIDTH}px, 1fr))`,
+                                        gap: `${GAP}px`,
+                                        paddingBottom: '20px'
+                                    }}
+                                />
+                            )),
+                            Item: (props) => (
+                                <div {...props} style={{ ...props.style, margin: 0 }} />
+                            )
+                        }}
+                        itemContent={(index) => {
+                            const asset = filteredAssets[index];
+                            return (
+                                <div style={{ height: '100%' }}>
+                                    <ExplorerCell
+                                        asset={asset}
+                                        setViewingAssetId={setViewingAssetId}
+                                    />
+                                </div>
+                            );
+                        }}
+                    />
+                )}
             </div>
 
             <MediaViewer />

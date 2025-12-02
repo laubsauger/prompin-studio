@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, shell, dialog } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { indexerService } from './services/IndexerService.js';
@@ -20,7 +20,7 @@ function createWindow() {
     width: 1200,
     height: 800,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -157,12 +157,22 @@ app.on('activate', () => {
 app.whenReady().then(() => {
   createMenu();
   createWindow();
-
-  const defaultPath = path.join(app.getPath('home'), 'GenStudioMedia');
-  indexerService.setRootPath(defaultPath);
 });
 
 // IPC Handlers
+ipcMain.handle('open-directory-dialog', async () => {
+  const result = await dialog.showOpenDialog(win!, {
+    properties: ['openDirectory']
+  });
+  if (result.canceled) return null;
+  return result.filePaths[0];
+});
+
+ipcMain.handle('set-root-path', async (event, path) => {
+  indexerService.setRootPath(path);
+  return true;
+});
+
 ipcMain.handle('get-assets', async () => {
   return indexerService.getAssets();
 });

@@ -2,7 +2,32 @@ import { create } from 'zustand';
 import type { Asset, SyncStats } from './types';
 
 // Lazily load ipcRenderer to avoid issues during test initialization if window.require is not yet mocked
-const getIpcRenderer = () => window.ipcRenderer;
+// Lazily load ipcRenderer to avoid issues during test initialization if window.require is not yet mocked
+const getIpcRenderer = () => {
+    if (window.ipcRenderer) return window.ipcRenderer;
+
+    console.warn('ipcRenderer not found, using mock implementation');
+    return {
+        invoke: async (channel: string, ...args: any[]) => {
+            console.log(`[Mock IPC] invoke: ${channel}`, args);
+            if (channel === 'get-assets') return [];
+            if (channel === 'get-sync-stats') return { totalFiles: 0, processedFiles: 0, status: 'idle', lastSync: Date.now() };
+            if (channel === 'open-directory-dialog') {
+                // Return a fake path after a short delay to simulate user interaction
+                await new Promise(resolve => setTimeout(resolve, 500));
+                return '/mock/user/media';
+            }
+            if (channel === 'set-root-path') return true;
+            return null;
+        },
+        on: (channel: string, _func: (...args: any[]) => void) => {
+            console.log(`[Mock IPC] on: ${channel}`);
+        },
+        off: (channel: string, _func: (...args: any[]) => void) => {
+            console.log(`[Mock IPC] off: ${channel}`);
+        }
+    };
+};
 
 interface AppState {
     assets: Asset[];
@@ -45,10 +70,11 @@ interface AppState {
     toggleSelection: (id: string, multi: boolean) => void;
     selectRange: (id: string) => void;
     clearSelection: () => void;
-    selectAll: () => void;
+    setRootPath: () => Promise<string | null>;
 }
 
 export const useStore = create<AppState>((set, get) => ({
+    // ... existing state ...
     assets: [],
     syncStats: null,
     filter: 'all',
@@ -72,6 +98,16 @@ export const useStore = create<AppState>((set, get) => ({
     // New config actions
     setSortConfig: (key, direction) => set({ sortConfig: { key, direction } }),
     setFilterConfig: (config) => set(state => ({ filterConfig: { ...state.filterConfig, ...config } })),
+
+    setRootPath: async () => {
+        const path = await getIpcRenderer().invoke('open-directory-dialog');
+        if (path) {
+            await getIpcRenderer().invoke('set-root-path', path);
+            // Reload assets after setting path
+            get().loadAssets();
+        }
+        return path;
+    },
 
     toggleLike: async (id) => {
         const asset = get().assets.find(a => a.id === id);
