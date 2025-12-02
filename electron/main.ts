@@ -162,6 +162,7 @@ protocol.registerSchemesAsPrivileged([
 
 app.whenReady().then(() => {
   // Register 'media' protocol to serve local files
+  // Register 'media' protocol to serve local files
   protocol.handle('media', (request) => {
     const url = request.url.replace('media://', '');
     const decodedUrl = decodeURIComponent(url);
@@ -169,16 +170,21 @@ app.whenReady().then(() => {
     try {
       let fileUrl: string;
       // If it looks like an absolute path (starts with / or drive letter), use it as is
-      if (path.isAbsolute(decodedUrl) || decodedUrl.startsWith('/')) {
-        fileUrl = 'file://' + (decodedUrl.startsWith('/') ? '' : '/') + decodedUrl;
+      if (path.isAbsolute(decodedUrl) || (process.platform !== 'win32' && decodedUrl.startsWith('/'))) {
+        fileUrl = 'file://' + decodedUrl;
       } else {
         // Otherwise resolve against root path
         const rootPath = indexerService.getRootPath();
-        if (!rootPath) throw new Error('Root path not set');
-        const absolutePath = path.join(rootPath, decodedUrl);
+        if (!rootPath) {
+          console.warn('[Media Protocol] Root path not set, cannot resolve relative path:', decodedUrl);
+          return new Response('Root path not set', { status: 404 });
+        }
+        // Join rootPath and decodedUrl, ensuring no double slashes if decodedUrl starts with /
+        const absolutePath = path.join(rootPath, decodedUrl.replace(/^\//, ''));
         fileUrl = 'file://' + absolutePath;
       }
 
+      console.log('[Media Protocol] Serving:', fileUrl);
       return net.fetch(fileUrl);
     } catch (error) {
       console.error('[Media Protocol] Error:', error);
@@ -235,4 +241,16 @@ ipcMain.handle('add-comment', async (event, assetId, text, authorId) => {
 
 ipcMain.handle('update-metadata', async (event, assetId, key, value) => {
   return indexerService.updateMetadata(assetId, key, value);
+});
+
+ipcMain.handle('regenerate-thumbnails', async () => {
+  return indexerService.regenerateThumbnails();
+});
+
+ipcMain.handle('get-folder-colors', async () => {
+  return indexerService.getFolderColors();
+});
+
+ipcMain.handle('set-folder-color', async (event, path, color) => {
+  return indexerService.setFolderColor(path, color);
 });

@@ -39,7 +39,8 @@ interface AppState {
     currentPath: string | null;
 
     sortConfig: { key: 'createdAt' | 'updatedAt' | 'path'; direction: 'asc' | 'desc' };
-    filterConfig: { likedOnly: boolean };
+    filterConfig: { likedOnly: false; type: 'all' | 'image' | 'video' };
+    folderColors: Record<string, string>;
 
     // Ingestion State
     ingestion: {
@@ -51,6 +52,7 @@ interface AppState {
     // Actions
     setSortConfig: (key: 'createdAt' | 'updatedAt' | 'path', direction: 'asc' | 'desc') => void;
     setFilterConfig: (config: Partial<AppState['filterConfig']>) => void;
+    setFolderColor: (path: string, color: string) => void;
     toggleLike: (id: string) => Promise<void>;
 
     // Ingestion Actions
@@ -66,13 +68,16 @@ interface AppState {
     triggerResync: () => Promise<void>;
     updateAssetStatus: (id: string, status: Asset['status']) => Promise<void>;
     addComment: (id: string, text: string) => Promise<void>;
+    addComment: (id: string, text: string) => Promise<void>;
     updateMetadata: (id: string, key: string, value: any) => Promise<void>;
+    regenerateThumbnails: () => Promise<void>;
 
     // Selection Actions
     toggleSelection: (id: string, multi: boolean) => void;
     selectRange: (id: string) => void;
     clearSelection: () => void;
     setRootPath: () => Promise<string | null>;
+    loadFolderColors: () => Promise<void>;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -87,7 +92,8 @@ export const useStore = create<AppState>((set, get) => ({
 
     // New config initial state
     sortConfig: { key: 'createdAt', direction: 'desc' },
-    filterConfig: { likedOnly: false },
+    filterConfig: { likedOnly: false, type: 'all' },
+    folderColors: {},
 
     ingestion: {
         isOpen: false,
@@ -102,6 +108,15 @@ export const useStore = create<AppState>((set, get) => ({
     // New config actions
     setSortConfig: (key, direction) => set({ sortConfig: { key, direction } }),
     setFilterConfig: (config) => set(state => ({ filterConfig: { ...state.filterConfig, ...config } })),
+    setFolderColor: async (path, color) => {
+        set(state => ({ folderColors: { ...state.folderColors, [path]: color } }));
+        await getIpcRenderer().invoke('set-folder-color', path, color);
+    },
+
+    loadFolderColors: async () => {
+        const folderColors = await getIpcRenderer().invoke('get-folder-colors');
+        set({ folderColors });
+    },
 
     setRootPath: async () => {
         const path = await getIpcRenderer().invoke('open-directory-dialog');
@@ -109,6 +124,7 @@ export const useStore = create<AppState>((set, get) => ({
             await getIpcRenderer().invoke('set-root-path', path);
             // Reload assets after setting path
             get().loadAssets();
+            get().loadFolderColors();
         }
         return path;
     },
@@ -194,15 +210,29 @@ export const useStore = create<AppState>((set, get) => ({
         get().loadAssets();
     },
 
+    regenerateThumbnails: async () => {
+        await getIpcRenderer().invoke('regenerate-thumbnails');
+        get().loadAssets();
+    },
+
     toggleSelection: (id, multi) => {
         set(state => {
-            const newSelected = new Set(multi ? state.selectedIds : []);
-            if (newSelected.has(id)) {
-                newSelected.delete(id);
+            if (multi) {
+                const newSelected = new Set(state.selectedIds);
+                if (newSelected.has(id)) {
+                    newSelected.delete(id);
+                } else {
+                    newSelected.add(id);
+                }
+                return { selectedIds: newSelected, lastSelectedId: id };
             } else {
-                newSelected.add(id);
+                // If clicking the only selected item, deselect it
+                if (state.selectedIds.size === 1 && state.selectedIds.has(id)) {
+                    return { selectedIds: new Set(), lastSelectedId: null };
+                }
+                // Otherwise select only this item
+                return { selectedIds: new Set([id]), lastSelectedId: id };
             }
-            return { selectedIds: newSelected, lastSelectedId: id };
         });
     },
 

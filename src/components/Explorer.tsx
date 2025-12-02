@@ -49,6 +49,11 @@ export const Explorer: React.FC = () => {
             result = result.filter(a => a.metadata.liked);
         }
 
+        // 3. Filter by Type
+        if (filterConfig.type && filterConfig.type !== 'all') {
+            result = result.filter(a => a.type === filterConfig.type);
+        }
+
         // 3. Sort
         return [...result].sort((a, b) => {
             const { key, direction } = sortConfig;
@@ -64,7 +69,7 @@ export const Explorer: React.FC = () => {
     return (
         <div className="flex h-full flex-col bg-background text-foreground">
             <div className="flex items-center justify-between border-b border-border bg-card p-2 shadow-sm z-10">
-                <h2 className="text-lg font-semibold tracking-tight px-2">Media Explorer</h2>
+                <h2 className="font-semibold tracking-tight pl-3 px-2">Media Explorer</h2>
                 <FilterBar />
             </div>
 

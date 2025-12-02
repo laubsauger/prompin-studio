@@ -11,7 +11,7 @@ export const FilterBar: React.FC = () => {
 
     return (
         <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 border-r border-border pr-2 mr-2">
+            <div className="flex items-center gap-2 border-r border-border pr-2 mr-2">
                 <Button
                     variant="ghost"
                     size="sm"
@@ -24,6 +24,16 @@ export const FilterBar: React.FC = () => {
                 >
                     <Heart className={cn("h-4 w-4", filterConfig.likedOnly && "fill-current")} />
                 </Button>
+
+                <Select
+                    value={filterConfig.type || 'all'}
+                    onChange={(e) => setFilterConfig({ type: e.target.value as any })}
+                    className="w-[100px] h-8 text-xs"
+                >
+                    <option value="all">All Types</option>
+                    <option value="image">Images</option>
+                    <option value="video">Videos</option>
+                </Select>
             </div>
 
             <div className="flex items-center gap-2 border-r border-border pr-2 mr-2">
@@ -44,7 +54,7 @@ export const FilterBar: React.FC = () => {
                     className="h-8 w-8 p-0"
                     title={sortConfig.direction === 'asc' ? 'Ascending' : 'Descending'}
                 >
-                    <span className="text-xs font-bold">{sortConfig.direction === 'asc' ? 'ASC' : 'DESC'}</span>
+                    <ArrowUpDown className={cn("h-4 w-4 transition-transform", sortConfig.direction === 'desc' && "rotate-180")} />
                 </Button>
             </div>
 

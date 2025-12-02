@@ -80,18 +80,41 @@ export class IndexerService {
         return { ...this.stats };
     }
 
+    public async regenerateThumbnails() {
+        console.log('Regenerating all thumbnails...');
+        const assets = this.getAssets();
+        let count = 0;
+        for (const asset of assets) {
+            if (asset.type === 'video') {
+                const fullPath = path.join(this.rootPath, asset.path);
+                const thumbnailPath = await this.generateThumbnail(fullPath, asset.id);
+                if (thumbnailPath) {
+                    // Update DB with new thumbnail path
+                    const stmt = db.prepare('UPDATE assets SET thumbnailPath = ? WHERE id = ?');
+                    stmt.run(thumbnailPath, asset.id);
+                    count++;
+                }
+            }
+        }
+        console.log(`Regenerated ${count} thumbnails`);
+    }
+
     private async generateThumbnail(filePath: string, assetId: string): Promise<string | undefined> {
         if (this.getMediaType(filePath) !== 'video') return undefined;
 
         const thumbnailFilename = `${assetId}.jpg`;
         const thumbnailPath = path.join(this.thumbnailCachePath, thumbnailFilename);
 
-        // Check if exists
+        // For regeneration, we might want to overwrite, but for now let's just check existence
+        // If we want to force regen, we should delete the file first.
+        // Let's assume this is called when they are missing.
+
         try {
-            await fs.access(thumbnailPath);
-            return thumbnailFilename; // Return relative to thumbnail cache
+            // If file exists and size > 0, skip
+            const stats = await fs.stat(thumbnailPath);
+            if (stats.size > 0) return thumbnailFilename;
         } catch {
-            // Generate
+            // File doesn't exist, proceed
         }
 
         return new Promise((resolve) => {

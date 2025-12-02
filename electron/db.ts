@@ -16,8 +16,22 @@ db.exec(`
     status TEXT NOT NULL DEFAULT 'unsorted',
     createdAt INTEGER NOT NULL,
     updatedAt INTEGER NOT NULL,
+    metadata JSON,
+    thumbnailPath TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS folders (
+    path TEXT PRIMARY KEY,
+    color TEXT,
     metadata JSON
   );
 `);
+
+// Migration for existing databases
+try {
+  db.exec('ALTER TABLE assets ADD COLUMN thumbnailPath TEXT');
+} catch (error) {
+  // Column likely exists or other error, ignore
+}
 
 export default db;

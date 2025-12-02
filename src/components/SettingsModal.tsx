@@ -4,6 +4,8 @@ import { Label } from './ui/label';
 import { Switch } from './ui/switch';
 import { Select } from './ui/select';
 import { useSettingsStore } from '../store/settings';
+import { useStore } from '../store';
+import { Button } from './ui/button';
 
 interface SettingsModalProps {
     open: boolean;
@@ -79,6 +81,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ open, onOpenChange
                                 {autoCheckUpdates ? 'Enabled' : 'Disabled'}
                             </span>
                         </div>
+                    </div>
+
+                    <div className="flex items-center justify-between border-t pt-4">
+                        <div className="flex flex-col gap-1">
+                            <Label>Thumbnails</Label>
+                            <span className="text-xs text-muted-foreground">Regenerate all video thumbnails</span>
+                        </div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                                useStore.getState().regenerateThumbnails();
+                            }}
+                        >
+                            Regenerate
+                        </Button>
                     </div>
                 </div>
             </DialogContent>

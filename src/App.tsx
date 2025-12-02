@@ -49,8 +49,9 @@ function App() {
       <div className="h-[calc(100vh-40px)] flex bg-background text-foreground">
         <Sidebar />
         <div className="flex-1 flex flex-col min-w-0">
-          <Explorer />
-          <SyncStatus />
+          <div className="flex-1 overflow-hidden relative">
+            <Explorer />
+          </div>
         </div>
       </div>
       <DragDropOverlay />
