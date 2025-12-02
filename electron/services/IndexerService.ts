@@ -256,6 +256,29 @@ export class IndexerService {
             metadata: JSON.stringify(asset.metadata)
         });
     }
+
+    // Folder Colors
+    public getFolderColors(): Record<string, string> {
+        const stmt = db.prepare('SELECT path, color FROM folders WHERE color IS NOT NULL');
+        const rows = stmt.all() as { path: string; color: string }[];
+        return rows.reduce((acc, row) => {
+            acc[row.path] = row.color;
+            return acc;
+        }, {} as Record<string, string>);
+    }
+
+    public setFolderColor(folderPath: string, color: string | null) {
+        if (color === null) {
+            const stmt = db.prepare('UPDATE folders SET color = NULL WHERE path = ?');
+            stmt.run(folderPath);
+        } else {
+            const stmt = db.prepare(`
+                INSERT INTO folders (path, color) VALUES (?, ?)
+                ON CONFLICT(path) DO UPDATE SET color = excluded.color
+            `);
+            stmt.run(folderPath, color);
+        }
+    }
 }
 
 export const indexerService = new IndexerService();

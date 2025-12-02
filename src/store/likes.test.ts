@@ -18,7 +18,7 @@ describe('Store - Likes & Filtering', () => {
                 { id: '3', path: 'c.jpg', status: 'unsorted', type: 'image', createdAt: 1672704000000, updatedAt: 1672704000000, metadata: { liked: false } },
             ],
             filter: 'all',
-            filterConfig: { likedOnly: false },
+            filterConfig: { likedOnly: false, type: 'all' },
             sortConfig: { key: 'createdAt', direction: 'desc' },
         });
         mockInvoke.mockClear();

@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain, Menu, shell, dialog, protocol, net } from 'electron';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { indexerService } from './services/IndexerService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -168,10 +168,10 @@ app.whenReady().then(() => {
     const decodedUrl = decodeURIComponent(url);
 
     try {
-      let fileUrl: string;
+      let filePath: string;
       // If it looks like an absolute path (starts with / or drive letter), use it as is
       if (path.isAbsolute(decodedUrl) || (process.platform !== 'win32' && decodedUrl.startsWith('/'))) {
-        fileUrl = 'file://' + decodedUrl;
+        filePath = decodedUrl;
       } else {
         // Otherwise resolve against root path
         const rootPath = indexerService.getRootPath();
@@ -180,10 +180,10 @@ app.whenReady().then(() => {
           return new Response('Root path not set', { status: 404 });
         }
         // Join rootPath and decodedUrl, ensuring no double slashes if decodedUrl starts with /
-        const absolutePath = path.join(rootPath, decodedUrl.replace(/^\//, ''));
-        fileUrl = 'file://' + absolutePath;
+        filePath = path.join(rootPath, decodedUrl.replace(/^\//, ''));
       }
 
+      const fileUrl = pathToFileURL(filePath).toString();
       console.log('[Media Protocol] Serving:', fileUrl);
       return net.fetch(fileUrl);
     } catch (error) {
@@ -196,9 +196,14 @@ app.whenReady().then(() => {
   protocol.handle('thumbnail', (request) => {
     const url = request.url.replace('thumbnail://', '');
     const filename = decodeURIComponent(url);
+    // Remove trailing slash if present (some browsers/requests might add it)
+    const cleanFilename = filename.replace(/\/$/, '');
+
     const thumbnailsPath = path.join(process.env.APP_ROOT || app.getPath('userData'), 'thumbnails');
-    const filePath = path.join(thumbnailsPath, filename);
-    return net.fetch('file://' + filePath);
+    const filePath = path.join(thumbnailsPath, cleanFilename);
+
+    const fileUrl = pathToFileURL(filePath).toString();
+    return net.fetch(fileUrl);
   });
 
   createMenu();

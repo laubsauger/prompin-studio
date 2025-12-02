@@ -88,7 +88,7 @@ export const Explorer: React.FC = () => {
                                     {...props}
                                     ref={ref}
                                     style={{
-                                        ...props.style,
+                                        ...(props as any).style,
                                         display: 'grid',
                                         gridTemplateColumns: `repeat(auto-fill, minmax(${MIN_COLUMN_WIDTH}px, 1fr))`,
                                         gap: `${GAP}px`,

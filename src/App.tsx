@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import { Explorer } from './components/Explorer';
-import { SyncStatus } from './components/SyncStatus';
 import { DragDropOverlay } from './components/DragDropOverlay';
 import { IngestionModal } from './components/IngestionModal';
 import { SetupScreen } from './components/SetupScreen';

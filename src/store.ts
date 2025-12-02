@@ -39,7 +39,7 @@ interface AppState {
     currentPath: string | null;
 
     sortConfig: { key: 'createdAt' | 'updatedAt' | 'path'; direction: 'asc' | 'desc' };
-    filterConfig: { likedOnly: false; type: 'all' | 'image' | 'video' };
+    filterConfig: { likedOnly: boolean; type: 'all' | 'image' | 'video' };
     folderColors: Record<string, string>;
 
     // Ingestion State
@@ -67,7 +67,6 @@ interface AppState {
     fetchSyncStats: () => Promise<void>;
     triggerResync: () => Promise<void>;
     updateAssetStatus: (id: string, status: Asset['status']) => Promise<void>;
-    addComment: (id: string, text: string) => Promise<void>;
     addComment: (id: string, text: string) => Promise<void>;
     updateMetadata: (id: string, key: string, value: any) => Promise<void>;
     regenerateThumbnails: () => Promise<void>;
