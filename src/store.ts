@@ -174,7 +174,6 @@ export const useStore = create<AppState>((set, get) => ({
         }));
 
         await getIpcRenderer().invoke('update-metadata', id, 'liked', newLiked);
-        await getIpcRenderer().invoke('update-metadata', id, 'liked', newLiked);
     },
 
     startIngestion: (files) => set({ ingestion: { isOpen: true, pendingFiles: files, isUploading: false } }),

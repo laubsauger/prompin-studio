@@ -20,11 +20,13 @@ import {
     ContextMenuSubTrigger,
     ContextMenuTrigger,
 } from "./ui/context-menu";
+import { CreateTagDialog } from './CreateTagDialog';
 
 export const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
-    const { toggleSelection, selectRange, toggleLike, tags, addTagToAsset, removeTagFromAsset } = useStore();
+    const { toggleSelection, selectRange, toggleLike, tags, addTagToAsset, removeTagFromAsset, createTag } = useStore();
     const isSelected = useStore(state => state.selectedIds.has(asset.id));
     const [isPlaying, setIsPlaying] = useState(false);
+    const [isCreateTagDialogOpen, setIsCreateTagDialogOpen] = useState(false);
 
     const handleClick = (e: React.MouseEvent) => {
         if ((e.target as HTMLElement).closest('button')) return;
@@ -181,8 +183,7 @@ export const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
                     <ContextMenuSubContent className="w-48">
                         <ContextMenuItem onSelect={(e: Event) => {
                             e.preventDefault();
-                            const name = prompt('New Tag Name:');
-                            if (name) useStore.getState().createTag(name);
+                            setIsCreateTagDialogOpen(true);
                         }}>
                             <Plus className="mr-2 h-4 w-4" /> Create New Tag...
                         </ContextMenuItem>
@@ -207,6 +208,12 @@ export const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
                     </ContextMenuSubContent>
                 </ContextMenuSub>
             </ContextMenuContent>
+
+            <CreateTagDialog
+                isOpen={isCreateTagDialogOpen}
+                onClose={() => setIsCreateTagDialogOpen(false)}
+                onCreateTag={createTag}
+            />
         </ContextMenu>
     );
 };

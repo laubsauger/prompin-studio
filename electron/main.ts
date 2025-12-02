@@ -162,9 +162,10 @@ protocol.registerSchemesAsPrivileged([
 
 app.whenReady().then(() => {
   // Register 'media' protocol to serve local files
-  // Register 'media' protocol to serve local files
   protocol.handle('media', (request) => {
-    const url = request.url.replace('media://', '');
+    let url = request.url.replace('media://', '');
+    // Remove trailing slash if present
+    url = url.replace(/\/$/, '');
     const decodedUrl = decodeURIComponent(url);
 
     try {
@@ -193,20 +194,39 @@ app.whenReady().then(() => {
   });
 
   // Register 'thumbnail' protocol
-  protocol.handle('thumbnail', (request) => {
-    const url = request.url.replace('thumbnail://', '');
-    const filename = decodeURIComponent(url);
-    // Remove trailing slash if present (some browsers/requests might add it)
-    const cleanFilename = filename.replace(/\/$/, '');
+  protocol.handle('thumbnail', async (request) => {
+    try {
+      let url = request.url.replace('thumbnail://', '');
+      // Remove trailing slash if present (browsers add this for standard protocols)
+      url = url.replace(/\/$/, '');
+      const filename = decodeURIComponent(url);
 
-    const thumbnailsPath = path.join(process.env.APP_ROOT || app.getPath('userData'), 'thumbnails');
-    const filePath = path.join(thumbnailsPath, cleanFilename);
+      const thumbnailsPath = path.join(process.env.APP_ROOT || app.getPath('userData'), 'thumbnails');
+      const filePath = path.join(thumbnailsPath, filename);
 
-    console.log('[Thumbnail Protocol] Requested:', cleanFilename);
-    console.log('[Thumbnail Protocol] Full path:', filePath);
+      console.log('[Thumbnail Protocol] Request URL:', request.url);
+      console.log('[Thumbnail Protocol] Cleaned URL:', url);
+      console.log('[Thumbnail Protocol] Filename:', filename);
+      console.log('[Thumbnail Protocol] Thumbnails dir:', thumbnailsPath);
+      console.log('[Thumbnail Protocol] Full path:', filePath);
 
-    const fileUrl = pathToFileURL(filePath).toString();
-    return net.fetch(fileUrl);
+      // Check if file exists
+      const fs = await import('fs/promises');
+      try {
+        await fs.access(filePath);
+        console.log('[Thumbnail Protocol] File exists!');
+      } catch {
+        console.error('[Thumbnail Protocol] File does not exist:', filePath);
+        return new Response('Thumbnail not found', { status: 404 });
+      }
+
+      const fileUrl = pathToFileURL(filePath).toString();
+      console.log('[Thumbnail Protocol] File URL:', fileUrl);
+      return net.fetch(fileUrl);
+    } catch (error) {
+      console.error('[Thumbnail Protocol] Error:', error);
+      return new Response('Thumbnail error: ' + (error instanceof Error ? error.message : String(error)), { status: 500 });
+    }
   });
 
   createMenu();

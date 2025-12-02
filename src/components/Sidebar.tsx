@@ -3,6 +3,7 @@ import { useStore } from '../store';
 import { Folder, FolderOpen, Star, Layers, ChevronDown, ChevronRight, ChevronLeft, Plus, Tag } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Button } from './ui/button';
+import { CreateTagDialog } from './CreateTagDialog';
 
 interface TreeNode {
     name: string;
@@ -14,6 +15,7 @@ interface TreeNode {
 export const Sidebar: React.FC = () => {
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
+    const [isCreateTagDialogOpen, setIsCreateTagDialogOpen] = useState(false);
 
     const assets = useStore(state => state.assets);
     const currentPath = useStore(state => state.currentPath);
@@ -225,10 +227,7 @@ export const Sidebar: React.FC = () => {
 
                     <div className="px-4 mb-2 flex items-center justify-between">
                         <h3 className="font-semibold text-sm tracking-tight text-muted-foreground">Tags</h3>
-                        <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => {
-                            const name = prompt('New Tag Name:');
-                            if (name) useStore.getState().createTag(name);
-                        }}>
+                        <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => setIsCreateTagDialogOpen(true)}>
                             <Plus className="h-3 w-3" />
                         </Button>
                     </div>
@@ -255,6 +254,12 @@ export const Sidebar: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            <CreateTagDialog
+                isOpen={isCreateTagDialogOpen}
+                onClose={() => setIsCreateTagDialogOpen(false)}
+                onCreateTag={useStore.getState().createTag}
+            />
         </div>
     );
 };

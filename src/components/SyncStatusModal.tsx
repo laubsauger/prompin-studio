@@ -1,6 +1,6 @@
 import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
-import { SyncStats } from '../types';
+import type { SyncStats } from '../types';
 import { formatDistanceToNow } from 'date-fns';
 import { AlertCircle, CheckCircle2, Film, Image, FileQuestion } from 'lucide-react';
 import { cn } from '../lib/utils';
