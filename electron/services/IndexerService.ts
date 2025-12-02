@@ -2,12 +2,22 @@ import { watch, FSWatcher } from 'chokidar';
 import path from 'path';
 import fs from 'fs/promises';
 import { v4 as uuidv4 } from 'uuid';
-import db from '../db.js'; // Note .js extension for ESM/TS compilation
+import db from '../db.js';
 import { Asset, SyncStats } from '../../src/types.js';
+// @ts-ignore
+import ffmpeg from 'fluent-ffmpeg';
+// @ts-ignore
+import ffmpegPath from 'ffmpeg-static';
+
+// Configure ffmpeg path
+if (ffmpegPath) {
+    ffmpeg.setFfmpegPath((ffmpegPath as unknown as string).replace('app.asar', 'app.asar.unpacked'));
+}
 
 export class IndexerService {
     private watcher: FSWatcher | null = null;
     private rootPath: string = '';
+    private thumbnailCachePath: string;
     private stats: SyncStats = {
         totalFiles: 0,
         processedFiles: 0,
@@ -15,7 +25,15 @@ export class IndexerService {
         lastSync: Date.now()
     };
 
-    constructor() { }
+    constructor() {
+        this.thumbnailCachePath = path.join(process.env.APP_ROOT || '', 'thumbnails');
+        // Ensure thumbnail directory exists
+        fs.mkdir(this.thumbnailCachePath, { recursive: true }).catch(console.error);
+    }
+
+    public getRootPath(): string {
+        return this.rootPath;
+    }
 
     async setRootPath(rootPath: string) {
         this.rootPath = rootPath;
@@ -62,6 +80,36 @@ export class IndexerService {
         return { ...this.stats };
     }
 
+    private async generateThumbnail(filePath: string, assetId: string): Promise<string | undefined> {
+        if (this.getMediaType(filePath) !== 'video') return undefined;
+
+        const thumbnailFilename = `${assetId}.jpg`;
+        const thumbnailPath = path.join(this.thumbnailCachePath, thumbnailFilename);
+
+        // Check if exists
+        try {
+            await fs.access(thumbnailPath);
+            return thumbnailFilename; // Return relative to thumbnail cache
+        } catch {
+            // Generate
+        }
+
+        return new Promise((resolve) => {
+            ffmpeg(filePath)
+                .screenshots({
+                    count: 1,
+                    folder: this.thumbnailCachePath,
+                    filename: thumbnailFilename,
+                    size: '320x?'
+                })
+                .on('end', () => resolve(thumbnailFilename))
+                .on('error', (err: any) => {
+                    console.error('Thumbnail generation failed:', err);
+                    resolve(undefined);
+                });
+        });
+    }
+
     private async handleFileAdd(filePath: string) {
         if (!this.isMediaFile(filePath)) return;
 
@@ -70,14 +118,20 @@ export class IndexerService {
 
         try {
             const stats = await fs.stat(filePath);
+            const id = uuidv4();
+
+            // Generate thumbnail for videos
+            const thumbnailPath = await this.generateThumbnail(filePath, id);
+
             const asset: Asset = {
-                id: uuidv4(), // In real app, hash the path or content for stability
+                id,
                 path: relativePath,
                 type: this.getMediaType(filePath),
                 status: 'unsorted',
                 createdAt: stats.birthtimeMs,
                 updatedAt: stats.mtimeMs,
-                metadata: {}
+                metadata: {},
+                thumbnailPath
             };
 
             this.upsertAsset(asset);
@@ -148,8 +202,6 @@ export class IndexerService {
         });
     }
 
-
-
     public updateMetadata(assetId: string, key: string, value: any) {
         const asset = db.prepare('SELECT metadata FROM assets WHERE id = ?').get(assetId) as any;
         if (!asset) return;
@@ -167,12 +219,13 @@ export class IndexerService {
 
     private upsertAsset(asset: Asset) {
         const stmt = db.prepare(`
-      INSERT INTO assets (id, path, type, status, createdAt, updatedAt, metadata)
-      VALUES (@id, @path, @type, @status, @createdAt, @updatedAt, @metadata)
+      INSERT INTO assets (id, path, type, status, createdAt, updatedAt, metadata, thumbnailPath)
+      VALUES (@id, @path, @type, @status, @createdAt, @updatedAt, @metadata, @thumbnailPath)
       ON CONFLICT(path) DO UPDATE SET
         updatedAt = excluded.updatedAt,
         metadata = excluded.metadata,
-        status = excluded.status
+        status = excluded.status,
+        thumbnailPath = excluded.thumbnailPath
     `);
 
         stmt.run({

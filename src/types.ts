@@ -8,6 +8,7 @@ export interface Asset {
     createdAt: number;
     updatedAt: number;
     metadata: AssetMetadata;
+    thumbnailPath?: string;
 }
 
 export interface AssetMetadata {

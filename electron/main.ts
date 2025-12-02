@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu, shell, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, shell, dialog, protocol, net } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { indexerService } from './services/IndexerService.js';
@@ -154,7 +154,47 @@ app.on('activate', () => {
   }
 });
 
+// Register custom protocol privileges
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'media', privileges: { secure: true, standard: true, supportFetchAPI: true, bypassCSP: true, stream: true } },
+  { scheme: 'thumbnail', privileges: { secure: true, standard: true, supportFetchAPI: true, bypassCSP: true, stream: true } }
+]);
+
 app.whenReady().then(() => {
+  // Register 'media' protocol to serve local files
+  protocol.handle('media', (request) => {
+    const url = request.url.replace('media://', '');
+    const decodedUrl = decodeURIComponent(url);
+
+    try {
+      let fileUrl: string;
+      // If it looks like an absolute path (starts with / or drive letter), use it as is
+      if (path.isAbsolute(decodedUrl) || decodedUrl.startsWith('/')) {
+        fileUrl = 'file://' + (decodedUrl.startsWith('/') ? '' : '/') + decodedUrl;
+      } else {
+        // Otherwise resolve against root path
+        const rootPath = indexerService.getRootPath();
+        if (!rootPath) throw new Error('Root path not set');
+        const absolutePath = path.join(rootPath, decodedUrl);
+        fileUrl = 'file://' + absolutePath;
+      }
+
+      return net.fetch(fileUrl);
+    } catch (error) {
+      console.error('[Media Protocol] Error:', error);
+      return new Response('Error loading media', { status: 500 });
+    }
+  });
+
+  // Register 'thumbnail' protocol
+  protocol.handle('thumbnail', (request) => {
+    const url = request.url.replace('thumbnail://', '');
+    const filename = decodeURIComponent(url);
+    const thumbnailsPath = path.join(process.env.APP_ROOT || app.getPath('userData'), 'thumbnails');
+    const filePath = path.join(thumbnailsPath, filename);
+    return net.fetch('file://' + filePath);
+  });
+
   createMenu();
   createWindow();
 });

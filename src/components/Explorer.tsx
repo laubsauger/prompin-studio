@@ -14,7 +14,13 @@ const MIN_COLUMN_WIDTH = 300;
 const GAP = 16;
 
 export const Explorer: React.FC = () => {
-    const { assets, filter, loadAssets, setViewingAssetId } = useStore();
+    const assets = useStore(state => state.assets);
+    const filter = useStore(state => state.filter);
+    const loadAssets = useStore(state => state.loadAssets);
+    const setViewingAssetId = useStore(state => state.setViewingAssetId);
+    const filterConfig = useStore(state => state.filterConfig);
+    const sortConfig = useStore(state => state.sortConfig);
+
     const { isSettingsOpen, setSettingsOpen } = useSettingsStore();
 
     // Initialize global listeners
@@ -27,19 +33,23 @@ export const Explorer: React.FC = () => {
     const filteredAssets = useMemo(() => {
         let result = assets || [];
 
+        // 0. Filter by Path
+        const { currentPath } = useStore.getState();
+        if (currentPath) {
+            result = result.filter(a => a.path.startsWith(currentPath + '/'));
+        }
+
         // 1. Filter by Status
         if (filter !== 'all') {
             result = result.filter(a => a.status === filter);
         }
 
         // 2. Filter by Liked
-        const { filterConfig } = useStore.getState();
         if (filterConfig.likedOnly) {
             result = result.filter(a => a.metadata.liked);
         }
 
         // 3. Sort
-        const { sortConfig } = useStore.getState();
         return [...result].sort((a, b) => {
             const { key, direction } = sortConfig;
             let valA = key === 'path' ? a.path : (a.metadata as any)[key] || 0;
@@ -49,16 +59,16 @@ export const Explorer: React.FC = () => {
             if (valA > valB) return direction === 'asc' ? 1 : -1;
             return 0;
         });
-    }, [assets, filter, useStore((state) => state.filterConfig), useStore((state) => state.sortConfig)]);
+    }, [assets, filter, filterConfig, sortConfig, useStore((state) => state.currentPath)]);
 
     return (
-        <div className="flex h-screen flex-col bg-background text-foreground">
-            <div className="flex items-center justify-between border-b border-border bg-card p-4 shadow-sm z-10">
-                <h2 className="text-lg font-semibold tracking-tight">Media Explorer</h2>
+        <div className="flex h-full flex-col bg-background text-foreground">
+            <div className="flex items-center justify-between border-b border-border bg-card p-2 shadow-sm z-10">
+                <h2 className="text-lg font-semibold tracking-tight px-2">Media Explorer</h2>
                 <FilterBar />
             </div>
 
-            <div className="flex-1 p-4">
+            <div className="flex-1 p-2">
                 {filteredAssets.length === 0 ? (
                     <div className="flex h-full items-center justify-center text-muted-foreground">
                         No assets found

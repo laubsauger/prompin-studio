@@ -7,7 +7,7 @@ interface ExplorerCellProps {
     setViewingAssetId: (id: string | null) => void;
 }
 
-export const ExplorerCell: React.FC<ExplorerCellProps> = ({ asset, setViewingAssetId }) => {
+export const ExplorerCell: React.FC<ExplorerCellProps> = React.memo(({ asset, setViewingAssetId }) => {
     if (!asset) return null;
 
     return (
@@ -15,4 +15,4 @@ export const ExplorerCell: React.FC<ExplorerCellProps> = ({ asset, setViewingAss
             <AssetCard asset={asset} />
         </div>
     );
-};
+});

@@ -28,15 +28,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ open, onOpenChange
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[600px]">
                 <DialogHeader>
                     <DialogTitle>Settings</DialogTitle>
                     <DialogDescription>
                         Configure your preferences for Gen Studio.
                     </DialogDescription>
                 </DialogHeader>
-                <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
+                <div className="grid gap-6 py-4">
+                    <div className="flex items-center justify-between">
                         <Label htmlFor="theme" className="text-right">
                             Theme
                         </Label>
@@ -44,14 +44,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ open, onOpenChange
                             id="theme"
                             value={theme}
                             onChange={(e) => setTheme(e.target.value as any)}
-                            className="col-span-3"
+                            className="w-[300px]"
                         >
                             <option value="system">System</option>
                             <option value="light">Light</option>
                             <option value="dark">Dark</option>
                         </Select>
                     </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
+                    <div className="flex items-center justify-between">
                         <Label htmlFor="view" className="text-right">
                             Default View
                         </Label>
@@ -59,17 +59,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ open, onOpenChange
                             id="view"
                             value={defaultView}
                             onChange={(e) => setDefaultView(e.target.value as any)}
-                            className="col-span-3"
+                            className="w-[300px]"
                         >
                             <option value="grid">Grid</option>
                             <option value="list">List</option>
                         </Select>
                     </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
+                    <div className="flex items-center justify-between">
                         <Label htmlFor="updates" className="text-right">
                             Auto Updates
                         </Label>
-                        <div className="col-span-3 flex items-center space-x-2">
+                        <div className="w-[300px] flex items-center space-x-2">
                             <Switch
                                 id="updates"
                                 checked={autoCheckUpdates}

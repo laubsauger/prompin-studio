@@ -8,6 +8,9 @@ import { useSettingsStore } from './store/settings';
 
 import './App.css';
 
+import { TitleBar } from './components/TitleBar';
+import { Sidebar } from './components/Sidebar';
+
 function App() {
   const rootFolder = useSettingsStore(state => state.rootFolder);
   const theme = useSettingsStore(state => state.theme);
@@ -32,10 +35,7 @@ function App() {
       // We need a way to just set the path without opening dialog
       // Since I didn't add a separate action for that, let's just invoke IPC directly here for now
       // or add another action. Direct IPC is fine for initialization.
-      const ipc = (window as any).ipcRenderer;
-      if (ipc) {
-        ipc.invoke('set-root-path', rootFolder).catch(console.error);
-      }
+      window.ipcRenderer?.invoke('set-root-path', rootFolder);
     }
   }, [rootFolder]);
 
@@ -44,12 +44,18 @@ function App() {
   }
 
   return (
-    <div className="h-screen w-full overflow-hidden bg-background text-foreground">
-      <Explorer />
-      <SyncStatus />
+    <>
+      <TitleBar />
+      <div className="h-[calc(100vh-40px)] flex bg-background text-foreground">
+        <Sidebar />
+        <div className="flex-1 flex flex-col min-w-0">
+          <Explorer />
+          <SyncStatus />
+        </div>
+      </div>
       <DragDropOverlay />
       <IngestionModal />
-    </div>
+    </>
   );
 }
 

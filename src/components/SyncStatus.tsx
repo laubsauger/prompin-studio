@@ -1,5 +1,8 @@
 import React, { useEffect } from 'react';
 import { useStore } from '../store';
+import { cn } from '../lib/utils';
+
+import { Loader2, RefreshCw } from 'lucide-react';
 
 export const SyncStatus: React.FC = () => {
     const { syncStats, fetchSyncStats, triggerResync } = useStore();
@@ -12,45 +15,47 @@ export const SyncStatus: React.FC = () => {
 
     if (!syncStats) return null;
 
-    return (
-        <div className="sync-status" style={{
-            padding: '0.5rem 1rem',
-            background: '#222',
-            borderBottom: '1px solid #333',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '1rem',
-            fontSize: '0.8rem',
-            color: '#ccc'
-        }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span style={{
-                    width: '8px',
-                    height: '8px',
-                    borderRadius: '50%',
-                    background: syncStats.status === 'idle' ? '#4caf50' : '#ff9800'
-                }} />
-                <span>{syncStats.status.toUpperCase()}</span>
-            </div>
+    const isSyncing = syncStats.status !== 'idle';
+    const progress = syncStats.totalFiles > 0 ? (syncStats.processedFiles / syncStats.totalFiles) * 100 : 0;
 
-            <div>
-                Files: {syncStats.processedFiles} / {syncStats.totalFiles}
+    return (
+        <div className="h-8 border-t border-border bg-card flex items-center px-4 text-xs text-muted-foreground justify-between select-none">
+            <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                    {isSyncing ? (
+                        <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                    ) : (
+                        <div className="h-2 w-2 rounded-full bg-green-500" />
+                    )}
+                    <span className="font-medium">
+                        {isSyncing ? 'Syncing...' : 'Ready'}
+                    </span>
+                </div>
+
+                <div className="h-3 w-[1px] bg-border" />
+
+                <div className="flex items-center gap-2">
+                    <span>{syncStats.processedFiles} / {syncStats.totalFiles} items</span>
+                    {isSyncing && (
+                        <div className="w-20 h-1.5 bg-secondary rounded-full overflow-hidden">
+                            <div
+                                className="h-full bg-primary transition-all duration-300"
+                                style={{ width: `${progress}%` }}
+                            />
+                        </div>
+                    )}
+                </div>
             </div>
 
             <button
                 onClick={triggerResync}
-                disabled={syncStats.status !== 'idle'}
-                style={{
-                    marginLeft: 'auto',
-                    padding: '4px 8px',
-                    background: '#444',
-                    border: 'none',
-                    borderRadius: '4px',
-                    color: '#fff',
-                    cursor: syncStats.status === 'idle' ? 'pointer' : 'not-allowed',
-                    opacity: syncStats.status === 'idle' ? 1 : 0.5
-                }}
+                disabled={isSyncing}
+                className={cn(
+                    "flex items-center gap-1.5 hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+                    isSyncing && "animate-pulse"
+                )}
             >
+                <RefreshCw className={cn("h-3 w-3", isSyncing && "animate-spin")} />
                 Resync
             </button>
         </div>

@@ -36,6 +36,7 @@ interface AppState {
     selectedIds: Set<string>;
     lastSelectedId: string | null;
     viewingAssetId: string | null;
+    currentPath: string | null;
 
     sortConfig: { key: 'createdAt' | 'updatedAt' | 'path'; direction: 'asc' | 'desc' };
     filterConfig: { likedOnly: boolean };
@@ -59,6 +60,7 @@ interface AppState {
 
     setFilter: (filter: Asset['status'] | 'all') => void;
     setViewingAssetId: (id: string | null) => void;
+    setCurrentPath: (path: string | null) => void;
     loadAssets: () => Promise<void>;
     fetchSyncStats: () => Promise<void>;
     triggerResync: () => Promise<void>;
@@ -81,6 +83,7 @@ export const useStore = create<AppState>((set, get) => ({
     selectedIds: new Set(),
     lastSelectedId: null,
     viewingAssetId: null,
+    currentPath: null, // null = root, string = relative path from root
 
     // New config initial state
     sortConfig: { key: 'createdAt', direction: 'desc' },
@@ -94,6 +97,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     setFilter: (filter) => set({ filter }),
     setViewingAssetId: (id) => set({ viewingAssetId: id }),
+    setCurrentPath: (path) => set({ currentPath: path }),
 
     // New config actions
     setSortConfig: (key, direction) => set({ sortConfig: { key, direction } }),
