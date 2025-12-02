@@ -1,5 +1,6 @@
-# Generative AI Studio
+<img src="https://github.com/user-attachments/assets/68145096-c21c-457b-b084-1d226dd14caa" width="250" height="250">
 
+# Generative AI Studio
 High-performance media workflow app for Generative AI teams.
 
 ## Features
@@ -16,6 +17,7 @@ High-performance media workflow app for Generative AI teams.
 - **TypeScript**: Type safety.
 - **Zustand**: State management.
 - **Tailwind CSS**: Utility-first styling.
+
 - **Better-SQLite3**: Local indexing and caching.
 
 ## Development
