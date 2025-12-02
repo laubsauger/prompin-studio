@@ -5,6 +5,9 @@ export interface UploadMetadata {
     project?: string;
     scene?: string;
     tags?: string[];
+    description?: string;
+    author?: string;
+    targetPath?: string;
 }
 
 export const uploadService = {
@@ -12,11 +15,19 @@ export const uploadService = {
         // Simulate network delay
         await new Promise(resolve => setTimeout(resolve, 1500));
 
+        // Determine path
+        let uploadPath = '';
+        if (metadata.targetPath) {
+            uploadPath = `${metadata.targetPath}/${file.name}`;
+        } else {
+            uploadPath = `uploads/${metadata.project || 'default'}/${file.name}`;
+        }
+
         // Mock asset creation
         // In a real app, this would be returned by the backend after upload
         const newAsset: Asset = {
             id: uuidv4(),
-            path: `uploads/${metadata.project || 'default'}/${file.name}`,
+            path: uploadPath,
             type: file.type.startsWith('video') ? 'video' : 'image',
             status: 'pending',
             createdAt: Date.now(),
@@ -26,6 +37,8 @@ export const uploadService = {
                 height: 1080,
                 project: metadata.project,
                 scene: metadata.scene,
+                description: metadata.description,
+                author: metadata.author,
                 // In a real app, we might store the Drive ID or URL here
                 // driveId: 'mock-drive-id',
             }

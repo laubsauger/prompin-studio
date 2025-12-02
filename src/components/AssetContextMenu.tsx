@@ -3,7 +3,7 @@ import { useStore } from '../store';
 import type { Asset } from '../types';
 import { ASSET_STATUSES } from '../config/constants';
 import { cn } from '../lib/utils';
-import { FolderOpen, Heart, Plus, Tag, FileText } from 'lucide-react';
+import { FolderOpen, Heart, Plus, Tag, FileText, GitFork, StickyNote } from 'lucide-react';
 import {
     ContextMenu,
     ContextMenuContent,
@@ -21,6 +21,7 @@ interface AssetContextMenuProps {
     children: React.ReactNode;
 }
 
+import { CreateScratchPadDialog } from './CreateScratchPadDialog';
 import { MetadataEditor } from './MetadataEditor';
 
 export const AssetContextMenu: React.FC<AssetContextMenuProps> = ({ asset, children }) => {
@@ -29,7 +30,9 @@ export const AssetContextMenu: React.FC<AssetContextMenuProps> = ({ asset, child
     const addTagToAsset = useStore(state => state.addTagToAsset);
     const removeTagFromAsset = useStore(state => state.removeTagFromAsset);
     const createTag = useStore(state => state.createTag);
+    const createScratchPad = useStore(state => state.createScratchPad);
     const [isCreateTagDialogOpen, setIsCreateTagDialogOpen] = useState(false);
+    const [isCreateScratchPadDialogOpen, setIsCreateScratchPadDialogOpen] = useState(false);
     const [isMetadataEditorOpen, setIsMetadataEditorOpen] = useState(false);
 
     const statusConfig = ASSET_STATUSES[asset.status] || ASSET_STATUSES.unsorted;
@@ -50,6 +53,38 @@ export const AssetContextMenu: React.FC<AssetContextMenuProps> = ({ asset, child
                     }}>
                         <FolderOpen className="mr-2 h-4 w-4" /> Show in Finder
                     </ContextMenuItem>
+                    <ContextMenuItem onClick={(e) => {
+                        e.stopPropagation();
+                        useStore.getState().setLineageAssetId(asset.id);
+                    }}>
+                        <GitFork className="mr-2 h-4 w-4" /> View Lineage
+                    </ContextMenuItem>
+
+                    <ContextMenuSub>
+                        <ContextMenuSubTrigger>
+                            <StickyNote className="mr-2 h-4 w-4" />
+                            Scratch Pad
+                        </ContextMenuSubTrigger>
+                        <ContextMenuSubContent className="w-48">
+                            {useStore.getState().scratchPads.map(pad => (
+                                <ContextMenuItem
+                                    key={pad.id}
+                                    onClick={() => useStore.getState().addToScratchPad(pad.id, [asset.id])}
+                                >
+                                    {pad.name}
+                                </ContextMenuItem>
+                            ))}
+                            <ContextMenuSeparator />
+                            <ContextMenuItem onClick={(e) => {
+                                e.stopPropagation();
+                                setIsCreateScratchPadDialogOpen(true);
+                            }}>
+                                <Plus className="mr-2 h-4 w-4" />
+                                Create New...
+                            </ContextMenuItem>
+                        </ContextMenuSubContent>
+                    </ContextMenuSub>
+
                     <ContextMenuItem onClick={(e) => {
                         e.stopPropagation();
                         setIsMetadataEditorOpen(true);
@@ -134,6 +169,12 @@ export const AssetContextMenu: React.FC<AssetContextMenuProps> = ({ asset, child
                 isOpen={isCreateTagDialogOpen}
                 onClose={() => setIsCreateTagDialogOpen(false)}
                 onCreateTag={createTag}
+            />
+
+            <CreateScratchPadDialog
+                isOpen={isCreateScratchPadDialogOpen}
+                onClose={() => setIsCreateScratchPadDialogOpen(false)}
+                onCreate={createScratchPad}
             />
 
             <MetadataEditor

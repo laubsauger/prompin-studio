@@ -36,7 +36,8 @@ export const DragDropOverlay: React.FC = () => {
 
             if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
                 const files = Array.from(e.dataTransfer.files);
-                startIngestion(files);
+                const currentPath = useStore.getState().currentPath;
+                startIngestion(files, currentPath || undefined);
             }
         };
 

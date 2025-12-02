@@ -4,6 +4,7 @@ import { DragDropOverlay } from './components/DragDropOverlay';
 import { IngestionModal } from './components/IngestionModal';
 import { SetupScreen } from './components/SetupScreen';
 import { LoadingScreen } from './components/LoadingScreen';
+import { LineageView } from './components/LineageView';
 import { useSettingsStore } from './store/settings';
 import { useStore } from './store';
 
@@ -75,7 +76,9 @@ function App() {
         </div>
       </div>
       <DragDropOverlay />
+      <DragDropOverlay />
       <IngestionModal />
+      <LineageView />
 
       {/* Loading Screen */}
       {(isLoading || syncStats?.status === 'scanning') && (

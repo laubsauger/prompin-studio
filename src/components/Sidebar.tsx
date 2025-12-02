@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import { useStore } from '../store';
-import { Folder, FolderOpen, Star, Layers, ChevronDown, ChevronRight, ChevronLeft, Plus, Tag, AlertCircle, CheckCircle } from 'lucide-react';
+import { Folder, FolderOpen, Star, Layers, ChevronDown, ChevronRight, ChevronLeft, Plus, Tag, AlertCircle, CheckCircle, StickyNote, Trash2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Button } from './ui/button';
 import { CreateTagDialog } from './CreateTagDialog';
+import { CreateScratchPadDialog } from './CreateScratchPadDialog';
 import { ASSET_STATUSES } from '../config/constants';
 
 interface TreeNode {
@@ -13,10 +14,43 @@ interface TreeNode {
     count: number;
 }
 
+interface SidebarSectionProps {
+    title: string;
+    isOpen: boolean;
+    onToggle: () => void;
+    action?: React.ReactNode;
+    children: React.ReactNode;
+    className?: string;
+}
+
+const SidebarSection: React.FC<SidebarSectionProps> = ({ title, isOpen, onToggle, action, children, className }) => (
+    <div className={cn("py-2", className)}>
+        <div className="flex items-center justify-between px-3 mb-1 group">
+            <button
+                onClick={onToggle}
+                className="flex items-center gap-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors"
+            >
+                {isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                {title}
+            </button>
+            {action && <div className="opacity-0 group-hover:opacity-100 transition-opacity">{action}</div>}
+        </div>
+        {isOpen && <div className="space-y-0.5">{children}</div>}
+    </div>
+);
+
 export const Sidebar: React.FC = () => {
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
     const [isCreateTagDialogOpen, setIsCreateTagDialogOpen] = useState(false);
+    const [isCreateScratchPadDialogOpen, setIsCreateScratchPadDialogOpen] = useState(false);
+
+    // Section collapse states
+    const [isLibraryOpen, setIsLibraryOpen] = useState(true);
+    const [isFoldersOpen, setIsFoldersOpen] = useState(true);
+    const [isTagsOpen, setIsTagsOpen] = useState(true);
+    const [isStatusOpen, setIsStatusOpen] = useState(true);
+    const [isScratchPadsOpen, setIsScratchPadsOpen] = useState(true);
 
     const assets = useStore(state => state.assets);
     const currentPath = useStore(state => state.currentPath);
@@ -102,7 +136,7 @@ export const Sidebar: React.FC = () => {
                             "flex items-center w-full hover:bg-accent/50 group pr-2",
                             isSelected && "bg-accent text-accent-foreground"
                         )}
-                        style={{ paddingLeft: `${depth * 12 + 4}px` }}
+                        style={{ paddingLeft: `${depth * 12 + 8}px` }}
                         onContextMenu={(e) => handleContextMenu(e, node.path)}
                     >
                         <Button
@@ -184,13 +218,18 @@ export const Sidebar: React.FC = () => {
             </div>
 
             <div className={cn("flex-1 flex flex-col overflow-hidden w-64", isCollapsed && "hidden")}>
-                <div className="p-4 border-b border-border">
-                    <h3 className="font-semibold text-sm tracking-tight text-muted-foreground mb-2">Library</h3>
-                    <div className="space-y-1">
+                <div className="flex-1 overflow-y-auto py-4">
+
+                    {/* Library Section */}
+                    <SidebarSection
+                        title="Library"
+                        isOpen={isLibraryOpen}
+                        onToggle={() => setIsLibraryOpen(!isLibraryOpen)}
+                    >
                         <Button
                             variant="ghost"
                             size="sm"
-                            className={cn("w-full justify-start gap-2", currentPath === null && !filterConfig.likedOnly && "bg-accent")}
+                            className={cn("w-full justify-start gap-2 px-4", currentPath === null && !filterConfig.likedOnly && "bg-accent")}
                             onClick={() => {
                                 setCurrentPath(null);
                                 setFilterConfig({ likedOnly: false });
@@ -203,7 +242,7 @@ export const Sidebar: React.FC = () => {
                         <Button
                             variant="ghost"
                             size="sm"
-                            className={cn("w-full justify-start gap-2", filterConfig.likedOnly && "bg-accent")}
+                            className={cn("w-full justify-start gap-2 px-4", filterConfig.likedOnly && "bg-accent")}
                             onClick={() => setFilterConfig({ likedOnly: true })}
                         >
                             <Star className="h-4 w-4" />
@@ -212,12 +251,14 @@ export const Sidebar: React.FC = () => {
                                 {assets.filter(a => a.metadata.liked).length}
                             </span>
                         </Button>
-                    </div>
-                </div>
+                    </SidebarSection>
 
-                <div className="flex-1 overflow-y-auto py-4">
-                    <h3 className="px-4 font-semibold text-sm tracking-tight text-muted-foreground mb-2">Folders</h3>
-                    <div className="space-y-0.5 mb-6">
+                    {/* Folders Section */}
+                    <SidebarSection
+                        title="Folders"
+                        isOpen={isFoldersOpen}
+                        onToggle={() => setIsFoldersOpen(!isFoldersOpen)}
+                    >
                         {Object.values(folderTree.children).length === 0 ? (
                             <div className="px-4 text-xs text-muted-foreground">No folders found</div>
                         ) : (
@@ -225,48 +266,59 @@ export const Sidebar: React.FC = () => {
                                 .sort((a, b) => a.name.localeCompare(b.name))
                                 .map(child => renderTree(child))
                         )}
-                    </div>
+                    </SidebarSection>
 
-                    <div className="px-4 mb-2 flex items-center justify-between">
-                        <h3 className="font-semibold text-sm tracking-tight text-muted-foreground">Tags</h3>
-                        <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => setIsCreateTagDialogOpen(true)}>
-                            <Plus className="h-3 w-3" />
-                        </Button>
-                    </div>
-                    <div className="px-4 space-y-1 mb-6">
+                    {/* Tags Section */}
+                    <SidebarSection
+                        title="Tags"
+                        isOpen={isTagsOpen}
+                        onToggle={() => setIsTagsOpen(!isTagsOpen)}
+                        action={
+                            <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => setIsCreateTagDialogOpen(true)}>
+                                <Plus className="h-3 w-3" />
+                            </Button>
+                        }
+                    >
                         {tags.length === 0 ? (
-                            <div className="text-xs text-muted-foreground">No tags found</div>
+                            <div className="px-4 text-xs text-muted-foreground">No tags found</div>
                         ) : (
-                            tags.map(tag => (
-                                <Button
-                                    key={tag.id}
-                                    variant="ghost"
-                                    size="sm"
-                                    className={cn(
-                                        "w-full justify-start gap-2 h-7",
-                                        filterConfig.tagId === tag.id && "bg-accent"
-                                    )}
-                                    onClick={() => {
-                                        setFilterConfig({
-                                            tagId: filterConfig.tagId === tag.id ? null : tag.id
-                                        });
-                                    }}
-                                >
-                                    <Tag className="h-3 w-3" style={{ color: tag.color || 'currentColor' }} />
-                                    <span className="flex-1 text-left text-xs">{tag.name}</span>
-                                </Button>
-                            ))
+                            tags.map(tag => {
+                                const count = assets.filter(a => a.tags?.some(t => t.id === tag.id)).length;
+                                return (
+                                    <Button
+                                        key={tag.id}
+                                        variant="ghost"
+                                        size="sm"
+                                        className={cn(
+                                            "w-full justify-start gap-2 h-7 px-4",
+                                            filterConfig.tagId === tag.id && "bg-accent"
+                                        )}
+                                        onClick={() => {
+                                            setFilterConfig({
+                                                tagId: filterConfig.tagId === tag.id ? null : tag.id
+                                            });
+                                        }}
+                                    >
+                                        <Tag className="h-3 w-3" style={{ color: tag.color || 'currentColor' }} />
+                                        <span className="flex-1 text-left text-xs">{tag.name}</span>
+                                        <span className="text-[10px] text-muted-foreground opacity-70">{count}</span>
+                                    </Button>
+                                );
+                            })
                         )}
-                    </div>
+                    </SidebarSection>
 
-                    {/* Status Filters - Workflow Features */}
-                    <h3 className="px-4 font-semibold text-sm tracking-tight text-muted-foreground mb-2">Review Status</h3>
-                    <div className="px-4 space-y-1">
+                    {/* Status Filters Section */}
+                    <SidebarSection
+                        title="Review Status"
+                        isOpen={isStatusOpen}
+                        onToggle={() => setIsStatusOpen(!isStatusOpen)}
+                    >
                         <Button
                             variant="ghost"
                             size="sm"
                             className={cn(
-                                "w-full justify-start gap-2 h-7",
+                                "w-full justify-start gap-2 h-7 px-4",
                                 filterConfig.status === 'review_requested' && "bg-accent"
                             )}
                             onClick={() => {
@@ -285,7 +337,7 @@ export const Sidebar: React.FC = () => {
                             variant="ghost"
                             size="sm"
                             className={cn(
-                                "w-full justify-start gap-2 h-7",
+                                "w-full justify-start gap-2 h-7 px-4",
                                 filterConfig.status === 'pending' && "bg-accent"
                             )}
                             onClick={() => {
@@ -304,7 +356,7 @@ export const Sidebar: React.FC = () => {
                             variant="ghost"
                             size="sm"
                             className={cn(
-                                "w-full justify-start gap-2 h-7",
+                                "w-full justify-start gap-2 h-7 px-4",
                                 filterConfig.status === 'approved' && "bg-accent"
                             )}
                             onClick={() => {
@@ -319,7 +371,69 @@ export const Sidebar: React.FC = () => {
                                 {assets.filter(a => a.status === 'approved').length}
                             </span>
                         </Button>
-                    </div>
+                    </SidebarSection>
+
+                    {/* Scratch Pads Section */}
+                    <SidebarSection
+                        title="Scratch Pads"
+                        isOpen={isScratchPadsOpen}
+                        onToggle={() => setIsScratchPadsOpen(!isScratchPadsOpen)}
+                        className="mb-8" // Added extra bottom spacing
+                        action={
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-4 w-4 hover:bg-transparent"
+                                onClick={() => setIsCreateScratchPadDialogOpen(true)}
+                            >
+                                <Plus size={12} />
+                            </Button>
+                        }
+                    >
+                        {useStore.getState().scratchPads.map(pad => (
+                            <div
+                                key={pad.id}
+                                className={cn(
+                                    "flex items-center w-full hover:bg-accent/50 group pr-2 cursor-pointer",
+                                    useStore.getState().filterConfig.scratchPadId === pad.id && "bg-accent text-accent-foreground"
+                                )}
+                            >
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="flex-1 justify-start gap-2 font-normal h-8 px-4 hover:bg-transparent"
+                                    onClick={() => {
+                                        useStore.getState().setFilterConfig({ scratchPadId: pad.id });
+                                        useStore.getState().setCurrentPath(null);
+                                    }}
+                                >
+                                    <StickyNote size={14} className="text-yellow-500" />
+                                    <span className="truncate">{pad.name}</span>
+                                    <span className="ml-auto text-[10px] text-muted-foreground opacity-70">
+                                        {pad.assetIds.length}
+                                    </span>
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (confirm(`Delete scratch pad "${pad.name}"?`)) {
+                                            useStore.getState().deleteScratchPad(pad.id);
+                                        }
+                                    }}
+                                >
+                                    <Trash2 size={12} className="text-destructive" />
+                                </Button>
+                            </div>
+                        ))}
+                        {useStore.getState().scratchPads.length === 0 && (
+                            <div className="px-4 py-2 text-xs text-muted-foreground italic">
+                                No scratch pads
+                            </div>
+                        )}
+                    </SidebarSection>
                 </div>
             </div>
 
@@ -327,6 +441,11 @@ export const Sidebar: React.FC = () => {
                 isOpen={isCreateTagDialogOpen}
                 onClose={() => setIsCreateTagDialogOpen(false)}
                 onCreateTag={useStore.getState().createTag}
+            />
+            <CreateScratchPadDialog
+                isOpen={isCreateScratchPadDialogOpen}
+                onClose={() => setIsCreateScratchPadDialogOpen(false)}
+                onCreate={useStore.getState().createScratchPad}
             />
         </div>
     );

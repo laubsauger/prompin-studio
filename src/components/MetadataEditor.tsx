@@ -1,15 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import type { Asset, AssetMetadata } from '../types';
 import { useStore } from '../store';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Textarea } from './ui/textarea';
 import { ScrollArea } from './ui/scroll-area';
-import { Badge } from './ui/badge';
-import { X, Plus } from 'lucide-react';
-import { AssetPickerDialog } from './AssetPickerDialog';
+import { Film } from 'lucide-react';
+import { MetadataForm } from './MetadataForm';
 
 interface MetadataEditorProps {
     isOpen: boolean;
@@ -19,10 +15,10 @@ interface MetadataEditorProps {
 
 export const MetadataEditor: React.FC<MetadataEditorProps> = ({ isOpen, onClose, asset }) => {
     const updateAssetMetadata = useStore(state => state.updateAssetMetadata);
-    const [metadata, setMetadata] = useState<AssetMetadata>(asset.metadata);
-    const [isAssetPickerOpen, setIsAssetPickerOpen] = useState(false);
+    const [metadata, setMetadata] = React.useState<AssetMetadata>(asset.metadata);
 
-    useEffect(() => {
+    // Sync with asset prop when it changes
+    React.useEffect(() => {
         setMetadata(asset.metadata);
     }, [asset]);
 
@@ -31,135 +27,98 @@ export const MetadataEditor: React.FC<MetadataEditorProps> = ({ isOpen, onClose,
         onClose();
     };
 
-    const handleInputChange = (key: keyof AssetMetadata, value: any) => {
-        setMetadata(prev => ({ ...prev, [key]: value }));
-    };
+    const addTagToAsset = useStore(state => state.addTagToAsset);
+    const removeTagFromAsset = useStore(state => state.removeTagFromAsset);
 
-    const handleAssetsSelected = (selectedAssets: Asset[]) => {
-        const currentInputs = metadata.inputs || [];
-        const newInputs = selectedAssets.map(a => a.id);
-        // Merge and deduplicate
-        const mergedInputs = Array.from(new Set([...currentInputs, ...newInputs]));
-        handleInputChange('inputs', mergedInputs);
-    };
+    const handleTagsChange = async (newTags: string[]) => {
+        const currentTags = asset.tags?.map(t => t.id) || [];
 
-    const removeInput = (input: string) => {
-        const currentInputs = metadata.inputs || [];
-        handleInputChange('inputs', currentInputs.filter(i => i !== input));
+        // Find tags to add
+        const toAdd = newTags.filter(id => !currentTags.includes(id));
+        for (const tagId of toAdd) {
+            await addTagToAsset(asset.id, tagId);
+        }
+
+        // Find tags to remove
+        const toRemove = currentTags.filter(id => !newTags.includes(id));
+        for (const tagId of toRemove) {
+            await removeTagFromAsset(asset.id, tagId);
+        }
     };
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
-                <DialogHeader>
-                    <DialogTitle>Edit Metadata: {asset.path.split('/').pop()}</DialogTitle>
+            <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 gap-0">
+                <DialogHeader className="p-6 border-b">
+                    <DialogTitle>Edit Metadata</DialogTitle>
                 </DialogHeader>
 
-                <ScrollArea className="flex-1 pr-4">
-                    <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="author">Author ID</Label>
-                                <Input
-                                    id="author"
-                                    value={metadata.authorId || ''}
-                                    onChange={(e) => handleInputChange('authorId', e.target.value)}
-                                    placeholder="e.g. user-123"
+                <div className="flex flex-1 overflow-hidden">
+                    {/* Left Column: Preview & Info */}
+                    <div className="w-1/3 border-r bg-muted/30 p-6 flex flex-col gap-6 overflow-y-auto">
+                        <div className="aspect-video rounded-lg overflow-hidden border bg-background flex items-center justify-center relative group">
+                            {asset.type === 'video' ? (
+                                asset.thumbnailPath ? (
+                                    <img
+                                        src={`thumbnail://${asset.thumbnailPath}`}
+                                        alt="Thumbnail"
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <Film className="h-12 w-12 text-muted-foreground" />
+                                )
+                            ) : (
+                                <img
+                                    src={`media://${asset.path}`}
+                                    alt="Preview"
+                                    className="w-full h-full object-contain"
                                 />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="project">Project</Label>
-                                <Input
-                                    id="project"
-                                    value={metadata.project || ''}
-                                    onChange={(e) => handleInputChange('project', e.target.value)}
-                                    placeholder="Project Name"
-                                />
+                            )}
+                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs">
+                                {asset.type.toUpperCase()}
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="scene">Scene</Label>
-                                <Input
-                                    id="scene"
-                                    value={metadata.scene || ''}
-                                    onChange={(e) => handleInputChange('scene', e.target.value)}
-                                    placeholder="Scene Name"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="shot">Shot</Label>
-                                <Input
-                                    id="shot"
-                                    value={metadata.shot || ''}
-                                    onChange={(e) => handleInputChange('shot', e.target.value)}
-                                    placeholder="Shot Name"
-                                />
-                            </div>
-                        </div>
+                        <div className="space-y-4">
+                            <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">File Info</h4>
+                            <div className="grid grid-cols-2 gap-y-2 text-sm">
+                                <span className="text-muted-foreground">Filename</span>
+                                <span className="truncate" title={asset.path.split('/').pop()}>{asset.path.split('/').pop()}</span>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="model">Model</Label>
-                            <Input
-                                id="model"
-                                value={metadata.model || ''}
-                                onChange={(e) => handleInputChange('model', e.target.value)}
-                                placeholder="AI Model Name"
-                            />
-                        </div>
+                                <span className="text-muted-foreground">Size</span>
+                                <span>{asset.metadata.fileSize ? (asset.metadata.fileSize / 1024 / 1024).toFixed(2) + ' MB' : '-'}</span>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="prompt">Prompt</Label>
-                            <Textarea
-                                id="prompt"
-                                value={metadata.prompt || ''}
-                                onChange={(e) => handleInputChange('prompt', e.target.value)}
-                                placeholder="Generation prompt..."
-                                className="min-h-[100px]"
-                            />
-                        </div>
+                                <span className="text-muted-foreground">Dimensions</span>
+                                <span>{asset.metadata.width && asset.metadata.height ? `${asset.metadata.width}x${asset.metadata.height}` : '-'}</span>
 
-                        <div className="space-y-2">
-                            <Label>Input Assets (Lineage)</Label>
-                            <div className="flex flex-wrap gap-2 mb-2">
-                                {metadata.inputs?.map(input => (
-                                    <Badge key={input} variant="secondary" className="flex items-center gap-1">
-                                        {input}
-                                        <button onClick={() => removeInput(input)} className="hover:text-destructive">
-                                            <X className="h-3 w-3" />
-                                        </button>
-                                    </Badge>
-                                ))}
-                            </div>
-                            <div className="flex gap-2">
-                                <Button
-                                    type="button"
-                                    onClick={() => setIsAssetPickerOpen(true)}
-                                    variant="outline"
-                                    className="w-full"
-                                >
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    Add Input Assets...
-                                </Button>
+                                {asset.type === 'video' && (
+                                    <>
+                                        <span className="text-muted-foreground">Duration</span>
+                                        <span>{asset.metadata.duration ? new Date(asset.metadata.duration * 1000).toISOString().substr(11, 8) : '-'}</span>
+                                    </>
+                                )}
                             </div>
                         </div>
                     </div>
-                </ScrollArea>
 
-                <DialogFooter>
+                    {/* Right Column: Form */}
+                    <ScrollArea className="flex-1">
+                        <div className="p-6">
+                            <MetadataForm
+                                initialMetadata={metadata}
+                                onChange={setMetadata}
+                                asset={asset}
+                                onTagsChange={handleTagsChange}
+                            />
+                        </div>
+                    </ScrollArea>
+                </div>
+
+                <DialogFooter className="p-4 border-t bg-muted/10">
                     <Button variant="outline" onClick={onClose}>Cancel</Button>
                     <Button onClick={handleSave}>Save Changes</Button>
                 </DialogFooter>
             </DialogContent>
-
-            <AssetPickerDialog
-                isOpen={isAssetPickerOpen}
-                onClose={() => setIsAssetPickerOpen(false)}
-                onSelect={handleAssetsSelected}
-                multiSelect={true}
-                initialSelectedIds={metadata.inputs || []}
-            />
         </Dialog>
     );
 };

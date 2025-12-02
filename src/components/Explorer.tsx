@@ -17,6 +17,8 @@ export const Explorer: React.FC = () => {
     const assets = useStore(state => state.assets);
     const filter = useStore(state => state.filter);
     const loadAssets = useStore(state => state.loadAssets);
+    const searchAssets = useStore(state => state.searchAssets);
+    const searchQuery = useStore(state => state.searchQuery);
     const setViewingAssetId = useStore(state => state.setViewingAssetId);
     const filterConfig = useStore(state => state.filterConfig);
     const sortConfig = useStore(state => state.sortConfig);
@@ -29,17 +31,19 @@ export const Explorer: React.FC = () => {
     const { isSettingsOpen, setSettingsOpen } = useSettingsStore();
 
     const virtuosoRef = useRef<VirtuosoGridHandle | VirtuosoHandle>(null);
-    const [scrollProgress, setScrollProgress] = useState(0);
-    const [isScrolling, setIsScrolling] = useState(false);
     const [thumbnailSize, setThumbnailSize] = useState(200);
-    const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
     // Initialize global listeners
     useIpcListeners();
 
     useEffect(() => {
-        loadAssets();
-    }, [loadAssets]);
+        // Load assets initially or when search/filters change
+        if (searchQuery || Object.values(filterConfig).some(v => v && v !== 'all')) {
+            searchAssets();
+        } else {
+            loadAssets();
+        }
+    }, [loadAssets, searchAssets, searchQuery, filterConfig]);
 
     // Restore scroll position when path changes
     useEffect(() => {
@@ -88,6 +92,16 @@ export const Explorer: React.FC = () => {
             result = result.filter(a => a.status === filterConfig.status);
         }
 
+        // 6. Filter by Scratch Pad
+        if (filterConfig.scratchPadId) {
+            const scratchPad = useStore.getState().scratchPads.find(p => p.id === filterConfig.scratchPadId);
+            if (scratchPad) {
+                result = result.filter(a => scratchPad.assetIds.includes(a.id));
+            } else {
+                result = [];
+            }
+        }
+
         // 6. Sort
         return [...result].sort((a, b) => {
             const { key, direction } = sortConfig;
@@ -105,24 +119,7 @@ export const Explorer: React.FC = () => {
         if (range.startIndex % 10 === 0) {
             setScrollPosition(currentPath || '', range.startIndex);
         }
-
-        // Show scroll indicator
-        setIsScrolling(true);
-        if (scrollTimeoutRef.current) {
-            clearTimeout(scrollTimeoutRef.current);
-        }
-        scrollTimeoutRef.current = setTimeout(() => {
-            setIsScrolling(false);
-        }, 800);
-
-        // Calculate scroll progress (0-100) - account for visible range
-        requestAnimationFrame(() => {
-            const visibleCount = range.endIndex - range.startIndex;
-            const maxScrollIndex = Math.max(1, filteredAssets.length - visibleCount);
-            const progress = range.startIndex / maxScrollIndex;
-            setScrollProgress(Math.min(100, Math.max(0, progress * 100)));
-        });
-    }, [currentPath, setScrollPosition, filteredAssets.length]);
+    }, [currentPath, setScrollPosition]);
 
     return (
         <div className="flex h-full flex-col bg-background text-foreground">
@@ -139,93 +136,61 @@ export const Explorer: React.FC = () => {
                         No assets found
                     </div>
                 ) : viewMode === 'grid' ? (
-                    <>
-                        <VirtuosoGrid
-                            ref={virtuosoRef as React.RefObject<VirtuosoGridHandle>}
-                            style={{ height: '100%' }}
-                            totalCount={filteredAssets.length}
-                            rangeChanged={handleRangeChanged}
-                            overscan={{ main: 1000, reverse: 1000 }}
-                            components={{
-                                List: React.forwardRef((props, ref) => (
-                                    <div
-                                        {...props}
-                                        ref={ref}
-                                        style={{
-                                            ...(props as any).style,
-                                            display: 'grid',
-                                            gridTemplateColumns: `repeat(auto-fill, minmax(${thumbnailSize}px, 1fr))`,
-                                            gap: `${GAP}px`,
-                                            paddingBottom: '20px'
-                                        }}
+                    <VirtuosoGrid
+                        ref={virtuosoRef as React.RefObject<VirtuosoGridHandle>}
+                        style={{ height: '100%' }}
+                        totalCount={filteredAssets.length}
+                        rangeChanged={handleRangeChanged}
+                        overscan={{ main: 1000, reverse: 1000 }}
+                        components={{
+                            List: React.forwardRef((props, ref) => (
+                                <div
+                                    {...props}
+                                    ref={ref}
+                                    style={{
+                                        ...(props as any).style,
+                                        display: 'grid',
+                                        gridTemplateColumns: `repeat(auto-fill, minmax(${thumbnailSize}px, 1fr))`,
+                                        gap: `${GAP}px`,
+                                        paddingBottom: '20px'
+                                    }}
+                                />
+                            )),
+                            Item: (props) => (
+                                <div {...props} style={{ ...props.style, margin: 0 }} />
+                            )
+                        }}
+                        itemContent={(index) => {
+                            const asset = filteredAssets[index];
+                            return (
+                                <div style={{ height: '100%' }}>
+                                    <ExplorerCell
+                                        asset={asset}
+                                        setViewingAssetId={setViewingAssetId}
                                     />
-                                )),
-                                Item: (props) => (
-                                    <div {...props} style={{ ...props.style, margin: 0 }} />
-                                )
-                            }}
-                            itemContent={(index) => {
-                                const asset = filteredAssets[index];
-                                return (
-                                    <div style={{ height: '100%' }}>
-                                        <ExplorerCell
-                                            asset={asset}
-                                            setViewingAssetId={setViewingAssetId}
-                                        />
-                                    </div>
-                                );
-                            }}
-                        />
-
-                        {/* Scroll Position Indicator - minimal, aligned with scrollbar */}
-                        {isScrolling && filteredAssets.length > 10 && (
-                            <div className="fixed right-2 top-20 bottom-20 flex items-center pointer-events-none z-50" style={{ willChange: 'opacity' }}>
-                                <div className="flex flex-col items-end gap-1">
-                                    <div className="bg-background/90 backdrop-blur-sm border border-border rounded px-2 py-1 shadow-lg text-xs font-medium">
-                                        {Math.round(scrollProgress)}%
-                                    </div>
-                                    <div className="text-[10px] text-muted-foreground bg-background/80 backdrop-blur-sm px-1.5 py-0.5 rounded">
-                                        {filteredAssets.length}
-                                    </div>
                                 </div>
-                            </div>
-                        )}
-                    </>
+                            );
+                        }}
+                    />
                 ) : (
-                    <>
-                        <Virtuoso
-                            ref={virtuosoRef as React.RefObject<VirtuosoHandle>}
-                            style={{ height: '100%' }}
-                            totalCount={filteredAssets.length}
-                            rangeChanged={handleRangeChanged}
-                            overscan={{ main: 1000, reverse: 1000 }}
-                            itemContent={(index) => {
-                                const asset = filteredAssets[index];
-                                return (
-                                    <div className="px-2 py-1">
-                                        <AssetListItem
-                                            asset={asset}
-                                            setViewingAssetId={setViewingAssetId}
-                                        />
-                                    </div>
-                                );
-                            }}
-                        />
-
-                        {/* Scroll Position Indicator for List View */}
-                        {isScrolling && filteredAssets.length > 10 && (
-                            <div className="fixed right-2 top-20 bottom-20 flex items-center pointer-events-none z-50" style={{ willChange: 'opacity' }}>
-                                <div className="flex flex-col items-end gap-1">
-                                    <div className="bg-background/90 backdrop-blur-sm border border-border rounded px-2 py-1 shadow-lg text-xs font-medium">
-                                        {Math.round(scrollProgress)}%
-                                    </div>
-                                    <div className="text-[10px] text-muted-foreground bg-background/80 backdrop-blur-sm px-1.5 py-0.5 rounded">
-                                        {filteredAssets.length}
-                                    </div>
+                    <Virtuoso
+                        ref={virtuosoRef as React.RefObject<VirtuosoHandle>}
+                        style={{ height: '100%' }}
+                        totalCount={filteredAssets.length}
+                        rangeChanged={handleRangeChanged}
+                        overscan={{ main: 1000, reverse: 1000 }}
+                        itemContent={(index) => {
+                            const asset = filteredAssets[index];
+                            return (
+                                <div className="px-2 py-1">
+                                    <AssetListItem
+                                        asset={asset}
+                                        setViewingAssetId={setViewingAssetId}
+                                    />
                                 </div>
-                            </div>
-                        )}
-                    </>
+                            );
+                        }}
+                    />
                 )}
             </div>
 

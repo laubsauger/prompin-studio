@@ -83,7 +83,11 @@ export const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
             >
                 <div className="aspect-square relative bg-muted/20">
                     {isPlaying && asset.type === 'video' ? (
-                        <div className="absolute inset-0 z-20 vidstack-player bg-black">
+                        <div
+                            className="absolute inset-0 z-20 vidstack-player bg-black"
+                            onClick={(e) => e.stopPropagation()}
+                            onDoubleClick={(e) => e.stopPropagation()}
+                        >
                             <MediaPlayer
                                 ref={playerRef}
                                 src={`media://${asset.path}`}
@@ -92,11 +96,16 @@ export const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
                                 logLevel="warn"
                                 crossOrigin
                                 playsInline
-                                className="w-full h-full [&_video]:object-cover [&_video]:w-full [&_video]:h-full"
+                                className="w-full h-full"
                                 autoPlay
-                                muted
                                 onEnded={() => {
-                                    console.log('[AssetCard] Video ended');
+                                    const player = playerRef.current;
+                                    // Ignore onEnded if duration is 0 (metadata not loaded or race condition)
+                                    if (player?.state.duration === 0) {
+                                        console.log('[AssetCard] Ignoring onEnded with duration 0');
+                                        return;
+                                    }
+                                    console.log('[AssetCard] Video ended. Duration:', player?.state.duration);
                                     setIsPlaying(false);
                                     setIsVideoPaused(false);
                                 }}
@@ -112,7 +121,7 @@ export const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
                                     console.error('[AssetCard] Video error:', e);
                                 }}
                             >
-                                <MediaProvider className="w-full h-full [&_video]:object-cover" />
+                                <MediaProvider className="w-full h-full [&>video]:object-cover [&>video]:w-full [&>video]:h-full" />
                                 <MinimalVideoLayout />
                             </MediaPlayer>
                         </div>
@@ -130,41 +139,45 @@ export const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
                                     loading="lazy"
                                 />
                             )}
-
-                            {/* Inline Play/Pause Button */}
-                            {asset.type === 'video' && (
-                                <div className="absolute bottom-2 left-2 z-20 transition-opacity">
-                                    <button
-                                        onClick={handlePlayPauseClick}
-                                        className="rounded-full p-2 bg-black/50 text-white hover:bg-primary hover:text-primary-foreground backdrop-blur-sm transition-colors"
-                                    >
-                                        {isPlaying && !isVideoPaused ? (
-                                            <Pause className="h-3 w-3 fill-current" />
-                                        ) : (
-                                            <Play className="h-3 w-3 fill-current" />
-                                        )}
-                                    </button>
-                                </div>
-                            )}
-
-                            {/* Magnifier for Images */}
-                            {asset.type === 'image' && (
-                                <div className="absolute bottom-2 left-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            useStore.getState().setViewingAssetId(asset.id);
-                                        }}
-                                        className="rounded-full p-2 bg-black/50 text-white hover:bg-primary hover:text-primary-foreground backdrop-blur-sm transition-colors"
-                                    >
-                                        <ZoomIn className="h-3 w-3" />
-                                    </button>
-                                </div>
-                            )}
                         </>
                     )}
 
-                    <div className="absolute right-2 top-2 z-10 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity overlay-controls">
+                    {/* Inline Play/Pause Button - Always visible for videos */}
+                    {asset.type === 'video' && (
+                        <div
+                            className="absolute bottom-2 left-2 z-30 transition-opacity"
+                            onClick={(e) => e.stopPropagation()}
+                            onDoubleClick={(e) => e.stopPropagation()}
+                        >
+                            <button
+                                onClick={handlePlayPauseClick}
+                                className="rounded-full p-2 bg-black/50 text-white hover:bg-primary hover:text-primary-foreground backdrop-blur-sm transition-colors"
+                            >
+                                {isPlaying && !isVideoPaused ? (
+                                    <Pause className="h-3 w-3 fill-current" />
+                                ) : (
+                                    <Play className="h-3 w-3 fill-current" />
+                                )}
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Magnifier for Images */}
+                    {asset.type === 'image' && (
+                        <div className="absolute bottom-2 left-2 z-30 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    useStore.getState().setViewingAssetId(asset.id);
+                                }}
+                                className="rounded-full p-2 bg-black/50 text-white hover:bg-primary hover:text-primary-foreground backdrop-blur-sm transition-colors"
+                            >
+                                <ZoomIn className="h-3 w-3" />
+                            </button>
+                        </div>
+                    )}
+
+                    <div className="absolute right-2 top-2 z-10 flex gap-2 overlay-controls">
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();

@@ -1,4 +1,7 @@
 import { create } from 'zustand';
+import { v4 as uuidv4 } from 'uuid';
+
+
 import type { Asset, SyncStats, AssetStatus, AssetMetadata } from './types';
 
 // Lazily load ipcRenderer to avoid issues during test initialization if window.require is not yet mocked
@@ -36,26 +39,46 @@ interface AppState {
     selectedIds: Set<string>;
     lastSelectedId: string | null;
     viewingAssetId: string | null;
+    lineageAssetId: string | null;
     currentPath: string | null;
     viewMode: 'grid' | 'list';
     isLoading: boolean;
     loadingMessage: string;
 
     sortConfig: { key: 'createdAt' | 'updatedAt' | 'path'; direction: 'asc' | 'desc' };
-    filterConfig: { likedOnly: boolean; type: 'all' | 'image' | 'video'; tagId?: string | null; status?: AssetStatus | 'all' };
+    filterConfig: {
+        likedOnly: boolean;
+        type: 'all' | 'image' | 'video';
+        tagId?: string | null;
+        scratchPadId?: string | null;
+        status?: AssetStatus | 'all';
+        authorId?: string;
+        project?: string;
+        scene?: string;
+        shot?: string;
+        platform?: string;
+        model?: string;
+        dateFrom?: number;
+        dateTo?: number;
+    };
+    searchQuery: string;
     folderColors: Record<string, string>;
     tags: { id: string; name: string; color?: string }[];
+    scratchPads: { id: string; name: string; assetIds: string[] }[];
 
     // Ingestion State
     ingestion: {
         isOpen: boolean;
         pendingFiles: File[];
+        targetPath?: string;
         isUploading: boolean;
     };
 
     // Actions
     setSortConfig: (key: 'createdAt' | 'updatedAt' | 'path', direction: 'asc' | 'desc') => void;
     setFilterConfig: (config: Partial<AppState['filterConfig']>) => void;
+    setSearchQuery: (query: string) => void;
+    searchAssets: (query?: string, filters?: Partial<AppState['filterConfig']>) => Promise<void>;
     setFolderColor: (path: string, color: string) => void;
     toggleLike: (id: string) => Promise<void>;
 
@@ -67,12 +90,20 @@ interface AppState {
     removeTagFromAsset: (assetId: string, tagId: string) => Promise<void>;
 
     // Ingestion Actions
-    startIngestion: (files: File[]) => void;
+    startIngestion: (files: File[], targetPath?: string) => void;
     cancelIngestion: () => void;
-    handleUpload: (metadata: { project: string; scene: string; tags: string[] }) => Promise<void>;
+    handleUpload: (metadata: { project: string; scene: string; tags: string[]; description?: string; author?: string; targetPath?: string }) => Promise<void>;
+
+    // Scratch Pad Actions
+    createScratchPad: (name: string) => void;
+    deleteScratchPad: (id: string) => void;
+    addToScratchPad: (padId: string, assetIds: string[]) => void;
+    removeFromScratchPad: (padId: string, assetId: string) => void;
+    renameScratchPad: (id: string, name: string) => void;
 
     setFilter: (filter: Asset['status'] | 'all') => void;
     setViewingAssetId: (id: string | null) => void;
+    setLineageAssetId: (id: string | null) => void;
     setCurrentPath: (path: string | null) => void;
     setViewMode: (mode: 'grid' | 'list') => void;
     setLoading: (isLoading: boolean, message?: string) => void;
@@ -101,6 +132,7 @@ export const useStore = create<AppState>((set, get) => ({
     selectedIds: new Set(),
     lastSelectedId: null,
     viewingAssetId: null,
+    lineageAssetId: null,
     currentPath: null, // null = root, string = relative path from root
     viewMode: 'grid',
     isLoading: false,
@@ -109,24 +141,98 @@ export const useStore = create<AppState>((set, get) => ({
     // New config initial state
     sortConfig: { key: 'createdAt', direction: 'desc' },
     filterConfig: { likedOnly: false, type: 'all' },
+    searchQuery: '',
     folderColors: {},
     tags: [],
+    scratchPads: [],
 
     ingestion: {
         isOpen: false,
         pendingFiles: [],
+        targetPath: undefined,
         isUploading: false
     },
 
     setFilter: (filter) => set({ filter }),
     setViewingAssetId: (id) => set({ viewingAssetId: id }),
+    setLineageAssetId: (id) => set({ lineageAssetId: id }),
     setCurrentPath: (path) => set({ currentPath: path }),
     setViewMode: (mode) => set({ viewMode: mode }),
     setLoading: (isLoading, message = '') => set({ isLoading, loadingMessage: message }),
 
     // New config actions
     setSortConfig: (key, direction) => set({ sortConfig: { key, direction } }),
+    // Scratch Pad Actions
+    createScratchPad: (name) => set(state => ({
+        scratchPads: [...state.scratchPads, { id: uuidv4(), name, assetIds: [] }]
+    })),
+
+    deleteScratchPad: (id) => set(state => ({
+        scratchPads: state.scratchPads.filter(p => p.id !== id),
+        filterConfig: state.filterConfig.scratchPadId === id
+            ? { ...state.filterConfig, scratchPadId: null }
+            : state.filterConfig
+    })),
+
+    addToScratchPad: (padId, assetIds) => set(state => ({
+        scratchPads: state.scratchPads.map(p =>
+            p.id === padId
+                ? { ...p, assetIds: [...new Set([...p.assetIds, ...assetIds])] }
+                : p
+        )
+    })),
+
+    removeFromScratchPad: (padId, assetId) => set(state => ({
+        scratchPads: state.scratchPads.map(p =>
+            p.id === padId
+                ? { ...p, assetIds: p.assetIds.filter(id => id !== assetId) }
+                : p
+        )
+    })),
+
+    renameScratchPad: (id, name) => set(state => ({
+        scratchPads: state.scratchPads.map(p =>
+            p.id === id ? { ...p, name } : p
+        )
+    })),
+
+
     setFilterConfig: (config) => set(state => ({ filterConfig: { ...state.filterConfig, ...config } })),
+    setSearchQuery: (query) => set({ searchQuery: query }),
+    searchAssets: async (query, filters) => {
+        const searchQuery = query ?? get().searchQuery;
+        const filterConfig = filters ? { ...get().filterConfig, ...filters } : get().filterConfig;
+
+        // Don't show full-screen loading for search - it's too jarring
+        // Just update the assets when ready
+        try {
+            // Build filters for backend
+            const backendFilters: any = {};
+            if (filterConfig.type && filterConfig.type !== 'all') backendFilters.type = filterConfig.type;
+            if (filterConfig.status && filterConfig.status !== 'all') backendFilters.status = filterConfig.status;
+            if (filterConfig.authorId) backendFilters.authorId = filterConfig.authorId;
+            if (filterConfig.project) backendFilters.project = filterConfig.project;
+            if (filterConfig.scene) backendFilters.scene = filterConfig.scene;
+            if (filterConfig.shot) backendFilters.shot = filterConfig.shot;
+            if (filterConfig.platform) backendFilters.platform = filterConfig.platform;
+            if (filterConfig.model) backendFilters.model = filterConfig.model;
+            if (filterConfig.dateFrom) backendFilters.dateFrom = filterConfig.dateFrom;
+            if (filterConfig.dateTo) backendFilters.dateTo = filterConfig.dateTo;
+            if (filterConfig.tagId) backendFilters.tagIds = [filterConfig.tagId];
+
+            const assets = await getIpcRenderer().invoke('search-assets', searchQuery, backendFilters);
+
+            // Apply client-side filters that backend doesn't handle
+            let filteredAssets = assets;
+            if (filterConfig.likedOnly) {
+                filteredAssets = filteredAssets.filter((a: Asset) => a.metadata.liked);
+            }
+
+            set({ assets: filteredAssets });
+        } catch (error) {
+            console.error('Failed to search assets:', error);
+        }
+    },
     setFolderColor: async (path, color) => {
         set(state => ({ folderColors: { ...state.folderColors, [path]: color } }));
         await getIpcRenderer().invoke('set-folder-color', path, color);
@@ -187,9 +293,9 @@ export const useStore = create<AppState>((set, get) => ({
         await getIpcRenderer().invoke('update-metadata', id, 'liked', newLiked);
     },
 
-    startIngestion: (files) => set({ ingestion: { isOpen: true, pendingFiles: files, isUploading: false } }),
+    startIngestion: (files, targetPath) => set({ ingestion: { isOpen: true, pendingFiles: files, targetPath, isUploading: false } }),
 
-    cancelIngestion: () => set({ ingestion: { isOpen: false, pendingFiles: [], isUploading: false } }),
+    cancelIngestion: () => set({ ingestion: { isOpen: false, pendingFiles: [], targetPath: undefined, isUploading: false } }),
 
     handleUpload: async (metadata) => {
         set(state => ({ ingestion: { ...state.ingestion, isUploading: true } }));
@@ -202,11 +308,31 @@ export const useStore = create<AppState>((set, get) => ({
             const uploadPromises = pendingFiles.map(file => uploadService.uploadFile(file, metadata));
             const newAssets = await Promise.all(uploadPromises);
 
+            // Apply tags if present
+            if (metadata.tags && metadata.tags.length > 0) {
+                const addTagPromises = [];
+                for (const asset of newAssets) {
+                    for (const tagId of metadata.tags) {
+                        // We assume these are tag IDs now
+                        addTagPromises.push(getIpcRenderer().invoke('add-tag-to-asset', asset.id, tagId));
+
+                        // Also update local asset state to include the tag
+                        // We need to find the tag object to add it to the asset locally
+                        const tag = get().tags.find(t => t.id === tagId);
+                        if (tag) {
+                            if (!asset.tags) asset.tags = [];
+                            asset.tags.push(tag);
+                        }
+                    }
+                }
+                await Promise.all(addTagPromises);
+            }
+
             // In a real app, we'd probably re-fetch assets or add these to the list
             // For now, let's just add them to the local state to see immediate results
             set(state => ({
                 assets: [...newAssets, ...state.assets],
-                ingestion: { isOpen: false, pendingFiles: [], isUploading: false }
+                ingestion: { isOpen: false, pendingFiles: [], targetPath: undefined, isUploading: false }
             }));
         } catch (error) {
             console.error('Upload failed:', error);

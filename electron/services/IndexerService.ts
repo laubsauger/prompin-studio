@@ -157,20 +157,16 @@ export class IndexerService {
         console.log(`Regenerated ${count} thumbnails`);
     }
 
-    private async generateThumbnail(filePath: string, assetId: string): Promise<string | undefined> {
+    private async generateThumbnail(filePath: string, assetId: string, force: boolean = false): Promise<string | undefined> {
         if (this.getMediaType(filePath) !== 'video') return undefined;
 
         const thumbnailFilename = `${assetId}.jpg`;
         const thumbnailPath = path.join(this.thumbnailCachePath, thumbnailFilename);
 
-        // For regeneration, we might want to overwrite, but for now let's just check existence
-        // If we want to force regen, we should delete the file first.
-        // Let's assume this is called when they are missing.
-
         try {
-            // If file exists and size > 0, skip
+            // If file exists and size > 0, skip unless forced
             const stats = await fs.stat(thumbnailPath);
-            if (stats.size > 0) return thumbnailFilename;
+            if (!force && stats.size > 0) return thumbnailFilename;
         } catch {
             // File doesn't exist, proceed
         }
@@ -255,7 +251,7 @@ export class IndexerService {
     private async handleFileAdd(filePath: string) {
         if (!this.isMediaFile(filePath)) return;
 
-        console.log(`File added: ${filePath}`);
+        // console.log(`File added: ${filePath}`);
         const relativePath = path.relative(this.rootPath, filePath);
 
         try {
@@ -263,6 +259,42 @@ export class IndexerService {
             // Use stable ID based on absolute path instead of random UUID
             const id = this.getStableId(filePath);
             const mediaType = this.getMediaType(filePath);
+
+            // Check if file hasn't changed
+            const existing = db.prepare('SELECT updatedAt, thumbnailPath FROM assets WHERE id = ?').get(id) as any;
+
+            if (existing) {
+                // Check if modified time is effectively the same (allow 1s difference for FS/DB precision)
+                const timeDiff = Math.abs(existing.updatedAt - stats.mtimeMs);
+                if (timeDiff < 1000) {
+                    // Check if thumbnail exists if it should
+                    let skip = true;
+                    if (mediaType === 'video') {
+                        if (existing.thumbnailPath) {
+                            const thumbPath = path.join(this.thumbnailCachePath, existing.thumbnailPath);
+                            try {
+                                const thumbStats = await fs.stat(thumbPath);
+                                if (thumbStats.size === 0) skip = false;
+                            } catch {
+                                skip = false;
+                            }
+                        } else {
+                            skip = false;
+                        }
+                    }
+
+                    if (skip) {
+                        // Update stats and return
+                        if (mediaType === 'image') this.stats.filesByType!.images++;
+                        else if (mediaType === 'video') this.stats.filesByType!.videos++;
+                        else this.stats.filesByType!.other++;
+                        this.stats.processedFiles++;
+                        return;
+                    }
+                }
+            }
+
+            console.log(`Processing file: ${filePath}`);
 
             // Track file by type
             if (mediaType === 'image') this.stats.filesByType!.images++;
@@ -275,7 +307,8 @@ export class IndexerService {
             // Generate thumbnail for videos
             let thumbnailPath: string | undefined;
             if (mediaType === 'video') {
-                thumbnailPath = await this.generateThumbnail(filePath, id);
+                // Force regeneration if we are here (either new file, changed file, or missing thumbnail)
+                thumbnailPath = await this.generateThumbnail(filePath, id, true);
                 if (thumbnailPath) {
                     this.stats.thumbnailsGenerated = (this.stats.thumbnailsGenerated || 0) + 1;
                 } else {
@@ -309,7 +342,7 @@ export class IndexerService {
 
     private handleFileChange(filePath: string) {
         console.log(`File changed: ${filePath}`);
-        // Update logic
+        this.handleFileAdd(filePath);
     }
 
     private handleFileRemove(filePath: string) {
@@ -339,8 +372,8 @@ export class IndexerService {
         // Fetch tags for all assets
         // Optimization: Fetch all asset_tags at once instead of N+1 queries
         const tagsStmt = db.prepare(`
-            SELECT at.assetId, t.id, t.name, t.color 
-            FROM asset_tags at 
+            SELECT at.assetId, t.id, t.name, t.color
+            FROM asset_tags at
             JOIN tags t ON at.tagId = t.id
         `);
         const allTags = tagsStmt.all() as { assetId: string; id: string; name: string; color: string }[];
@@ -359,6 +392,145 @@ export class IndexerService {
             ...asset,
             tags: tagsByAsset[asset.id] || []
         }));
+    }
+
+    public searchAssets(searchQuery: string, filters?: {
+        type?: string;
+        status?: string;
+        authorId?: string;
+        project?: string;
+        scene?: string;
+        shot?: string;
+        platform?: string;
+        platformUrl?: string;
+        model?: string;
+        tagIds?: string[];
+        dateFrom?: number;
+        dateTo?: number;
+    }): Asset[] {
+        let sql = `
+            SELECT DISTINCT a.* FROM assets a
+        `;
+        const params: any = {};
+        const conditions: string[] = [];
+
+        // Add full-text search if query is provided
+        if (searchQuery && searchQuery.trim() !== '') {
+            sql += `
+                JOIN assets_fts ON assets_fts.id = a.id
+            `;
+            conditions.push(`assets_fts MATCH @searchQuery`);
+            params.searchQuery = searchQuery.split(' ').map(term =>
+                term + '*'  // Add prefix matching for each term
+            ).join(' ');
+        }
+
+        // Add tag joins if filtering by tags
+        if (filters?.tagIds && filters.tagIds.length > 0) {
+            sql += `
+                JOIN asset_tags at ON at.assetId = a.id
+            `;
+            conditions.push(`at.tagId IN (${filters.tagIds.map((_, i) => `@tag${i}`).join(', ')})`);
+            filters.tagIds.forEach((tagId, i) => {
+                params[`tag${i}`] = tagId;
+            });
+        }
+
+        // Add filter conditions
+        if (filters?.type) {
+            conditions.push(`a.type = @type`);
+            params.type = filters.type;
+        }
+        if (filters?.status) {
+            conditions.push(`a.status = @status`);
+            params.status = filters.status;
+        }
+        if (filters?.dateFrom) {
+            conditions.push(`a.createdAt >= @dateFrom`);
+            params.dateFrom = filters.dateFrom;
+        }
+        if (filters?.dateTo) {
+            conditions.push(`a.createdAt <= @dateTo`);
+            params.dateTo = filters.dateTo;
+        }
+
+        // Metadata filters (using JSON extraction)
+        if (filters?.authorId) {
+            conditions.push(`json_extract(a.metadata, '$.authorId') = @authorId`);
+            params.authorId = filters.authorId;
+        }
+        if (filters?.project) {
+            conditions.push(`json_extract(a.metadata, '$.project') = @project`);
+            params.project = filters.project;
+        }
+        if (filters?.scene) {
+            conditions.push(`json_extract(a.metadata, '$.scene') = @scene`);
+            params.scene = filters.scene;
+        }
+        if (filters?.shot) {
+            conditions.push(`json_extract(a.metadata, '$.shot') = @shot`);
+            params.shot = filters.shot;
+        }
+        if (filters?.platform) {
+            conditions.push(`json_extract(a.metadata, '$.platform') = @platform`);
+            params.platform = filters.platform;
+        }
+        if (filters?.platformUrl) {
+            conditions.push(`json_extract(a.metadata, '$.platformUrl') LIKE @platformUrl`);
+            params.platformUrl = `%${filters.platformUrl}%`;
+        }
+        if (filters?.model) {
+            conditions.push(`json_extract(a.metadata, '$.model') = @model`);
+            params.model = filters.model;
+        }
+
+        // Combine conditions
+        if (conditions.length > 0) {
+            sql += ` WHERE ${conditions.join(' AND ')}`;
+        }
+
+        // Order by relevance for full-text search, otherwise by creation date
+        if (searchQuery && searchQuery.trim() !== '') {
+            sql += ` ORDER BY rank, a.createdAt DESC`;
+        } else {
+            sql += ` ORDER BY a.createdAt DESC`;
+        }
+
+        const stmt = db.prepare(sql);
+        const assets = stmt.all(params).map((row: any) => ({
+            ...row,
+            metadata: JSON.parse(row.metadata)
+        }));
+
+        // Fetch tags for filtered assets
+        if (assets.length > 0) {
+            const assetIds = assets.map((a: any) => a.id);
+            const placeholders = assetIds.map(() => '?').join(', ');
+            const tagsStmt = db.prepare(`
+                SELECT at.assetId, t.id, t.name, t.color
+                FROM asset_tags at
+                JOIN tags t ON at.tagId = t.id
+                WHERE at.assetId IN (${placeholders})
+            `);
+            const allTags = tagsStmt.all(...assetIds) as { assetId: string; id: string; name: string; color: string }[];
+
+            // Group tags by assetId
+            const tagsByAsset: Record<string, any[]> = {};
+            for (const tag of allTags) {
+                if (!tagsByAsset[tag.assetId]) {
+                    tagsByAsset[tag.assetId] = [];
+                }
+                tagsByAsset[tag.assetId].push({ id: tag.id, name: tag.name, color: tag.color });
+            }
+
+            // Attach tags to assets
+            return assets.map((asset: any) => ({
+                ...asset,
+                tags: tagsByAsset[asset.id] || []
+            }));
+        }
+
+        return assets;
     }
 
     public updateAssetStatus(id: string, status: Asset['status']) {

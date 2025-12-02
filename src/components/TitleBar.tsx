@@ -8,6 +8,7 @@ import { Button } from './ui/button';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from './ui/hover-card';
 import { SyncStatus } from './SyncStatus';
 import { Logo } from './Logo';
+import { SearchPalette } from './SearchPalette';
 
 export const TitleBar: React.FC = () => {
     const { setRootPath, syncStats, fetchSyncStats, triggerResync } = useStore();
@@ -38,7 +39,7 @@ export const TitleBar: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-4" style={{ WebkitAppRegion: 'no-drag' } as any}>
-
+                <SearchPalette />
 
                 <div className="h-4 w-[1px] bg-border" />
 
@@ -83,7 +84,7 @@ export const TitleBar: React.FC = () => {
                     </HoverCard>
                 )}
 
-                <div className="h-4 w-[1px] bg-border" />
+                <div className="h-4 w-px bg-border" />
 
                 <div className="flex items-center gap-1">
                     <Button

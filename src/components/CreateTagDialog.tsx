@@ -53,6 +53,7 @@ export const CreateTagDialog: React.FC<CreateTagDialogProps> = ({ isOpen, onClos
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
                                 autoFocus
+                                className="mt-2"
                             />
                         </div>
                         <div className="space-y-2">

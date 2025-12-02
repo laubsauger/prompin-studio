@@ -6,6 +6,7 @@ import { Filter, Heart, ArrowUpDown, LayoutGrid, List, ArrowUp, ArrowDown } from
 import { Button } from './ui/button';
 import { cn } from '../lib/utils';
 import { Slider } from './ui/slider';
+import { AdvancedFilters } from './AdvancedFilters';
 import type { AssetStatus } from '../types';
 
 export interface FilterBarUIProps {
@@ -101,6 +102,9 @@ export const FilterBarUI: React.FC<FilterBarUIProps> = ({
                     ))}
                 </Select>
             </div>
+
+            {/* Advanced Filters */}
+            <AdvancedFilters />
 
             {/* View Mode Switcher & Thumbnail Size */}
             <div className="flex items-center gap-2 ml-auto">

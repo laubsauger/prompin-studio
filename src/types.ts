@@ -20,6 +20,8 @@ export interface AssetMetadata {
     prompt?: string;
     seed?: number;
     model?: string;
+    platform?: string; // AI platform (e.g., "MidJourney", "DALL-E", "Stable Diffusion") - can be inferred from platformUrl
+    platformUrl?: string; // Direct link to the asset on the platform (e.g., MidJourney gallery URL)
     authorId?: string;
     project?: string;
     scene?: string;

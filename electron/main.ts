@@ -187,25 +187,28 @@ app.whenReady().then(() => {
       }
 
       const fileUrl = pathToFileURL(filePath).toString();
-      console.log('[Media Protocol] Serving:', fileUrl, 'from filePath:', filePath);
 
-      // Verify file exists before fetching
+      console.log(`[Media Protocol] Requesting: ${fileUrl}`);
+      console.log(`[Media Protocol] Headers:`, JSON.stringify(Object.fromEntries(request.headers)));
+
       try {
-        const fs = await import('fs/promises');
-        await fs.access(filePath);
-      } catch (e) {
-        console.error('[Media Protocol] File not found:', filePath);
-        return new Response('File not found', { status: 404 });
-      }
+        const response = await net.fetch(fileUrl, {
+          method: request.method,
+          headers: request.headers,
+          bypassCustomProtocolHandlers: true
+        });
 
-      return net.fetch(fileUrl, {
-        method: request.method,
-        headers: request.headers,
-        bypassCustomProtocolHandlers: true
-      });
+        console.log(`[Media Protocol] Response status: ${response.status}`);
+        console.log(`[Media Protocol] Response headers:`, JSON.stringify(Object.fromEntries(response.headers)));
+
+        return response;
+      } catch (error) {
+        console.error(`[Media Protocol] Error fetching ${fileUrl}:`, error);
+        throw error;
+      }
     } catch (error) {
       console.error('[Media Protocol] Error:', error);
-      return new Response('Error loading media', { status: 500 });
+      return new Response('File not found', { status: 404 });
     }
   });
 
@@ -279,6 +282,10 @@ ipcMain.handle('set-root-path', async (event, path) => {
 
 ipcMain.handle('get-assets', async () => {
   return indexerService.getAssets();
+});
+
+ipcMain.handle('search-assets', async (event, searchQuery, filters) => {
+  return indexerService.searchAssets(searchQuery, filters);
 });
 
 ipcMain.handle('update-asset-status', async (event, id, status) => {
