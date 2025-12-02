@@ -162,7 +162,8 @@ protocol.registerSchemesAsPrivileged([
 
 app.whenReady().then(() => {
   // Register 'media' protocol to serve local files
-  protocol.handle('media', (request) => {
+  // Register 'media' protocol to serve local files
+  protocol.handle('media', async (request) => {
     let url = request.url.replace('media://', '');
     // Remove trailing slash if present
     url = url.replace(/\/$/, '');
@@ -185,7 +186,17 @@ app.whenReady().then(() => {
       }
 
       const fileUrl = pathToFileURL(filePath).toString();
-      console.log('[Media Protocol] Serving:', fileUrl);
+      console.log('[Media Protocol] Serving:', fileUrl, 'from filePath:', filePath);
+
+      // Verify file exists before fetching
+      try {
+        const fs = await import('fs/promises');
+        await fs.access(filePath);
+      } catch (e) {
+        console.error('[Media Protocol] File not found:', filePath);
+        return new Response('File not found', { status: 404 });
+      }
+
       return net.fetch(fileUrl);
     } catch (error) {
       console.error('[Media Protocol] Error:', error);
@@ -201,27 +212,25 @@ app.whenReady().then(() => {
       url = url.replace(/\/$/, '');
       const filename = decodeURIComponent(url);
 
-      const thumbnailsPath = path.join(process.env.APP_ROOT || app.getPath('userData'), 'thumbnails');
+      // Use userData directory - same as IndexerService
+      const thumbnailsPath = path.join(app.getPath('userData'), 'thumbnails');
       const filePath = path.join(thumbnailsPath, filename);
 
       console.log('[Thumbnail Protocol] Request URL:', request.url);
-      console.log('[Thumbnail Protocol] Cleaned URL:', url);
       console.log('[Thumbnail Protocol] Filename:', filename);
-      console.log('[Thumbnail Protocol] Thumbnails dir:', thumbnailsPath);
       console.log('[Thumbnail Protocol] Full path:', filePath);
 
       // Check if file exists
       const fs = await import('fs/promises');
       try {
         await fs.access(filePath);
-        console.log('[Thumbnail Protocol] File exists!');
+        console.log('[Thumbnail Protocol] ✓ File exists!');
       } catch {
-        console.error('[Thumbnail Protocol] File does not exist:', filePath);
+        console.error('[Thumbnail Protocol] ✗ File does not exist:', filePath);
         return new Response('Thumbnail not found', { status: 404 });
       }
 
       const fileUrl = pathToFileURL(filePath).toString();
-      console.log('[Thumbnail Protocol] File URL:', fileUrl);
       return net.fetch(fileUrl);
     } catch (error) {
       console.error('[Thumbnail Protocol] Error:', error);
@@ -243,6 +252,7 @@ ipcMain.handle('open-directory-dialog', async () => {
 });
 
 ipcMain.handle('set-root-path', async (event, path) => {
+  console.log('[Main] set-root-path called with:', path);
   indexerService.setRootPath(path);
   return true;
 });
@@ -256,7 +266,9 @@ ipcMain.handle('update-asset-status', async (event, id, status) => {
 });
 
 ipcMain.handle('get-sync-stats', async () => {
-  return indexerService.getStats();
+  const stats = indexerService.getStats();
+  console.log('[Main] get-sync-stats returning:', stats);
+  return stats;
 });
 
 ipcMain.handle('trigger-resync', async () => {
@@ -306,4 +318,13 @@ ipcMain.handle('remove-tag-from-asset', async (event, assetId, tagId) => {
 
 ipcMain.handle('get-asset-tags', async (event, assetId) => {
   return indexerService.getAssetTags(assetId);
+});
+
+ipcMain.handle('reveal-in-finder', async (event, relativePath) => {
+  const rootPath = indexerService.getRootPath();
+  if (!rootPath) return false;
+
+  const fullPath = path.join(rootPath, relativePath);
+  shell.showItemInFolder(fullPath);
+  return true;
 });

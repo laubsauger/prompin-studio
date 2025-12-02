@@ -16,6 +16,7 @@ export interface AssetMetadata {
     width?: number;
     height?: number;
     duration?: number;
+    fileSize?: number;
     prompt?: string;
     seed?: number;
     model?: string;

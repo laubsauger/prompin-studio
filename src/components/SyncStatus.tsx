@@ -6,18 +6,29 @@ import { Loader2, RefreshCw, AlertCircle } from 'lucide-react';
 import { SyncStatusModal } from './SyncStatusModal';
 
 export const SyncStatus: React.FC = () => {
-    const { syncStats, fetchSyncStats, triggerResync } = useStore();
+    const syncStats = useStore(state => state.syncStats);
+    const fetchSyncStats = useStore(state => state.fetchSyncStats);
+    const triggerResync = useStore(state => state.triggerResync);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
+    const isSyncing = syncStats?.status !== 'idle';
+
     useEffect(() => {
+        // Initial fetch
         fetchSyncStats();
-        const interval = setInterval(fetchSyncStats, 1000); // Poll every second
-        return () => clearInterval(interval);
-    }, [fetchSyncStats]);
+
+        // Only poll when actively syncing, and at a slower rate
+        if (isSyncing) {
+            const interval = setInterval(fetchSyncStats, 2000); // Poll every 2 seconds when syncing
+            return () => clearInterval(interval);
+        } else {
+            // When idle, poll much less frequently to catch new changes
+            const interval = setInterval(fetchSyncStats, 10000); // Poll every 10 seconds when idle
+            return () => clearInterval(interval);
+        }
+    }, [fetchSyncStats, isSyncing]);
 
     if (!syncStats) return null;
-
-    const isSyncing = syncStats.status !== 'idle';
     const progress = syncStats.totalFiles > 0 ? (syncStats.processedFiles / syncStats.totalFiles) * 100 : 0;
     const hasErrors = syncStats.errors && syncStats.errors.length > 0;
     const hasThumbnailFailures = (syncStats.thumbnailsFailed || 0) > 0;

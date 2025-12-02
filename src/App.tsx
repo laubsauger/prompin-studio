@@ -3,7 +3,9 @@ import { Explorer } from './components/Explorer';
 import { DragDropOverlay } from './components/DragDropOverlay';
 import { IngestionModal } from './components/IngestionModal';
 import { SetupScreen } from './components/SetupScreen';
+import { LoadingScreen } from './components/LoadingScreen';
 import { useSettingsStore } from './store/settings';
+import { useStore } from './store';
 
 import './App.css';
 
@@ -13,6 +15,9 @@ import { Sidebar } from './components/Sidebar';
 function App() {
   const rootFolder = useSettingsStore(state => state.rootFolder);
   const theme = useSettingsStore(state => state.theme);
+  const isLoading = useStore(state => state.isLoading);
+  const loadingMessage = useStore(state => state.loadingMessage);
+  const syncStats = useStore(state => state.syncStats);
 
   // Handle Theme
   useEffect(() => {
@@ -49,6 +54,15 @@ function App() {
     return <SetupScreen />;
   }
 
+  // Calculate loading progress from sync stats
+  const loadingProgress = syncStats && syncStats.status === 'scanning' && syncStats.totalFiles > 0
+    ? (syncStats.processedFiles / syncStats.totalFiles) * 100
+    : undefined;
+
+  const loadingDetails = syncStats && syncStats.status === 'scanning'
+    ? `Scanning ${syncStats.processedFiles} of ${syncStats.totalFiles} files`
+    : undefined;
+
   return (
     <>
       <TitleBar />
@@ -62,6 +76,15 @@ function App() {
       </div>
       <DragDropOverlay />
       <IngestionModal />
+
+      {/* Loading Screen */}
+      {(isLoading || syncStats?.status === 'scanning') && (
+        <LoadingScreen
+          message={loadingMessage || 'Scanning folder...'}
+          progress={loadingProgress}
+          details={loadingDetails}
+        />
+      )}
     </>
   );
 }

@@ -1,16 +1,22 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useStore } from '../store';
 import { Select } from './ui/select';
 import { STATUS_OPTIONS } from '../config/constants';
-import { Filter, Heart, ArrowUpDown } from 'lucide-react';
+import { Filter, Heart, ArrowUpDown, LayoutGrid, List } from 'lucide-react';
 import { Button } from './ui/button';
 import { cn } from '../lib/utils';
+import { Slider } from './ui/slider';
 
-export const FilterBar: React.FC = () => {
-    const { filter, setFilter, sortConfig, setSortConfig, filterConfig, setFilterConfig } = useStore();
+interface FilterBarProps {
+    thumbnailSize: number;
+    onThumbnailSizeChange: (size: number) => void;
+}
+
+export const FilterBar: React.FC<FilterBarProps> = ({ thumbnailSize, onThumbnailSizeChange }) => {
+    const { filter, setFilter, sortConfig, setSortConfig, filterConfig, setFilterConfig, viewMode, setViewMode } = useStore();
 
     return (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full">
             <div className="flex items-center gap-2 border-r border-border pr-2 mr-2">
                 <Button
                     variant="ghost"
@@ -58,7 +64,7 @@ export const FilterBar: React.FC = () => {
                 </Button>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 border-r border-border pr-2 mr-2">
                 <Filter className="h-4 w-4 text-muted-foreground" />
                 <Select
                     value={filter}
@@ -72,6 +78,43 @@ export const FilterBar: React.FC = () => {
                         </option>
                     ))}
                 </Select>
+            </div>
+
+            {/* View Mode Switcher & Thumbnail Size */}
+            <div className="flex items-center gap-2 ml-auto">
+                {viewMode === 'grid' && (
+                    <div className="flex items-center gap-2 mr-2">
+                        <Slider
+                            value={[thumbnailSize]}
+                            onValueChange={(value) => onThumbnailSizeChange(value[0])}
+                            min={150}
+                            max={400}
+                            step={50}
+                            className="w-24"
+                        />
+                    </div>
+                )}
+
+                <div className="flex items-center border rounded-md">
+                    <Button
+                        variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                        size="sm"
+                        onClick={() => setViewMode('grid')}
+                        className="h-7 px-2 rounded-r-none"
+                        title="Grid View"
+                    >
+                        <LayoutGrid className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                        variant={viewMode === 'list' ? 'default' : 'ghost'}
+                        size="sm"
+                        onClick={() => setViewMode('list')}
+                        className="h-7 px-2 rounded-l-none border-l"
+                        title="List View"
+                    >
+                        <List className="h-3.5 w-3.5" />
+                    </Button>
+                </div>
             </div>
         </div>
     );

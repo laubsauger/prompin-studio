@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Asset, SyncStats } from './types';
+import type { Asset, SyncStats, AssetStatus } from './types';
 
 // Lazily load ipcRenderer to avoid issues during test initialization if window.require is not yet mocked
 // Lazily load ipcRenderer to avoid issues during test initialization if window.require is not yet mocked
@@ -37,9 +37,12 @@ interface AppState {
     lastSelectedId: string | null;
     viewingAssetId: string | null;
     currentPath: string | null;
+    viewMode: 'grid' | 'list';
+    isLoading: boolean;
+    loadingMessage: string;
 
     sortConfig: { key: 'createdAt' | 'updatedAt' | 'path'; direction: 'asc' | 'desc' };
-    filterConfig: { likedOnly: boolean; type: 'all' | 'image' | 'video'; tagId?: string | null };
+    filterConfig: { likedOnly: boolean; type: 'all' | 'image' | 'video'; tagId?: string | null; status?: AssetStatus | 'all' };
     folderColors: Record<string, string>;
     tags: { id: string; name: string; color?: string }[];
 
@@ -71,6 +74,8 @@ interface AppState {
     setFilter: (filter: Asset['status'] | 'all') => void;
     setViewingAssetId: (id: string | null) => void;
     setCurrentPath: (path: string | null) => void;
+    setViewMode: (mode: 'grid' | 'list') => void;
+    setLoading: (isLoading: boolean, message?: string) => void;
     loadAssets: () => Promise<void>;
     fetchSyncStats: () => Promise<void>;
     triggerResync: () => Promise<void>;
@@ -96,6 +101,9 @@ export const useStore = create<AppState>((set, get) => ({
     lastSelectedId: null,
     viewingAssetId: null,
     currentPath: null, // null = root, string = relative path from root
+    viewMode: 'grid',
+    isLoading: false,
+    loadingMessage: '',
 
     // New config initial state
     sortConfig: { key: 'createdAt', direction: 'desc' },
@@ -112,6 +120,8 @@ export const useStore = create<AppState>((set, get) => ({
     setFilter: (filter) => set({ filter }),
     setViewingAssetId: (id) => set({ viewingAssetId: id }),
     setCurrentPath: (path) => set({ currentPath: path }),
+    setViewMode: (mode) => set({ viewMode: mode }),
+    setLoading: (isLoading, message = '') => set({ isLoading, loadingMessage: message }),
 
     // New config actions
     setSortConfig: (key, direction) => set({ sortConfig: { key, direction } }),
@@ -204,18 +214,36 @@ export const useStore = create<AppState>((set, get) => ({
     },
 
     loadAssets: async () => {
-        const assets = await getIpcRenderer().invoke('get-assets');
-        // We might want to fetch tags for each asset here or separately.
-        // For now, let's assume get-assets returns everything we need or we fetch tags on demand.
-        // Actually, IndexerService.getAssets() just returns the assets table.
-        // We should probably modify getAssets to include tags, or fetch them here.
-        // Let's modify IndexerService.getAssets to include tags in metadata or a separate field.
-        // For now, let's just set assets.
-        set({ assets });
+        set({ isLoading: true, loadingMessage: 'Loading assets...' });
+        try {
+            const assets = await getIpcRenderer().invoke('get-assets');
+            set({ assets, isLoading: false, loadingMessage: '' });
+        } catch (error) {
+            console.error('Failed to load assets:', error);
+            set({ isLoading: false, loadingMessage: '' });
+        }
     },
 
     fetchSyncStats: async () => {
         const syncStats = await getIpcRenderer().invoke('get-sync-stats');
+
+        // Only update if syncStats actually changed (deep comparison of key fields)
+        const currentStats = useStore.getState().syncStats;
+        if (currentStats) {
+            const hasChanged =
+                currentStats.status !== syncStats.status ||
+                currentStats.totalFiles !== syncStats.totalFiles ||
+                currentStats.processedFiles !== syncStats.processedFiles ||
+                currentStats.thumbnailsGenerated !== syncStats.thumbnailsGenerated ||
+                currentStats.thumbnailsFailed !== syncStats.thumbnailsFailed ||
+                (currentStats.errors?.length || 0) !== (syncStats.errors?.length || 0);
+
+            if (!hasChanged) {
+                return; // Don't update state if nothing changed
+            }
+        }
+
+        console.log('[Store] fetchSyncStats received changes:', syncStats);
         set({ syncStats });
     },
 

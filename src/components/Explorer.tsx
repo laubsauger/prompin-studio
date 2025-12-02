@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { VirtuosoGrid, type VirtuosoGridHandle } from 'react-virtuoso';
+import { VirtuosoGrid, Virtuoso, type VirtuosoGridHandle, type VirtuosoHandle } from 'react-virtuoso';
 import { useStore } from '../store';
 import { useSettingsStore } from '../store/settings';
 import { useIpcListeners } from '../hooks/useIpcListeners';
@@ -9,6 +9,7 @@ import { MediaViewer } from './MediaViewer';
 import { BulkActionsBar } from './BulkActionsBar';
 import { SettingsModal } from './SettingsModal';
 import { ExplorerCell } from './ExplorerCell';
+import { AssetListItem } from './AssetListItem';
 
 const GAP = 16;
 
@@ -20,15 +21,17 @@ export const Explorer: React.FC = () => {
     const filterConfig = useStore(state => state.filterConfig);
     const sortConfig = useStore(state => state.sortConfig);
     const currentPath = useStore(state => state.currentPath);
+    const viewMode = useStore(state => state.viewMode);
     const gridSize = useSettingsStore(state => state.gridSize);
     const setScrollPosition = useSettingsStore(state => state.setScrollPosition);
     const getScrollPosition = useSettingsStore(state => state.getScrollPosition);
 
     const { isSettingsOpen, setSettingsOpen } = useSettingsStore();
 
-    const virtuosoRef = useRef<VirtuosoGridHandle>(null);
+    const virtuosoRef = useRef<VirtuosoGridHandle | VirtuosoHandle>(null);
     const [scrollProgress, setScrollProgress] = useState(0);
     const [isScrolling, setIsScrolling] = useState(false);
+    const [thumbnailSize, setThumbnailSize] = useState(200);
     const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
     // Initialize global listeners
@@ -80,7 +83,12 @@ export const Explorer: React.FC = () => {
             result = result.filter(a => a.tags?.some(t => t.id === filterConfig.tagId));
         }
 
-        // 3. Sort
+        // 5. Filter by Status (workflow feature)
+        if (filterConfig.status && filterConfig.status !== 'all') {
+            result = result.filter(a => a.status === filterConfig.status);
+        }
+
+        // 6. Sort
         return [...result].sort((a, b) => {
             const { key, direction } = sortConfig;
             let valA = key === 'path' ? a.path : (a.metadata as any)[key] || 0;
@@ -93,7 +101,10 @@ export const Explorer: React.FC = () => {
     }, [assets, filter, filterConfig, sortConfig, useStore((state) => state.currentPath)]);
 
     const handleRangeChanged = useCallback((range: { startIndex: number; endIndex: number }) => {
-        setScrollPosition(currentPath || '', range.startIndex);
+        // Throttle position saving - only save every 10 items to reduce writes
+        if (range.startIndex % 10 === 0) {
+            setScrollPosition(currentPath || '', range.startIndex);
+        }
 
         // Show scroll indicator
         setIsScrolling(true);
@@ -102,18 +113,24 @@ export const Explorer: React.FC = () => {
         }
         scrollTimeoutRef.current = setTimeout(() => {
             setIsScrolling(false);
-        }, 1000);
+        }, 800);
 
-        // Calculate scroll progress (0-100)
-        const progress = range.startIndex / Math.max(1, filteredAssets.length - 1);
-        setScrollProgress(Math.min(100, progress * 100));
+        // Calculate scroll progress (0-100) - account for visible range
+        requestAnimationFrame(() => {
+            const visibleCount = range.endIndex - range.startIndex;
+            const maxScrollIndex = Math.max(1, filteredAssets.length - visibleCount);
+            const progress = range.startIndex / maxScrollIndex;
+            setScrollProgress(Math.min(100, Math.max(0, progress * 100)));
+        });
     }, [currentPath, setScrollPosition, filteredAssets.length]);
 
     return (
         <div className="flex h-full flex-col bg-background text-foreground">
-            <div className="flex items-center justify-between border-b border-border bg-card p-2 shadow-sm z-10">
-                <h2 className="font-semibold tracking-tight pl-3 px-2">Media Explorer</h2>
-                <FilterBar />
+            <div className="flex items-center justify-end border-b border-border bg-card p-2 shadow-sm z-10">
+                <FilterBar
+                    thumbnailSize={thumbnailSize}
+                    onThumbnailSizeChange={setThumbnailSize}
+                />
             </div>
 
             <div className="flex-1 p-2 relative">
@@ -121,13 +138,14 @@ export const Explorer: React.FC = () => {
                     <div className="flex h-full items-center justify-center text-muted-foreground">
                         No assets found
                     </div>
-                ) : (
+                ) : viewMode === 'grid' ? (
                     <>
                         <VirtuosoGrid
-                            ref={virtuosoRef}
+                            ref={virtuosoRef as React.RefObject<VirtuosoGridHandle>}
                             style={{ height: '100%' }}
                             totalCount={filteredAssets.length}
                             rangeChanged={handleRangeChanged}
+                            overscan={{ main: 1000, reverse: 1000 }}
                             components={{
                                 List: React.forwardRef((props, ref) => (
                                     <div
@@ -136,7 +154,7 @@ export const Explorer: React.FC = () => {
                                         style={{
                                             ...(props as any).style,
                                             display: 'grid',
-                                            gridTemplateColumns: `repeat(auto-fill, minmax(${gridSize}px, 1fr))`,
+                                            gridTemplateColumns: `repeat(auto-fill, minmax(${thumbnailSize}px, 1fr))`,
                                             gap: `${GAP}px`,
                                             paddingBottom: '20px'
                                         }}
@@ -159,21 +177,50 @@ export const Explorer: React.FC = () => {
                             }}
                         />
 
-                        {/* Scroll Position Indicator */}
+                            {/* Scroll Position Indicator - minimal, aligned with scrollbar */}
                         {isScrolling && filteredAssets.length > 10 && (
-                            <div className="fixed right-8 top-1/2 -translate-y-1/2 flex flex-col items-center gap-2 pointer-events-none z-50">
-                                <div className="bg-background/95 backdrop-blur-sm border border-border rounded-lg p-3 shadow-lg">
-                                    <div className="text-sm font-medium text-foreground mb-1">
+                                <div className="fixed right-2 top-20 bottom-20 flex items-center pointer-events-none z-50" style={{ willChange: 'opacity' }}>
+                                    <div className="flex flex-col items-end gap-1">
+                                        <div className="bg-background/90 backdrop-blur-sm border border-border rounded px-2 py-1 shadow-lg text-xs font-medium">
                                         {Math.round(scrollProgress)}%
                                     </div>
-                                    <div className="w-2 h-32 bg-muted rounded-full relative overflow-hidden">
-                                        <div
-                                            className="absolute top-0 left-0 w-full bg-primary transition-all duration-300 rounded-full"
-                                            style={{ height: `${scrollProgress}%` }}
+                                        <div className="text-[10px] text-muted-foreground bg-background/80 backdrop-blur-sm px-1.5 py-0.5 rounded">
+                                            {filteredAssets.length}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </>
+                ) : (
+                    <>
+                        <Virtuoso
+                            ref={virtuosoRef as React.RefObject<VirtuosoHandle>}
+                            style={{ height: '100%' }}
+                            totalCount={filteredAssets.length}
+                            rangeChanged={handleRangeChanged}
+                            overscan={{ main: 1000, reverse: 1000 }}
+                            itemContent={(index) => {
+                                const asset = filteredAssets[index];
+                                return (
+                                    <div className="px-2 py-1">
+                                        <AssetListItem
+                                            asset={asset}
+                                            setViewingAssetId={setViewingAssetId}
                                         />
                                     </div>
-                                    <div className="text-[10px] text-muted-foreground mt-1 text-center">
-                                        {filteredAssets.length} items
+                                );
+                            }}
+                        />
+
+                        {/* Scroll Position Indicator for List View */}
+                        {isScrolling && filteredAssets.length > 10 && (
+                            <div className="fixed right-2 top-20 bottom-20 flex items-center pointer-events-none z-50" style={{ willChange: 'opacity' }}>
+                                <div className="flex flex-col items-end gap-1">
+                                    <div className="bg-background/90 backdrop-blur-sm border border-border rounded px-2 py-1 shadow-lg text-xs font-medium">
+                                        {Math.round(scrollProgress)}%
+                                    </div>
+                                    <div className="text-[10px] text-muted-foreground bg-background/80 backdrop-blur-sm px-1.5 py-0.5 rounded">
+                                        {filteredAssets.length}
                                     </div>
                                 </div>
                             </div>

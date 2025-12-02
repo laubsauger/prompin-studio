@@ -4,11 +4,14 @@ import { cn } from '../lib/utils';
 import { useStore } from '../store';
 import { useSettingsStore } from '../store/settings';
 import { Button } from './ui/button';
-import { Slider } from './ui/slider';
+
+import { HoverCard, HoverCardContent, HoverCardTrigger } from './ui/hover-card';
+import { SyncStatus } from './SyncStatus';
+import { Logo } from './Logo';
 
 export const TitleBar: React.FC = () => {
     const { setRootPath, syncStats, fetchSyncStats, triggerResync } = useStore();
-    const { setSettingsOpen, rootFolder, gridSize, setGridSize } = useSettingsStore();
+    const { setSettingsOpen, rootFolder } = useSettingsStore();
 
     React.useEffect(() => {
         fetchSyncStats();
@@ -23,7 +26,8 @@ export const TitleBar: React.FC = () => {
         <div className="h-10 bg-background border-b border-border flex items-center justify-between px-4 pl-20 select-none" style={{ WebkitAppRegion: 'drag' } as any}>
             <div className="flex items-center gap-4 text-sm font-medium text-muted-foreground">
                 <div className="flex items-center gap-2">
-                    <span className="text-foreground">GenStudio</span>
+                    <Logo className="w-4 h-4" />
+                    <span className="text-foreground">Prompin' Studio</span>
                     {rootFolder && (
                         <>
                             <span className="opacity-50">/</span>
@@ -34,49 +38,49 @@ export const TitleBar: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-4" style={{ WebkitAppRegion: 'no-drag' } as any}>
-                {/* Grid Size Slider */}
-                <div className="flex items-center gap-2 w-32">
-                    <Slider
-                        value={[gridSize]}
-                        min={100}
-                        max={600}
-                        step={10}
-                        onValueChange={([value]) => setGridSize(value)}
-                        className="cursor-pointer"
-                    />
-                </div>
+
 
                 <div className="h-4 w-[1px] bg-border" />
 
                 {syncStats && (
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        <div className="flex items-center gap-2">
-                            {isSyncing ? (
-                                <Loader2 className="h-3 w-3 animate-spin text-primary" />
-                            ) : (
-                                <div className="h-2 w-2 rounded-full bg-green-500" />
-                            )}
-                            <span>{isSyncing ? 'Syncing...' : 'Ready'}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <span>{syncStats.processedFiles} / {syncStats.totalFiles}</span>
-                            {isSyncing && (
-                                <div className="w-16 h-1 bg-secondary rounded-full overflow-hidden">
-                                    <div className="h-full bg-primary transition-all duration-300" style={{ width: `${progress}%` }} />
+                    <HoverCard openDelay={200}>
+                        <HoverCardTrigger asChild>
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground cursor-help">
+                                <div className="flex items-center gap-2">
+                                    {isSyncing ? (
+                                        <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                                    ) : (
+                                        <div className="h-2 w-2 rounded-full bg-green-500" />
+                                    )}
+                                    <span>{isSyncing ? 'Syncing...' : 'Ready'}</span>
                                 </div>
-                            )}
-                        </div>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-5 w-5"
-                            onClick={triggerResync}
-                            disabled={isSyncing}
-                            title="Resync"
-                        >
-                            <RefreshCw className={cn("h-3 w-3", isSyncing && "animate-spin")} />
-                        </Button>
-                    </div>
+                                <div className="flex items-center gap-2">
+                                    <span>{syncStats.processedFiles} / {syncStats.totalFiles}</span>
+                                    {isSyncing && (
+                                        <div className="w-16 h-1 bg-secondary rounded-full overflow-hidden">
+                                            <div className="h-full bg-primary transition-all duration-300" style={{ width: `${progress}%` }} />
+                                        </div>
+                                    )}
+                                </div>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-5 w-5"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        triggerResync();
+                                    }}
+                                    disabled={isSyncing}
+                                    title="Resync"
+                                >
+                                    <RefreshCw className={cn("h-3 w-3", isSyncing && "animate-spin")} />
+                                </Button>
+                            </div>
+                        </HoverCardTrigger>
+                        <HoverCardContent className="w-80 p-0" align="end">
+                            <SyncStatus />
+                        </HoverCardContent>
+                    </HoverCard>
                 )}
 
                 <div className="h-4 w-[1px] bg-border" />

@@ -42,7 +42,7 @@ export const SyncStatusModal: React.FC<SyncStatusModalProps> = ({ isOpen, onClos
                         <div className="p-4 rounded-lg bg-muted/30 border border-border">
                             <div className="text-sm text-muted-foreground mb-1">Last Sync</div>
                             <div className="text-lg font-semibold">
-                                {formatDistanceToNow(syncStats.lastSync, { addSuffix: true })}
+                                {syncStats.lastSync ? formatDistanceToNow(new Date(syncStats.lastSync), { addSuffix: true }) : 'Never'}
                             </div>
                         </div>
 
@@ -129,7 +129,7 @@ export const SyncStatusModal: React.FC<SyncStatusModalProps> = ({ isOpen, onClos
                                         </div>
                                         <div className="text-xs text-red-500">{error.error}</div>
                                         <div className="text-[10px] text-muted-foreground mt-1">
-                                            {formatDistanceToNow(error.timestamp, { addSuffix: true })}
+                                            {formatDistanceToNow(new Date(error.timestamp), { addSuffix: true })}
                                         </div>
                                     </div>
                                 ))}

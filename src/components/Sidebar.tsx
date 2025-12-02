@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import { useStore } from '../store';
-import { Folder, FolderOpen, Star, Layers, ChevronDown, ChevronRight, ChevronLeft, Plus, Tag } from 'lucide-react';
+import { Folder, FolderOpen, Star, Layers, ChevronDown, ChevronRight, ChevronLeft, Plus, Tag, AlertCircle, CheckCircle } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Button } from './ui/button';
 import { CreateTagDialog } from './CreateTagDialog';
+import { ASSET_STATUSES } from '../config/constants';
 
 interface TreeNode {
     name: string;
@@ -22,6 +23,7 @@ export const Sidebar: React.FC = () => {
     const setCurrentPath = useStore(state => state.setCurrentPath);
     const filterConfig = useStore(state => state.filterConfig);
     const setFilterConfig = useStore(state => state.setFilterConfig);
+    const tags = useStore(state => state.tags);
 
     // Build folder tree from assets
     const folderTree = useMemo(() => {
@@ -231,26 +233,92 @@ export const Sidebar: React.FC = () => {
                             <Plus className="h-3 w-3" />
                         </Button>
                     </div>
+                    <div className="px-4 space-y-1 mb-6">
+                        {tags.length === 0 ? (
+                            <div className="text-xs text-muted-foreground">No tags found</div>
+                        ) : (
+                            tags.map(tag => (
+                                <Button
+                                    key={tag.id}
+                                    variant="ghost"
+                                    size="sm"
+                                    className={cn(
+                                        "w-full justify-start gap-2 h-7",
+                                        filterConfig.tagId === tag.id && "bg-accent"
+                                    )}
+                                    onClick={() => {
+                                        setFilterConfig({
+                                            tagId: filterConfig.tagId === tag.id ? null : tag.id
+                                        });
+                                    }}
+                                >
+                                    <Tag className="h-3 w-3" style={{ color: tag.color || 'currentColor' }} />
+                                    <span className="flex-1 text-left text-xs">{tag.name}</span>
+                                </Button>
+                            ))
+                        )}
+                    </div>
+
+                    {/* Status Filters - Workflow Features */}
+                    <h3 className="px-4 font-semibold text-sm tracking-tight text-muted-foreground mb-2">Review Status</h3>
                     <div className="px-4 space-y-1">
-                        {useStore(state => state.tags).map(tag => (
-                            <Button
-                                key={tag.id}
-                                variant="ghost"
-                                size="sm"
-                                className={cn(
-                                    "w-full justify-start gap-2 h-7",
-                                    filterConfig.tagId === tag.id && "bg-accent"
-                                )}
-                                onClick={() => {
-                                    setFilterConfig({
-                                        tagId: filterConfig.tagId === tag.id ? null : tag.id
-                                    });
-                                }}
-                            >
-                                <Tag className="h-3 w-3" style={{ color: tag.color || 'currentColor' }} />
-                                <span className="flex-1 text-left text-xs">{tag.name}</span>
-                            </Button>
-                        ))}
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className={cn(
+                                "w-full justify-start gap-2 h-7",
+                                filterConfig.status === 'review_requested' && "bg-accent"
+                            )}
+                            onClick={() => {
+                                setFilterConfig({
+                                    status: filterConfig.status === 'review_requested' ? undefined : 'review_requested'
+                                });
+                            }}
+                        >
+                            <AlertCircle className="h-3 w-3 text-yellow-500" />
+                            <span className="flex-1 text-left text-xs">Review Requested</span>
+                            <span className="text-[10px] text-muted-foreground">
+                                {assets.filter(a => a.status === 'review_requested').length}
+                            </span>
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className={cn(
+                                "w-full justify-start gap-2 h-7",
+                                filterConfig.status === 'pending' && "bg-accent"
+                            )}
+                            onClick={() => {
+                                setFilterConfig({
+                                    status: filterConfig.status === 'pending' ? undefined : 'pending'
+                                });
+                            }}
+                        >
+                            <div className="w-3 h-3 rounded-full bg-orange-500" />
+                            <span className="flex-1 text-left text-xs">Pending Approval</span>
+                            <span className="text-[10px] text-muted-foreground">
+                                {assets.filter(a => a.status === 'pending').length}
+                            </span>
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className={cn(
+                                "w-full justify-start gap-2 h-7",
+                                filterConfig.status === 'approved' && "bg-accent"
+                            )}
+                            onClick={() => {
+                                setFilterConfig({
+                                    status: filterConfig.status === 'approved' ? undefined : 'approved'
+                                });
+                            }}
+                        >
+                            <CheckCircle className="h-3 w-3 text-green-500" />
+                            <span className="flex-1 text-left text-xs">Approved</span>
+                            <span className="text-[10px] text-muted-foreground">
+                                {assets.filter(a => a.status === 'approved').length}
+                            </span>
+                        </Button>
                     </div>
                 </div>
             </div>
