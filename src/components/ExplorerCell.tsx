@@ -8,6 +8,8 @@ interface ExplorerCellProps {
 }
 
 export const ExplorerCell: React.FC<ExplorerCellProps> = ({ asset, setViewingAssetId }) => {
+    if (!asset) return null;
+
     return (
         <div onDoubleClick={() => setViewingAssetId(asset.id)}>
             <AssetCard asset={asset} />
