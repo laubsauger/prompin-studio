@@ -10,7 +10,6 @@ import { BulkActionsBar } from './BulkActionsBar';
 import { SettingsModal } from './SettingsModal';
 import { ExplorerCell } from './ExplorerCell';
 
-const MIN_COLUMN_WIDTH = 300;
 const GAP = 16;
 
 export const Explorer: React.FC = () => {
@@ -20,6 +19,7 @@ export const Explorer: React.FC = () => {
     const setViewingAssetId = useStore(state => state.setViewingAssetId);
     const filterConfig = useStore(state => state.filterConfig);
     const sortConfig = useStore(state => state.sortConfig);
+    const gridSize = useSettingsStore(state => state.gridSize);
 
     const { isSettingsOpen, setSettingsOpen } = useSettingsStore();
 
@@ -52,6 +52,11 @@ export const Explorer: React.FC = () => {
         // 3. Filter by Type
         if (filterConfig.type && filterConfig.type !== 'all') {
             result = result.filter(a => a.type === filterConfig.type);
+        }
+
+        // 4. Filter by Tag
+        if (filterConfig.tagId) {
+            result = result.filter(a => a.tags?.some(t => t.id === filterConfig.tagId));
         }
 
         // 3. Sort
@@ -90,7 +95,7 @@ export const Explorer: React.FC = () => {
                                     style={{
                                         ...(props as any).style,
                                         display: 'grid',
-                                        gridTemplateColumns: `repeat(auto-fill, minmax(${MIN_COLUMN_WIDTH}px, 1fr))`,
+                                        gridTemplateColumns: `repeat(auto-fill, minmax(${gridSize}px, 1fr))`,
                                         gap: `${GAP}px`,
                                         paddingBottom: '20px'
                                     }}

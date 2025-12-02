@@ -1,4 +1,4 @@
-export type AssetStatus = 'unsorted' | 'review_requested' | 'pending' | 'approved' | 'archived' | 'offline';
+export type AssetStatus = 'unsorted' | 'review_requested' | 'pending' | 'approved' | 'archived' | 'offline' | 'tagged';
 
 export interface Asset {
     id: string;
@@ -9,6 +9,7 @@ export interface Asset {
     updatedAt: number;
     metadata: AssetMetadata;
     thumbnailPath?: string;
+    tags?: { id: string; name: string; color?: string }[];
 }
 
 export interface AssetMetadata {
@@ -59,4 +60,8 @@ export interface SyncStats {
     processedFiles: number;
     status: 'idle' | 'scanning' | 'syncing';
     lastSync: number;
+    thumbnailsGenerated?: number;
+    thumbnailsFailed?: number;
+    errors?: Array<{ file: string; error: string; timestamp: number }>;
+    filesByType?: { images: number; videos: number; other: number };
 }

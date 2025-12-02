@@ -202,6 +202,9 @@ app.whenReady().then(() => {
     const thumbnailsPath = path.join(process.env.APP_ROOT || app.getPath('userData'), 'thumbnails');
     const filePath = path.join(thumbnailsPath, cleanFilename);
 
+    console.log('[Thumbnail Protocol] Requested:', cleanFilename);
+    console.log('[Thumbnail Protocol] Full path:', filePath);
+
     const fileUrl = pathToFileURL(filePath).toString();
     return net.fetch(fileUrl);
   });
@@ -258,4 +261,29 @@ ipcMain.handle('get-folder-colors', async () => {
 
 ipcMain.handle('set-folder-color', async (event, path, color) => {
   return indexerService.setFolderColor(path, color);
+});
+
+// Tag IPC Handlers
+ipcMain.handle('get-tags', async () => {
+  return indexerService.getTags();
+});
+
+ipcMain.handle('create-tag', async (event, name, color) => {
+  return indexerService.createTag(name, color);
+});
+
+ipcMain.handle('delete-tag', async (event, id) => {
+  return indexerService.deleteTag(id);
+});
+
+ipcMain.handle('add-tag-to-asset', async (event, assetId, tagId) => {
+  return indexerService.addTagToAsset(assetId, tagId);
+});
+
+ipcMain.handle('remove-tag-from-asset', async (event, assetId, tagId) => {
+  return indexerService.removeTagFromAsset(assetId, tagId);
+});
+
+ipcMain.handle('get-asset-tags', async (event, assetId) => {
+  return indexerService.getAssetTags(assetId);
 });

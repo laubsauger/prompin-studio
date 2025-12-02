@@ -4,10 +4,11 @@ import { cn } from '../lib/utils';
 import { useStore } from '../store';
 import { useSettingsStore } from '../store/settings';
 import { Button } from './ui/button';
+import { Slider } from './ui/slider';
 
 export const TitleBar: React.FC = () => {
     const { setRootPath, syncStats, fetchSyncStats, triggerResync } = useStore();
-    const { setSettingsOpen, rootFolder } = useSettingsStore();
+    const { setSettingsOpen, rootFolder, gridSize, setGridSize } = useSettingsStore();
 
     React.useEffect(() => {
         fetchSyncStats();
@@ -33,6 +34,20 @@ export const TitleBar: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-4" style={{ WebkitAppRegion: 'no-drag' } as any}>
+                {/* Grid Size Slider */}
+                <div className="flex items-center gap-2 w-32">
+                    <Slider
+                        value={[gridSize]}
+                        min={100}
+                        max={600}
+                        step={10}
+                        onValueChange={([value]) => setGridSize(value)}
+                        className="cursor-pointer"
+                    />
+                </div>
+
+                <div className="h-4 w-[1px] bg-border" />
+
                 {syncStats && (
                     <div className="flex items-center gap-3 text-xs text-muted-foreground">
                         <div className="flex items-center gap-2">

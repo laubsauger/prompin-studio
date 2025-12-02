@@ -18,8 +18,12 @@ Generative AI Studio is a high-performance Electron-based media workflow applica
 - `npm run build:electron` - Compile Electron main process TypeScript only
 
 ### Testing
-- `npm test` - Run all Vitest tests (with watch mode in development)
+- `npm test` - Run all Vitest tests (watch mode by default)
+- `npm test -- --run` - Run tests once without watch mode
+- `npm test -- path/to/test.test.ts` - Run specific test file
 - Tests use jsdom environment and are set up in `src/test/setup.ts`
+- Component tests: Mock Zustand store via `vi.mock('../store')`
+- Electron tests: Mock `db.js` module with in-memory Map implementation
 
 ### Linting
 - `npm run lint` - Run ESLint

@@ -39,8 +39,9 @@ interface AppState {
     currentPath: string | null;
 
     sortConfig: { key: 'createdAt' | 'updatedAt' | 'path'; direction: 'asc' | 'desc' };
-    filterConfig: { likedOnly: boolean; type: 'all' | 'image' | 'video' };
+    filterConfig: { likedOnly: boolean; type: 'all' | 'image' | 'video'; tagId?: string | null };
     folderColors: Record<string, string>;
+    tags: { id: string; name: string; color?: string }[];
 
     // Ingestion State
     ingestion: {
@@ -54,6 +55,13 @@ interface AppState {
     setFilterConfig: (config: Partial<AppState['filterConfig']>) => void;
     setFolderColor: (path: string, color: string) => void;
     toggleLike: (id: string) => Promise<void>;
+
+    // Tag Actions
+    loadTags: () => Promise<void>;
+    createTag: (name: string, color?: string) => Promise<void>;
+    deleteTag: (id: string) => Promise<void>;
+    addTagToAsset: (assetId: string, tagId: string) => Promise<void>;
+    removeTagFromAsset: (assetId: string, tagId: string) => Promise<void>;
 
     // Ingestion Actions
     startIngestion: (files: File[]) => void;
@@ -93,6 +101,7 @@ export const useStore = create<AppState>((set, get) => ({
     sortConfig: { key: 'createdAt', direction: 'desc' },
     filterConfig: { likedOnly: false, type: 'all' },
     folderColors: {},
+    tags: [],
 
     ingestion: {
         isOpen: false,
@@ -112,6 +121,31 @@ export const useStore = create<AppState>((set, get) => ({
         await getIpcRenderer().invoke('set-folder-color', path, color);
     },
 
+    // Tag Actions
+    loadTags: async () => {
+        const tags = await getIpcRenderer().invoke('get-tags');
+        set({ tags });
+    },
+    createTag: async (name, color) => {
+        await getIpcRenderer().invoke('create-tag', name, color);
+        get().loadTags();
+    },
+    deleteTag: async (id) => {
+        await getIpcRenderer().invoke('delete-tag', id);
+        get().loadTags();
+    },
+    addTagToAsset: async (assetId, tagId) => {
+        await getIpcRenderer().invoke('add-tag-to-asset', assetId, tagId);
+        // We might need to reload assets to get updated tags if they are part of asset metadata
+        // Or we can just reload tags if we want to update counts (if we had them)
+        // For now, let's reload assets to be safe if we decide to include tags in asset objects
+        get().loadAssets();
+    },
+    removeTagFromAsset: async (assetId, tagId) => {
+        await getIpcRenderer().invoke('remove-tag-from-asset', assetId, tagId);
+        get().loadAssets();
+    },
+
     loadFolderColors: async () => {
         const folderColors = await getIpcRenderer().invoke('get-folder-colors');
         set({ folderColors });
@@ -124,6 +158,7 @@ export const useStore = create<AppState>((set, get) => ({
             // Reload assets after setting path
             get().loadAssets();
             get().loadFolderColors();
+            get().loadTags();
         }
         return path;
     },
@@ -171,6 +206,12 @@ export const useStore = create<AppState>((set, get) => ({
 
     loadAssets: async () => {
         const assets = await getIpcRenderer().invoke('get-assets');
+        // We might want to fetch tags for each asset here or separately.
+        // For now, let's assume get-assets returns everything we need or we fetch tags on demand.
+        // Actually, IndexerService.getAssets() just returns the assets table.
+        // We should probably modify getAssets to include tags, or fetch them here.
+        // Let's modify IndexerService.getAssets to include tags in metadata or a separate field.
+        // For now, let's just set assets.
         set({ assets });
     },
 

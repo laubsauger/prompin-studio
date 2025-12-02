@@ -35,6 +35,13 @@ function App() {
       // Since I didn't add a separate action for that, let's just invoke IPC directly here for now
       // or add another action. Direct IPC is fine for initialization.
       window.ipcRenderer?.invoke('set-root-path', rootFolder);
+
+      // Load initial data
+      import('./store').then(({ useStore }) => {
+        useStore.getState().loadFolderColors();
+        useStore.getState().loadTags();
+        useStore.getState().loadAssets();
+      });
     }
   }, [rootFolder]);
 

@@ -25,6 +25,20 @@ db.exec(`
     color TEXT,
     metadata JSON
   );
+
+  CREATE TABLE IF NOT EXISTS tags (
+    id TEXT PRIMARY KEY,
+    name TEXT UNIQUE NOT NULL,
+    color TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS asset_tags (
+    assetId TEXT NOT NULL,
+    tagId TEXT NOT NULL,
+    PRIMARY KEY (assetId, tagId),
+    FOREIGN KEY (assetId) REFERENCES assets(id) ON DELETE CASCADE,
+    FOREIGN KEY (tagId) REFERENCES tags(id) ON DELETE CASCADE
+  );
 `);
 
 // Migration for existing databases

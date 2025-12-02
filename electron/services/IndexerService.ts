@@ -22,7 +22,11 @@ export class IndexerService {
         totalFiles: 0,
         processedFiles: 0,
         status: 'idle',
-        lastSync: Date.now()
+        lastSync: Date.now(),
+        thumbnailsGenerated: 0,
+        thumbnailsFailed: 0,
+        errors: [],
+        filesByType: { images: 0, videos: 0, other: 0 }
     };
 
     constructor() {
@@ -45,6 +49,10 @@ export class IndexerService {
         this.stats.status = 'scanning';
         this.stats.totalFiles = 0;
         this.stats.processedFiles = 0;
+        this.stats.thumbnailsGenerated = 0;
+        this.stats.thumbnailsFailed = 0;
+        this.stats.errors = [];
+        this.stats.filesByType = { images: 0, videos: 0, other: 0 };
 
         this.watcher = watch(rootPath, {
             ignored: /(^|[\/\\])\../, // ignore dotfiles
@@ -142,14 +150,28 @@ export class IndexerService {
         try {
             const stats = await fs.stat(filePath);
             const id = uuidv4();
+            const mediaType = this.getMediaType(filePath);
+
+            // Track file by type
+            if (mediaType === 'image') this.stats.filesByType!.images++;
+            else if (mediaType === 'video') this.stats.filesByType!.videos++;
+            else this.stats.filesByType!.other++;
 
             // Generate thumbnail for videos
-            const thumbnailPath = await this.generateThumbnail(filePath, id);
+            let thumbnailPath: string | undefined;
+            if (mediaType === 'video') {
+                thumbnailPath = await this.generateThumbnail(filePath, id);
+                if (thumbnailPath) {
+                    this.stats.thumbnailsGenerated = (this.stats.thumbnailsGenerated || 0) + 1;
+                } else {
+                    this.stats.thumbnailsFailed = (this.stats.thumbnailsFailed || 0) + 1;
+                }
+            }
 
             const asset: Asset = {
                 id,
                 path: relativePath,
-                type: this.getMediaType(filePath),
+                type: mediaType,
                 status: 'unsorted',
                 createdAt: stats.birthtimeMs,
                 updatedAt: stats.mtimeMs,
@@ -161,6 +183,12 @@ export class IndexerService {
             this.stats.processedFiles++;
         } catch (err) {
             console.error(`Error processing file ${filePath}:`, err);
+            this.stats.errors = this.stats.errors || [];
+            this.stats.errors.push({
+                file: relativePath,
+                error: err instanceof Error ? err.message : String(err),
+                timestamp: Date.now()
+            });
         }
     }
 
@@ -188,9 +216,33 @@ export class IndexerService {
 
     public getAssets(): Asset[] {
         const stmt = db.prepare('SELECT * FROM assets ORDER BY createdAt DESC');
-        return stmt.all().map((row: any) => ({
+        const assets = stmt.all().map((row: any) => ({
             ...row,
             metadata: JSON.parse(row.metadata)
+        }));
+
+        // Fetch tags for all assets
+        // Optimization: Fetch all asset_tags at once instead of N+1 queries
+        const tagsStmt = db.prepare(`
+            SELECT at.assetId, t.id, t.name, t.color 
+            FROM asset_tags at 
+            JOIN tags t ON at.tagId = t.id
+        `);
+        const allTags = tagsStmt.all() as { assetId: string; id: string; name: string; color: string }[];
+
+        // Group tags by assetId
+        const tagsByAsset: Record<string, any[]> = {};
+        for (const tag of allTags) {
+            if (!tagsByAsset[tag.assetId]) {
+                tagsByAsset[tag.assetId] = [];
+            }
+            tagsByAsset[tag.assetId].push({ id: tag.id, name: tag.name, color: tag.color });
+        }
+
+        // Attach tags to assets
+        return assets.map((asset: any) => ({
+            ...asset,
+            tags: tagsByAsset[asset.id] || []
         }));
     }
 
@@ -278,6 +330,41 @@ export class IndexerService {
             `);
             stmt.run(folderPath, color);
         }
+    }
+
+    // Tag Management
+    public getTags() {
+        return db.prepare('SELECT * FROM tags ORDER BY name ASC').all();
+    }
+
+    public createTag(name: string, color?: string) {
+        const id = uuidv4();
+        const stmt = db.prepare('INSERT INTO tags (id, name, color) VALUES (@id, @name, @color)');
+        stmt.run({ id, name, color: color || null });
+        return { id, name, color };
+    }
+
+    public deleteTag(id: string) {
+        db.prepare('DELETE FROM tags WHERE id = ?').run(id);
+    }
+
+    public addTagToAsset(assetId: string, tagId: string) {
+        const stmt = db.prepare('INSERT OR IGNORE INTO asset_tags (assetId, tagId) VALUES (?, ?)');
+        stmt.run(assetId, tagId);
+        this.updateAssetStatus(assetId, 'tagged'); // Optional: update status
+    }
+
+    public removeTagFromAsset(assetId: string, tagId: string) {
+        db.prepare('DELETE FROM asset_tags WHERE assetId = ? AND tagId = ?').run(assetId, tagId);
+    }
+
+    public getAssetTags(assetId: string) {
+        const stmt = db.prepare(`
+            SELECT t.* FROM tags t
+            JOIN asset_tags at ON t.id = at.tagId
+            WHERE at.assetId = ?
+        `);
+        return stmt.all(assetId);
     }
 }
 

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useStore } from '../store';
-import { Folder, FolderOpen, Star, Layers, ChevronDown, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Folder, FolderOpen, Star, Layers, ChevronDown, ChevronRight, ChevronLeft, Plus, Tag } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Button } from './ui/button';
 
@@ -213,7 +213,7 @@ export const Sidebar: React.FC = () => {
 
                 <div className="flex-1 overflow-y-auto py-4">
                     <h3 className="px-4 font-semibold text-sm tracking-tight text-muted-foreground mb-2">Folders</h3>
-                    <div className="space-y-0.5">
+                    <div className="space-y-0.5 mb-6">
                         {Object.values(folderTree.children).length === 0 ? (
                             <div className="px-4 text-xs text-muted-foreground">No folders found</div>
                         ) : (
@@ -221,6 +221,37 @@ export const Sidebar: React.FC = () => {
                                 .sort((a, b) => a.name.localeCompare(b.name))
                                 .map(child => renderTree(child))
                         )}
+                    </div>
+
+                    <div className="px-4 mb-2 flex items-center justify-between">
+                        <h3 className="font-semibold text-sm tracking-tight text-muted-foreground">Tags</h3>
+                        <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => {
+                            const name = prompt('New Tag Name:');
+                            if (name) useStore.getState().createTag(name);
+                        }}>
+                            <Plus className="h-3 w-3" />
+                        </Button>
+                    </div>
+                    <div className="px-4 space-y-1">
+                        {useStore(state => state.tags).map(tag => (
+                            <Button
+                                key={tag.id}
+                                variant="ghost"
+                                size="sm"
+                                className={cn(
+                                    "w-full justify-start gap-2 h-7",
+                                    filterConfig.tagId === tag.id && "bg-accent"
+                                )}
+                                onClick={() => {
+                                    setFilterConfig({
+                                        tagId: filterConfig.tagId === tag.id ? null : tag.id
+                                    });
+                                }}
+                            >
+                                <Tag className="h-3 w-3" style={{ color: tag.color || 'currentColor' }} />
+                                <span className="flex-1 text-left text-xs">{tag.name}</span>
+                            </Button>
+                        ))}
                     </div>
                 </div>
             </div>
