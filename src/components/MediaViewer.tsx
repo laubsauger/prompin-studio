@@ -12,6 +12,8 @@ import { ASSET_STATUSES } from '../config/constants';
 import { cn } from '../lib/utils';
 import { CreateTagDialog } from './CreateTagDialog';
 import { MetadataEditor } from './MetadataEditor';
+import { StatusSelector } from './StatusSelector';
+import type { AssetStatus } from '../types';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -78,23 +80,8 @@ export const MediaViewer: React.FC = () => {
 
     if (!asset) return null;
 
-    const statusConfig = ASSET_STATUSES[asset.status] || ASSET_STATUSES.unsorted;
     const fileName = asset.path.split('/').pop() || asset.path;
     const folderPath = asset.path.substring(0, asset.path.lastIndexOf('/')) || '/';
-
-    // Extract color name from bg-color-500 pattern for new badge style
-    const colorName = statusConfig.color.match(/bg-(\w+)-/)?.[1] || 'gray';
-    const getBadgeColors = (color: string) => {
-        const colorMap: Record<string, string> = {
-            'gray': 'border-gray-400 text-gray-600 bg-gray-50',
-            'yellow': 'border-yellow-400 text-yellow-700 bg-yellow-50',
-            'orange': 'border-orange-400 text-orange-700 bg-orange-50',
-            'green': 'border-green-400 text-green-700 bg-green-50',
-            'slate': 'border-slate-400 text-slate-700 bg-slate-50',
-            'red': 'border-red-400 text-red-700 bg-red-50',
-        };
-        return colorMap[color] || colorMap.gray;
-    };
 
     const handleRevealInFinder = async () => {
         const ipc = (window as any).ipcRenderer;
@@ -117,12 +104,11 @@ export const MediaViewer: React.FC = () => {
                         <div className="flex flex-col min-w-0 flex-1">
                             <div className="flex items-center gap-2">
                                 <span className="font-medium text-sm truncate" title={fileName}>{fileName}</span>
-                                <Badge
-                                    variant="outline"
-                                    className={cn("text-[10px] h-5 px-1.5 font-medium", getBadgeColors(colorName))}
-                                >
-                                    {statusConfig.label}
-                                </Badge>
+                                <StatusSelector
+                                    currentStatus={asset.status}
+                                    onStatusChange={(status: AssetStatus) => updateAssetStatus(asset.id, status)}
+                                    compact
+                                />
                             </div>
                             <span className="font-mono text-xs text-muted-foreground truncate" title={folderPath}>
                                 {folderPath}
@@ -140,27 +126,6 @@ export const MediaViewer: React.FC = () => {
                             >
                                 <Heart className={cn("h-4 w-4", asset.metadata.liked && "fill-current")} />
                             </Button>
-
-                            {/* Status Dropdown */}
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" title="Change Status">
-                                        <Edit className="h-4 w-4" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent>
-                                    {Object.entries(ASSET_STATUSES).map(([key, config]) => (
-                                        <DropdownMenuItem
-                                            key={key}
-                                            onClick={() => updateAssetStatus(asset.id, key as any)}
-                                            className={asset.status === key ? 'bg-accent' : ''}
-                                        >
-                                            <div className={cn("w-2 h-2 rounded-full mr-2", config.color)} />
-                                            {config.label}
-                                        </DropdownMenuItem>
-                                    ))}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
 
                             {/* Tags Dropdown */}
                             <DropdownMenu>
@@ -308,10 +273,14 @@ export const MediaViewer: React.FC = () => {
                     {asset.type === 'image' ? (
                         <div className="w-full h-full relative">
                             <TransformWrapper
+                                ref={(ref) => {
+                                    // We can't assign to a ref object directly if it's not a mutable ref object
+                                    // But we can use a callback ref to trigger logic
+                                }}
                                 minScale={0.1}
                                 maxScale={10}
                                 initialScale={1}
-                                centerOnInit={false}
+                                centerOnInit={true}
                                 limitToBounds={false}
                                 panning={{
                                     disabled: false,
@@ -323,60 +292,51 @@ export const MediaViewer: React.FC = () => {
                                 doubleClick={{
                                     mode: 'reset'
                                 }}
-                                alignmentAnimation={{
-                                    velocityAlignmentTime: 200,
-                                }}
-                                onInit={(ref) => {
-                                    // Ensure image fits in viewport initially
-                                    setTimeout(() => {
-                                        const container = ref.instance.wrapperComponent;
-                                        const img = container?.querySelector('img');
-                                        if (img && container) {
-                                            const containerRect = container.getBoundingClientRect();
-                                            const imgWidth = img.naturalWidth;
-                                            const imgHeight = img.naturalHeight;
-
-                                            if (imgWidth && imgHeight) {
-                                                const scaleX = containerRect.width / imgWidth;
-                                                const scaleY = containerRect.height / imgHeight;
-                                                const scale = Math.min(scaleX, scaleY, 1) * 0.9; // 90% to leave some padding
-
-                                                ref.centerView(scale, 0);
-                                            }
-                                        }
-                                    }, 100);
-                                }}
                             >
-                                <TransformComponent
-                                    wrapperStyle={{
-                                        width: '100%',
-                                        height: '100%',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center'
-                                    }}
-                                >
-                                    <img
-                                        src={`media://${asset.path}`}
-                                        alt={asset.path}
-                                        style={{
-                                            display: 'block',
-                                            cursor: 'grab',
-                                            maxWidth: 'none',
-                                            maxHeight: 'none',
+                                {(utils) => (
+                                    <TransformComponent
+                                        wrapperStyle={{
+                                            width: '100%',
+                                            height: '100%',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center'
                                         }}
-                                        draggable={false}
-                                        onLoad={(e) => {
-                                            // Trigger proper scaling once image is loaded
-                                            const img = e.currentTarget;
-                                            const container = img.closest('.react-transform-wrapper');
-                                            if (container) {
-                                                const event = new Event('resize');
-                                                window.dispatchEvent(event);
-                                            }
-                                        }}
-                                    />
-                                </TransformComponent>
+                                    >
+                                        <img
+                                            src={`media://${asset.path}`}
+                                            alt={asset.path}
+                                            style={{
+                                                display: 'block',
+                                                cursor: 'grab',
+                                                maxWidth: 'none',
+                                                maxHeight: 'none',
+                                            }}
+                                            draggable={false}
+                                            onLoad={(e) => {
+                                                const img = e.currentTarget;
+                                                const wrapper = document.querySelector('.react-transform-component') as HTMLElement;
+
+                                                if (wrapper && img.naturalWidth && img.naturalHeight) {
+                                                    const wrapperRect = wrapper.getBoundingClientRect();
+                                                    const scaleX = wrapperRect.width / img.naturalWidth;
+                                                    const scaleY = wrapperRect.height / img.naturalHeight;
+                                                    const scale = Math.min(scaleX, scaleY, 1) * 0.9; // 90% to leave some padding
+
+                                                    // Reset first to ensure clean state
+                                                    utils.resetTransform();
+
+                                                    // Then center with calculated scale
+                                                    // We need a slight delay for the reset to apply? 
+                                                    // Actually centerView handles it.
+                                                    setTimeout(() => {
+                                                        utils.centerView(scale, 0);
+                                                    }, 50);
+                                                }
+                                            }}
+                                        />
+                                    </TransformComponent>
+                                )}
                             </TransformWrapper>
                         </div>
                     ) : (
