@@ -1,5 +1,5 @@
 import type { Asset } from '../types';
-import { v4 as uuidv4 } from 'uuid';
+
 
 export interface UploadMetadata {
     project?: string;
@@ -12,38 +12,19 @@ export interface UploadMetadata {
 
 export const uploadService = {
     uploadFile: async (file: File, metadata: UploadMetadata): Promise<Asset> => {
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        // In Electron, File object has a path property containing the absolute path
+        const sourcePath = (file as any).path;
 
-        // Determine path
-        let uploadPath = '';
-        if (metadata.targetPath) {
-            uploadPath = `${metadata.targetPath}/${file.name}`;
-        } else {
-            uploadPath = `uploads/${metadata.project || 'default'}/${file.name}`;
+        if (!sourcePath) {
+            throw new Error('File path not found. Are you running in Electron?');
         }
 
-        // Mock asset creation
-        // In a real app, this would be returned by the backend after upload
-        const newAsset: Asset = {
-            id: uuidv4(),
-            path: uploadPath,
-            type: file.type.startsWith('video') ? 'video' : 'image',
-            status: 'pending',
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-            metadata: {
-                width: 1920, // Mock dimensions
-                height: 1080,
-                project: metadata.project,
-                scene: metadata.scene,
-                description: metadata.description,
-                author: metadata.author,
-                // In a real app, we might store the Drive ID or URL here
-                // driveId: 'mock-drive-id',
-            }
-        };
+        // Call main process to ingest the file
+        // We use window.ipcRenderer directly as it's exposed in preload
+        if (!window.ipcRenderer) {
+            throw new Error('ipcRenderer not found');
+        }
 
-        return newAsset;
+        return await window.ipcRenderer.invoke('ingest-file', sourcePath, metadata);
     }
 };

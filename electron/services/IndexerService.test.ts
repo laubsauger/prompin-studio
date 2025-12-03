@@ -1,11 +1,19 @@
+// @vitest-environment node
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { IndexerService } from './IndexerService.js';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
 
+// Mock electron
+vi.mock('electron', () => ({
+    app: {
+        getPath: vi.fn(() => '/tmp/gen-studio-test'),
+    },
+}));
+
 // Mock the DB module with a custom in-memory implementation
-vi.mock('../db.js', () => {
+vi.mock('../db', () => {
     const assets = new Map<string, any>();
 
     const db = {
@@ -31,8 +39,19 @@ vi.mock('../db.js', () => {
                 };
             }
             if (sql.includes('SELECT * FROM assets')) {
+                if (sql.includes('WHERE id = ?')) {
+                    return {
+                        get: (id: string) => {
+                            const asset = assets.get(id);
+                            return asset ? { ...asset, metadata: JSON.stringify(asset.metadata) } : undefined;
+                        }
+                    };
+                }
                 return {
-                    all: () => Array.from(assets.values())
+                    all: () => Array.from(assets.values()).map(asset => ({
+                        ...asset,
+                        metadata: JSON.stringify(asset.metadata)
+                    }))
                 };
             }
             if (sql.includes('UPDATE assets SET status')) {
@@ -59,7 +78,7 @@ vi.mock('../db.js', () => {
                 return {
                     get: (id: string) => {
                         const asset = assets.get(id);
-                        return asset ? { metadata: asset.metadata } : undefined;
+                        return asset ? { metadata: JSON.stringify(asset.metadata) } : undefined;
                     }
                 }
             }
@@ -151,5 +170,26 @@ describe('IndexerService Integration', () => {
         const updatedAssets = service.getAssets();
         expect(updatedAssets[0].metadata.project).toBe('Project X');
         expect(updatedAssets[0].metadata.scene).toBe('Scene 1');
+    });
+
+    it('should ingest files', async () => {
+        const sourceFile = path.join(tempDir, 'source.jpg');
+        await fs.writeFile(sourceFile, 'test content');
+        await service.setRootPath(tempDir);
+
+        const asset = await service.ingestFile(sourceFile, { project: 'test-project' });
+
+        expect(asset).toBeDefined();
+        // Path separator handling for cross-platform
+        const normalizedPath = asset.path.replace(/\\/g, '/');
+        expect(normalizedPath).toContain('uploads/test-project/source.jpg');
+
+        const destPath = path.join(tempDir, asset.path);
+        const exists = await fs.access(destPath).then(() => true).catch(() => false);
+        expect(exists).toBe(true);
+
+        // Verify it's in DB
+        const assets = service.getAssets();
+        expect(assets.find((a: any) => a.id === asset.id)).toBeDefined();
     });
 });

@@ -12,32 +12,53 @@ describe('FilterBar', () => {
     const mockSetFilter = vi.fn();
 
     beforeEach(() => {
-        (useStore as any).mockReturnValue({
+        const state = {
             filter: 'all',
             setFilter: mockSetFilter,
-        });
+            filterConfig: { type: 'all', likedOnly: false },
+            setFilterConfig: vi.fn(),
+            tags: [],
+            scratchPads: [],
+            sortConfig: { key: 'createdAt', direction: 'desc' },
+            setSortConfig: vi.fn(),
+            viewMode: 'grid',
+            setViewMode: vi.fn(),
+        };
+        (useStore as any).mockImplementation((selector: any) => selector ? selector(state) : state);
     });
 
     it('renders correctly', () => {
-        render(<FilterBar />);
-        expect(screen.getByRole('combobox')).toBeInTheDocument();
+        render(<FilterBar thumbnailSize={150} onThumbnailSizeChange={vi.fn()} />);
+        expect(screen.getAllByRole('combobox').length).toBeGreaterThan(0);
         expect(screen.getByText('All Statuses')).toBeInTheDocument();
     });
 
     it('calls setFilter on change', () => {
-        render(<FilterBar />);
-        const select = screen.getByRole('combobox');
-        fireEvent.change(select, { target: { value: 'approved' } });
+        render(<FilterBar thumbnailSize={150} onThumbnailSizeChange={vi.fn()} />);
+        const selects = screen.getAllByRole('combobox');
+        // Status select is the 3rd one
+        const statusSelect = selects[2];
+        fireEvent.change(statusSelect, { target: { value: 'approved' } });
         expect(mockSetFilter).toHaveBeenCalledWith('approved');
     });
 
     it('displays current filter value', () => {
-        (useStore as any).mockReturnValue({
+        const state = {
             filter: 'approved',
             setFilter: mockSetFilter,
-        });
-        render(<FilterBar />);
-        const select = screen.getByRole('combobox') as HTMLSelectElement;
-        expect(select.value).toBe('approved');
+            filterConfig: { type: 'all', likedOnly: false },
+            setFilterConfig: vi.fn(),
+            tags: [],
+            scratchPads: [],
+            sortConfig: { key: 'createdAt', direction: 'desc' },
+            setSortConfig: vi.fn(),
+            viewMode: 'grid',
+            setViewMode: vi.fn(),
+        };
+        (useStore as any).mockImplementation((selector: any) => selector ? selector(state) : state);
+        render(<FilterBar thumbnailSize={150} onThumbnailSizeChange={vi.fn()} />);
+        const selects = screen.getAllByRole('combobox') as HTMLSelectElement[];
+        const statusSelect = selects[2];
+        expect(statusSelect.value).toBe('approved');
     });
 });

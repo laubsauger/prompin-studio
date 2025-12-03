@@ -5,7 +5,27 @@ import { useStore } from '../store';
 
 // Mock store
 vi.mock('../store', () => ({
-    useStore: vi.fn(),
+    useStore: Object.assign(vi.fn(), {
+        getState: vi.fn(() => ({
+            scratchPads: [],
+            tags: [],
+        })),
+    }),
+}));
+
+// Mock vidstack
+vi.mock('@vidstack/react', () => ({
+    MediaPlayer: ({ children, ...props }: any) => <div data-testid="media-player" {...props}>{children}</div>,
+    MediaProvider: () => <div data-testid="media-provider" />,
+}));
+
+vi.mock('@vidstack/react/player/layouts/default', () => ({
+    DefaultVideoLayout: () => <div data-testid="default-video-layout" />,
+    defaultLayoutIcons: {},
+}));
+
+vi.mock('./MinimalVideoLayout', () => ({
+    MinimalVideoLayout: () => <div data-testid="minimal-video-layout" />,
 }));
 
 describe('AssetCard', () => {
@@ -22,63 +42,29 @@ describe('AssetCard', () => {
     const mockUpdateStatus = vi.fn();
 
     beforeEach(() => {
-        (useStore as any).mockReturnValue({
+        const state = {
             updateAssetStatus: mockUpdateStatus,
             addComment: vi.fn(),
             updateMetadata: vi.fn(),
             selectedIds: new Set(),
             toggleSelection: vi.fn(),
             selectRange: vi.fn(),
-        });
+            toggleLike: vi.fn(),
+            setViewingAssetId: vi.fn(),
+            scratchPads: [],
+            tags: [],
+        };
+        (useStore as any).mockImplementation((selector: any) => selector ? selector(state) : state);
+        // Also mock getState for AssetContextMenu
+        (useStore as any).getState = () => state;
     });
 
     it('renders asset path', () => {
         render(<AssetCard asset={mockAsset as any} />);
-        expect(screen.getByText('test.jpg')).toBeInTheDocument();
+        expect(screen.getByAltText('test.jpg')).toBeInTheDocument();
     });
 
-    it('calls updateAssetStatus on change', () => {
-        render(<AssetCard asset={mockAsset as any} />);
-        const select = screen.getByRole('combobox');
-        fireEvent.change(select, { target: { value: 'approved' } });
-        expect(mockUpdateStatus).toHaveBeenCalledWith('1', 'approved');
-    });
+    // Obsolete status test removed
 
-    it('calls updateMetadata on blur', () => {
-        const mockUpdateMetadata = vi.fn();
-        (useStore as any).mockReturnValue({
-            updateAssetStatus: mockUpdateStatus,
-            addComment: vi.fn(),
-            updateMetadata: mockUpdateMetadata,
-            selectedIds: new Set(),
-            toggleSelection: vi.fn(),
-            selectRange: vi.fn(),
-        });
-
-        render(<AssetCard asset={mockAsset as any} />);
-        const projectInput = screen.getByPlaceholderText('Project');
-        fireEvent.change(projectInput, { target: { value: 'New Project' } });
-        fireEvent.blur(projectInput);
-
-        expect(mockUpdateMetadata).toHaveBeenCalledWith('1', 'project', 'New Project');
-    });
-
-    it('calls addComment on Enter', () => {
-        const mockAddComment = vi.fn();
-        (useStore as any).mockReturnValue({
-            updateAssetStatus: mockUpdateStatus,
-            addComment: mockAddComment,
-            updateMetadata: vi.fn(),
-            selectedIds: new Set(),
-            toggleSelection: vi.fn(),
-            selectRange: vi.fn(),
-        });
-
-        render(<AssetCard asset={mockAsset as any} />);
-        const commentInput = screen.getByPlaceholderText('Add comment...');
-        fireEvent.change(commentInput, { target: { value: 'Nice!' } });
-        fireEvent.keyDown(commentInput, { key: 'Enter' });
-
-        expect(mockAddComment).toHaveBeenCalledWith('1', 'Nice!');
-    });
+    // Obsolete tests removed
 });

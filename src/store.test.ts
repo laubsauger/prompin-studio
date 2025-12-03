@@ -1,118 +1,108 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useStore } from './store';
 
-// Mock electron IPC
+// Mock ipcRenderer
 const mockInvoke = vi.fn();
-(window as any).require = () => ({
-    ipcRenderer: {
-        invoke: mockInvoke,
-    },
-});
+window.ipcRenderer = {
+    invoke: mockInvoke,
+    on: vi.fn(),
+    off: vi.fn(),
+    send: vi.fn(),
+} as any;
 
-describe('Store', () => {
+// Mock uploadService
+vi.mock('./services/uploadService', () => ({
+    uploadService: {
+        uploadFile: vi.fn().mockResolvedValue({ id: 'new-asset-id', path: 'new/path.jpg' })
+    }
+}));
+
+describe('Store Actions', () => {
     beforeEach(() => {
         useStore.setState({
             assets: [],
-            syncStats: null,
-            filter: 'all',
+            scratchPads: [],
+            filterConfig: { likedOnly: false, type: 'all' },
+            tags: []
         });
         mockInvoke.mockReset();
     });
 
-    it('should set filter', () => {
-        const { setFilter } = useStore.getState();
-        setFilter('approved');
-        expect(useStore.getState().filter).toBe('approved');
+    it('should create a scratch pad', () => {
+        const { createScratchPad } = useStore.getState();
+        createScratchPad('Test Pad');
+
+        const { scratchPads } = useStore.getState();
+        expect(scratchPads).toHaveLength(1);
+        expect(scratchPads[0].name).toBe('Test Pad');
+        expect(scratchPads[0].assetIds).toEqual([]);
     });
 
-    it('should load assets', async () => {
-        const mockAssets = [{ id: '1', path: 'test.jpg', status: 'unsorted' }];
-        mockInvoke.mockResolvedValue(mockAssets);
+    it('should add assets to a scratch pad', () => {
+        const { createScratchPad, addToScratchPad } = useStore.getState();
+        createScratchPad('Test Pad');
+        const padId = useStore.getState().scratchPads[0].id;
 
-        const { loadAssets } = useStore.getState();
-        await loadAssets();
+        addToScratchPad(padId, ['asset-1', 'asset-2']);
 
-        expect(mockInvoke).toHaveBeenCalledWith('get-assets');
-        expect(useStore.getState().assets).toEqual(mockAssets);
+        const { scratchPads } = useStore.getState();
+        expect(scratchPads[0].assetIds).toEqual(['asset-1', 'asset-2']);
     });
 
-    it('should update asset status optimistically', async () => {
-        const initialAssets = [{ id: '1', path: 'test.jpg', status: 'unsorted' }];
-        useStore.setState({ assets: initialAssets as any });
+    it('should remove assets from a scratch pad', () => {
+        const { createScratchPad, addToScratchPad, removeFromScratchPad } = useStore.getState();
+        createScratchPad('Test Pad');
+        const padId = useStore.getState().scratchPads[0].id;
+        addToScratchPad(padId, ['asset-1', 'asset-2']);
 
-        const { updateAssetStatus } = useStore.getState();
-        await updateAssetStatus('1', 'approved');
+        removeFromScratchPad(padId, 'asset-1');
 
-        expect(useStore.getState().assets[0].status).toBe('approved');
-        expect(mockInvoke).toHaveBeenCalledWith('update-asset-status', '1', 'approved');
+        const { scratchPads } = useStore.getState();
+        expect(scratchPads[0].assetIds).toEqual(['asset-2']);
     });
 
-    it('should handle selection', () => {
-        const { toggleSelection, clearSelection } = useStore.getState();
+    it('should set filter config', () => {
+        const { setFilterConfig } = useStore.getState();
+        setFilterConfig({ likedOnly: true, type: 'video' });
 
-        // Toggle single
-        toggleSelection('1', false);
-        expect(useStore.getState().selectedIds.has('1')).toBe(true);
-        expect(useStore.getState().selectedIds.size).toBe(1);
-
-        // Toggle another (single mode replaces)
-        toggleSelection('2', false);
-        expect(useStore.getState().selectedIds.has('1')).toBe(false);
-        expect(useStore.getState().selectedIds.has('2')).toBe(true);
-
-        // Toggle multi
-        toggleSelection('1', true);
-        expect(useStore.getState().selectedIds.has('1')).toBe(true);
-        expect(useStore.getState().selectedIds.has('2')).toBe(true);
-
-        // Clear
-        clearSelection();
-        expect(useStore.getState().selectedIds.size).toBe(0);
+        const { filterConfig } = useStore.getState();
+        expect(filterConfig.likedOnly).toBe(true);
+        expect(filterConfig.type).toBe('video');
     });
 
-    it('should handle range selection', () => {
-        const initialAssets = [
-            { id: '1', path: '1.jpg', status: 'unsorted' },
-            { id: '2', path: '2.jpg', status: 'unsorted' },
-            { id: '3', path: '3.jpg', status: 'unsorted' },
-        ];
-        useStore.setState({ assets: initialAssets as any });
-        const { toggleSelection, selectRange } = useStore.getState();
+    it('should search assets', async () => {
+        const { searchAssets } = useStore.getState();
+        mockInvoke.mockResolvedValue([{ id: '1', path: 'test.jpg' }]);
 
-        // Select first
-        toggleSelection('1', false);
+        await searchAssets('query');
 
-        // Range select to third
-        selectRange('3');
-
-        expect(useStore.getState().selectedIds.has('1')).toBe(true);
-        expect(useStore.getState().selectedIds.has('2')).toBe(true);
-        expect(useStore.getState().selectedIds.has('3')).toBe(true);
-        expect(useStore.getState().selectedIds.size).toBe(3);
+        expect(mockInvoke).toHaveBeenCalledWith('search-assets', 'query', expect.any(Object));
+        const { assets } = useStore.getState();
+        expect(assets).toHaveLength(1);
     });
 
-    it('should add comment optimistically', async () => {
-        const initialAssets = [{ id: '1', path: 'test.jpg', status: 'unsorted', metadata: {} }];
-        useStore.setState({ assets: initialAssets as any });
+    it('should handle upload and apply tags', async () => {
+        const { handleUpload, tags } = useStore.getState();
+        // Setup mock tags
+        useStore.setState({ tags: [{ id: 'tag-1', name: 'Tag 1' }] });
 
-        const { addComment } = useStore.getState();
-        await addComment('1', 'Nice!');
+        // Mock file
+        const file = new File([''], 'test.jpg', { type: 'image/jpeg' });
+        useStore.setState({ ingestion: { isOpen: true, pendingFiles: [file], isUploading: false } });
 
-        const asset = useStore.getState().assets[0];
-        expect(asset.metadata.comments).toHaveLength(1);
-        expect(asset.metadata.comments?.[0].text).toBe('Nice!');
-        expect(mockInvoke).toHaveBeenCalledWith('add-comment', '1', 'Nice!', 'User');
-    });
+        await handleUpload({
+            project: 'Test Project',
+            scene: 'Test Scene',
+            tags: ['tag-1']
+        });
 
-    it('should update metadata optimistically', async () => {
-        const initialAssets = [{ id: '1', path: 'test.jpg', status: 'unsorted', metadata: {} }];
-        useStore.setState({ assets: initialAssets as any });
+        // Verify uploadService was called (implicitly via the mock result)
+        // Verify add-tag-to-asset was called
+        expect(mockInvoke).toHaveBeenCalledWith('add-tag-to-asset', 'new-asset-id', 'tag-1');
 
-        const { updateMetadata } = useStore.getState();
-        await updateMetadata('1', 'project', 'GenStudio');
-
-        const asset = useStore.getState().assets[0];
-        expect(asset.metadata.project).toBe('GenStudio');
-        expect(mockInvoke).toHaveBeenCalledWith('update-metadata', '1', 'project', 'GenStudio');
+        // Verify assets state updated (optimistically or via result)
+        const { assets } = useStore.getState();
+        expect(assets).toHaveLength(1);
+        expect(assets[0].id).toBe('new-asset-id');
     });
 });

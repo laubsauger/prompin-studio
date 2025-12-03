@@ -84,7 +84,7 @@ interface AppState {
 
     // Tag Actions
     loadTags: () => Promise<void>;
-    createTag: (name: string, color?: string) => Promise<void>;
+    createTag: (name: string, color?: string) => Promise<{ id: string; name: string; color?: string }>;
     deleteTag: (id: string) => Promise<void>;
     addTagToAsset: (assetId: string, tagId: string) => Promise<void>;
     removeTagFromAsset: (assetId: string, tagId: string) => Promise<void>;
@@ -244,8 +244,9 @@ export const useStore = create<AppState>((set, get) => ({
         set({ tags });
     },
     createTag: async (name, color) => {
-        await getIpcRenderer().invoke('create-tag', name, color);
+        const tag = await getIpcRenderer().invoke('create-tag', name, color);
         get().loadTags();
+        return tag;
     },
     deleteTag: async (id) => {
         await getIpcRenderer().invoke('delete-tag', id);
@@ -372,6 +373,13 @@ export const useStore = create<AppState>((set, get) => ({
         }
 
         console.log('[Store] fetchSyncStats received changes:', syncStats);
+
+        // If we just finished scanning, reload assets to show new files/folders
+        if (currentStats?.status === 'scanning' && syncStats.status === 'idle') {
+            console.log('[Store] Sync completed, reloading assets...');
+            get().loadAssets();
+        }
+
         set({ syncStats });
     },
 

@@ -347,6 +347,10 @@ ipcMain.handle('remove-tag-from-asset', async (event, assetId, tagId) => {
   return indexerService.removeTagFromAsset(assetId, tagId);
 });
 
+ipcMain.handle('ingest-file', async (event, sourcePath, metadata) => {
+  return indexerService.ingestFile(sourcePath, metadata);
+});
+
 ipcMain.handle('get-asset-tags', async (event, assetId) => {
   return indexerService.getAssetTags(assetId);
 });

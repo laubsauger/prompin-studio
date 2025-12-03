@@ -11,6 +11,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { cn } from '../lib/utils';
 import { AssetPickerDialog } from './AssetPickerDialog';
+import { CreateTagDialog } from './CreateTagDialog';
 
 export const STORAGE_KEYS = {
     AUTHOR: 'gs_last_author',
@@ -39,12 +40,14 @@ export const MetadataForm: React.FC<MetadataFormProps> = ({
 }) => {
     const assets = useStore(state => state.assets);
     const allTags = useStore(state => state.tags);
+    const createTag = useStore(state => state.createTag);
 
     // We maintain local state for the form, initialized with props
     const [metadata, setMetadata] = useState<AssetMetadata>(initialMetadata as AssetMetadata);
     const [isAssetPickerOpen, setIsAssetPickerOpen] = useState(false);
     const [openAuthor, setOpenAuthor] = useState(false);
     const [openTags, setOpenTags] = useState(false);
+    const [isCreateTagOpen, setIsCreateTagOpen] = useState(false);
 
     // Local state for tags if not controlled
     const [localTagIds, setLocalTagIds] = useState<string[]>([]);
@@ -317,6 +320,18 @@ export const MetadataForm: React.FC<MetadataFormProps> = ({
                                             );
                                         })}
                                     </CommandGroup>
+                                    <CommandGroup>
+                                        <CommandItem
+                                            onSelect={() => {
+                                                setOpenTags(false);
+                                                setIsCreateTagOpen(true);
+                                            }}
+                                            className="cursor-pointer border-t mt-2 pt-2"
+                                        >
+                                            <Plus className="mr-2 h-4 w-4" />
+                                            Create new tag...
+                                        </CommandItem>
+                                    </CommandGroup>
                                 </CommandList>
                             </Command>
                         </PopoverContent>
@@ -333,6 +348,16 @@ export const MetadataForm: React.FC<MetadataFormProps> = ({
                         ))}
                     </div>
                 </div>
+
+                <CreateTagDialog
+                    isOpen={isCreateTagOpen}
+                    onClose={() => setIsCreateTagOpen(false)}
+                    onCreateTag={async (name, color) => {
+                        const newTag = await createTag(name, color);
+                        // Auto-select the new tag
+                        toggleTag(newTag.id);
+                    }}
+                />
 
                 {showLineage && (
                     <div className="space-y-2">

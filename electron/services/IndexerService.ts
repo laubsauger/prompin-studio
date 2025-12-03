@@ -363,20 +363,27 @@ export class IndexerService {
     }
 
     public getAssets(): Asset[] {
-        const stmt = db.prepare('SELECT * FROM assets ORDER BY createdAt DESC');
-        const assets = stmt.all().map((row: any) => ({
+        // Only return assets for the current root path
+        const stmt = db.prepare('SELECT * FROM assets WHERE rootPath = ? ORDER BY createdAt DESC');
+        const assets = stmt.all(this.rootPath).map((row: any) => ({
             ...row,
             metadata: JSON.parse(row.metadata)
         }));
 
         // Fetch tags for all assets
         // Optimization: Fetch all asset_tags at once instead of N+1 queries
+        if (assets.length === 0) return [];
+
+        const assetIds = assets.map((a: any) => a.id);
+        const placeholders = assetIds.map(() => '?').join(', ');
+
         const tagsStmt = db.prepare(`
             SELECT at.assetId, t.id, t.name, t.color
             FROM asset_tags at
             JOIN tags t ON at.tagId = t.id
+            WHERE at.assetId IN (${placeholders})
         `);
-        const allTags = tagsStmt.all() as { assetId: string; id: string; name: string; color: string }[];
+        const allTags = tagsStmt.all(...assetIds) as { assetId: string; id: string; name: string; color: string }[];
 
         // Group tags by assetId
         const tagsByAsset: Record<string, any[]> = {};
@@ -411,8 +418,8 @@ export class IndexerService {
         let sql = `
             SELECT DISTINCT a.* FROM assets a
         `;
-        const params: any = {};
-        const conditions: string[] = [];
+        const params: any = { rootPath: this.rootPath };
+        const conditions: string[] = ['a.rootPath = @rootPath'];
 
         // Add full-text search if query is provided
         if (searchQuery && searchQuery.trim() !== '') {
@@ -590,9 +597,11 @@ export class IndexerService {
 
     private upsertAsset(asset: Asset) {
         const stmt = db.prepare(`
-      INSERT INTO assets (id, path, type, status, createdAt, updatedAt, metadata, thumbnailPath)
-      VALUES (@id, @path, @type, @status, @createdAt, @updatedAt, @metadata, @thumbnailPath)
-      ON CONFLICT(path) DO UPDATE SET
+      INSERT INTO assets (id, path, rootPath, type, status, createdAt, updatedAt, metadata, thumbnailPath)
+      VALUES (@id, @path, @rootPath, @type, @status, @createdAt, @updatedAt, @metadata, @thumbnailPath)
+      ON CONFLICT(id) DO UPDATE SET
+        rootPath = excluded.rootPath,
+        path = excluded.path,
         updatedAt = excluded.updatedAt,
         metadata = excluded.metadata,
         status = excluded.status,
@@ -601,6 +610,7 @@ export class IndexerService {
 
         stmt.run({
             ...asset,
+            rootPath: this.rootPath,
             metadata: JSON.stringify(asset.metadata)
         });
     }
@@ -652,6 +662,72 @@ export class IndexerService {
 
     public removeTagFromAsset(assetId: string, tagId: string) {
         db.prepare('DELETE FROM asset_tags WHERE assetId = ? AND tagId = ?').run(assetId, tagId);
+    }
+
+    public async ingestFile(sourcePath: string, metadata: { project?: string; scene?: string; targetPath?: string }): Promise<Asset> {
+        if (!this.rootPath) {
+            throw new Error('Root path not set');
+        }
+
+        const fileName = path.basename(sourcePath);
+        let relativeDestDir = '';
+
+        if (metadata.targetPath) {
+            relativeDestDir = metadata.targetPath;
+        } else {
+            // Default structure: uploads/project/scene (if scene exists) or uploads/project
+            const project = metadata.project || 'default';
+            relativeDestDir = path.join('uploads', project);
+            if (metadata.scene) {
+                relativeDestDir = path.join(relativeDestDir, metadata.scene);
+            }
+        }
+
+        const destDir = path.join(this.rootPath, relativeDestDir);
+        const destPath = path.join(destDir, fileName);
+
+        // Ensure directory exists
+        await fs.mkdir(destDir, { recursive: true });
+
+        // Copy file
+        // If file exists, we might want to rename or overwrite. For now, let's overwrite or unique name?
+        // Let's use unique name if exists to avoid overwriting user data accidentally.
+        let finalDestPath = destPath;
+        let counter = 1;
+        while (true) {
+            try {
+                await fs.access(finalDestPath);
+                // File exists, try next name
+                const ext = path.extname(fileName);
+                const name = path.basename(fileName, ext);
+                finalDestPath = path.join(destDir, `${name}_${counter}${ext}`);
+                counter++;
+            } catch {
+                // File doesn't exist, use this path
+                break;
+            }
+        }
+
+        await fs.copyFile(sourcePath, finalDestPath);
+
+        // Index the file immediately
+        await this.handleFileAdd(finalDestPath);
+
+        // Retrieve and return the asset
+        // handleFileAdd is async but doesn't return the asset.
+        // We can fetch it from DB.
+        const id = this.getStableId(finalDestPath);
+        const asset = db.prepare('SELECT * FROM assets WHERE id = ?').get(id) as any;
+
+        if (!asset) {
+            throw new Error('Failed to index ingested file');
+        }
+
+        return {
+            ...asset,
+            metadata: JSON.parse(asset.metadata),
+            tags: this.getAssetTags(id)
+        };
     }
 
     public getAssetTags(assetId: string) {

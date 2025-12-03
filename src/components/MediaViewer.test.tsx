@@ -14,6 +14,17 @@ vi.mock('react-zoom-pan-pinch', () => ({
     TransformComponent: ({ children }: any) => <div>{children}</div>,
 }));
 
+// Mock vidstack
+vi.mock('@vidstack/react', () => ({
+    MediaPlayer: ({ children, ...props }: any) => <div data-testid="media-player" {...props}>{children}</div>,
+    MediaProvider: () => <div data-testid="media-provider" />,
+}));
+
+vi.mock('@vidstack/react/player/layouts/default', () => ({
+    DefaultVideoLayout: () => <div data-testid="default-video-layout" />,
+    defaultLayoutIcons: {},
+}));
+
 describe('MediaViewer', () => {
     const mockSetViewingAssetId = vi.fn();
 
@@ -23,16 +34,17 @@ describe('MediaViewer', () => {
             viewingAssetId: '1',
             setViewingAssetId: mockSetViewingAssetId,
             assets: [
-                { id: '1', path: 'test.jpg', type: 'image' },
-                { id: '2', path: 'video.mp4', type: 'video' },
+                { id: '1', path: 'test.jpg', type: 'image', metadata: { liked: false } },
+                { id: '2', path: 'video.mp4', type: 'video', metadata: { liked: true } },
             ],
+            tags: [],
         });
     });
 
     it('renders image viewer when image is selected', () => {
         render(<MediaViewer />);
         const img = screen.getByRole('img');
-        expect(img).toHaveAttribute('src', 'file://test.jpg');
+        expect(img).toHaveAttribute('src', 'media://test.jpg');
         expect(screen.getByText('test.jpg')).toBeInTheDocument();
     });
 
@@ -41,15 +53,16 @@ describe('MediaViewer', () => {
             viewingAssetId: '2',
             setViewingAssetId: mockSetViewingAssetId,
             assets: [
-                { id: '1', path: 'test.jpg', type: 'image' },
-                { id: '2', path: 'video.mp4', type: 'video' },
+                { id: '1', path: 'test.jpg', type: 'image', metadata: { liked: false } },
+                { id: '2', path: 'video.mp4', type: 'video', metadata: { liked: true } },
             ],
+            tags: [],
         });
         render(<MediaViewer />);
         // Video tag might not have a role by default in some setups, but let's try finding by tag or src
         // Actually, let's just query selector
-        expect(document.querySelector('video')).toBeInTheDocument();
-        expect(document.querySelector('video')).toHaveAttribute('src', 'file://video.mp4');
+        expect(screen.getByTestId('media-player')).toBeInTheDocument();
+        expect(screen.getByTestId('media-player')).toHaveAttribute('src', 'media://video.mp4');
     });
 
     it('does not render when no asset is selected', () => {
@@ -57,6 +70,7 @@ describe('MediaViewer', () => {
             viewingAssetId: null,
             setViewingAssetId: mockSetViewingAssetId,
             assets: [],
+            tags: [],
         });
         const { container } = render(<MediaViewer />);
         expect(container).toBeEmptyDOMElement();
@@ -64,7 +78,7 @@ describe('MediaViewer', () => {
 
     it('calls setViewingAssetId(null) on close button click', () => {
         render(<MediaViewer />);
-        const closeButton = screen.getByRole('button');
+        const closeButton = screen.getByRole('button', { name: /close/i });
         fireEvent.click(closeButton);
         expect(mockSetViewingAssetId).toHaveBeenCalledWith(null);
     });

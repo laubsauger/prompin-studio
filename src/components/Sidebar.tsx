@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState } from 'react';
 import { useStore } from '../store';
 import { Folder, FolderOpen, Star, Layers, ChevronDown, ChevronRight, ChevronLeft, Plus, Tag, AlertCircle, CheckCircle, StickyNote, Trash2 } from 'lucide-react';
@@ -5,7 +6,6 @@ import { cn } from '../lib/utils';
 import { Button } from './ui/button';
 import { CreateTagDialog } from './CreateTagDialog';
 import { CreateScratchPadDialog } from './CreateScratchPadDialog';
-import { ASSET_STATUSES } from '../config/constants';
 
 interface TreeNode {
     name: string;
