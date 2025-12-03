@@ -1,4 +1,5 @@
 <img src="https://github.com/user-attachments/assets/68145096-c21c-457b-b084-1d226dd14caa" width="250" height="250">
+<img width="470" height="252" alt="image" src="https://github.com/user-attachments/assets/193ff9f5-e419-40f8-b247-b68bbc57eb60" />
 
 # Generative AI Studio
 High-performance media workflow app for Generative AI teams.
