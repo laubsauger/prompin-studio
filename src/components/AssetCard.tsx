@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { useStore } from '../store';
 import type { Asset } from '../types';
 import { Card } from './ui/card';
@@ -6,9 +6,6 @@ import { Badge } from './ui/badge';
 import { ASSET_STATUSES } from '../config/constants';
 import { cn } from '../lib/utils';
 import { Film, Heart, Play, Pause, ZoomIn, GitBranch } from 'lucide-react';
-import { MediaPlayer, MediaProvider, type MediaPlayerInstance } from '@vidstack/react';
-import '@vidstack/react/player/styles/base.css';
-import { MinimalVideoLayout } from './MinimalVideoLayout';
 
 
 import { AssetContextMenu } from './AssetContextMenu';
@@ -20,14 +17,19 @@ export const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
     const setViewingAssetId = useStore(state => state.setViewingAssetId);
 
     const isSelected = useStore(state => state.selectedIds.has(asset.id));
+    const aspectRatio = useStore(state => state.aspectRatio);
     const [isPlaying, setIsPlaying] = useState(false);
-    const playerRef = useRef<MediaPlayerInstance>(null);
+    const [isHoveringScrubber, setIsHoveringScrubber] = useState(false);
+    const [isHoveringCard, setIsHoveringCard] = useState(false);
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const scrubberRef = useRef<HTMLDivElement>(null);
 
     const handleClick = (e: React.MouseEvent) => {
         // Prevent click from propagating through overlay buttons
         if ((e.target as HTMLElement).closest('button')) return;
-        if ((e.target as HTMLElement).closest('.vidstack-player')) return;
+        if ((e.target as HTMLElement).closest('video')) return;
         if ((e.target as HTMLElement).closest('.overlay-controls')) return;
+        if ((e.target as HTMLElement).closest('.scrubber-bar')) return;
 
         if (e.shiftKey) {
             // Shift+click for range selection
@@ -51,16 +53,35 @@ export const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
         e.stopPropagation();
         e.preventDefault();
 
-        if (!playerRef.current || asset.type !== 'video') return;
+        if (!videoRef.current || asset.type !== 'video') return;
 
         if (isPlaying) {
-            playerRef.current.pause();
+            videoRef.current.pause();
         } else {
-            playerRef.current.play().catch((err) => {
+            videoRef.current.play().catch((err) => {
                 console.error('Failed to play video:', err);
             });
         }
     }, [isPlaying, asset.type]);
+
+    const handleScrub = useCallback((e: React.MouseEvent) => {
+        if (!videoRef.current || !scrubberRef.current || asset.type !== 'video') return;
+
+        const rect = scrubberRef.current.getBoundingClientRect();
+        const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+        const percentage = x / rect.width;
+
+        const duration = videoRef.current.duration;
+        if (duration && Number.isFinite(duration)) {
+            videoRef.current.currentTime = duration * percentage;
+        }
+    }, [asset.type]);
+
+    const aspectRatioClass = {
+        square: 'aspect-square',
+        video: 'aspect-video',
+        portrait: 'aspect-[9/16]'
+    }[aspectRatio];
 
     return (
         <AssetContextMenu asset={asset}>
@@ -70,12 +91,19 @@ export const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
                     isSelected && "ring-2 ring-primary border-primary shadow-lg bg-accent/10"
                 )}
                 onClick={handleClick}
+                onMouseEnter={() => setIsHoveringCard(true)}
+                onMouseLeave={() => {
+                    setIsHoveringCard(false);
+                    // Pause video when leaving card if it was only playing due to hover/scrub interaction?
+                    // For now, let's leave explicit play/pause behavior alone, but maybe pause if it was just scrubbing?
+                    // Actually, if we stop rendering the video on mouse leave (unless isPlaying), it will stop anyway.
+                }}
             >
-                <div className="aspect-square relative bg-muted/20">
+                <div className={cn("relative bg-muted/20 bg-black", aspectRatioClass)}>
                     {asset.type === 'video' ? (
                         <>
-                            {/* Show thumbnail when not playing */}
-                            {!isPlaying && (
+                            {/* Show thumbnail when not playing AND not scrubbing */}
+                            {(!isPlaying && !isHoveringScrubber) && (
                                 !asset.thumbnailPath ? (
                                     <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
                                         <Film className="w-8 h-8 opacity-50" />
@@ -89,42 +117,43 @@ export const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
                                     />
                                 )
                             )}
-                            {/* Always render the player for videos, but control visibility */}
-                            <div
-                                className={cn(
-                                    "absolute inset-0 z-20 vidstack-player bg-black",
-                                    !isPlaying && "opacity-0 pointer-events-none"
-                                )}
-                                onClick={(e) => e.stopPropagation()}
-                                onDoubleClick={(e) => e.stopPropagation()}
-                            >
-                                <MediaPlayer
-                                    ref={playerRef}
+
+                            {/* Native Video Element - Only render if playing or hovering card (for warmup) */}
+                            {(isPlaying || isHoveringCard) && (
+                                <video
+                                    ref={videoRef}
                                     src={`media://${asset.path}`}
-                                    viewType="video"
-                                    streamType="on-demand"
-                                    logLevel="warn"
-                                    crossOrigin
+                                    className={cn(
+                                        "absolute inset-0 z-20 w-full h-full object-contain bg-black transition-opacity duration-200",
+                                        (!isPlaying && !isHoveringScrubber) ? "opacity-0 pointer-events-none" : "opacity-100"
+                                    )}
                                     playsInline
-                                    className="w-full h-full"
-                                    autoPlay={false}
-                                    onPlay={() => {
-                                        setIsPlaying(true);
-                                    }}
-                                    onPause={() => {
-                                        setIsPlaying(false);
-                                    }}
-                                    onEnded={() => {
-                                        setIsPlaying(false);
-                                    }}
-                                    onError={(e) => {
-                                        console.error('[AssetCard] Video error:', e);
-                                        setIsPlaying(false);
-                                    }}
-                                >
-                                    <MediaProvider className="w-full h-full [&>video]:object-cover [&>video]:w-full [&>video]:h-full" />
-                                    <MinimalVideoLayout />
-                                </MediaPlayer>
+                                    muted={!isPlaying} // Mute when just previewing/scrubbing? Or maybe always unmute if user explicitly plays?
+                                    // Let's keep it simple: if isPlaying is true, we want sound. If scrubbing, maybe we want sound too?
+                                    // Usually scrubbing previews are muted.
+                                    // But handlePlayPauseClick toggles isPlaying.
+                                    // So if !isPlaying (scrubbing), it should probably be muted.
+                                    loop
+                                    onPlay={() => setIsPlaying(true)}
+                                    onPause={() => setIsPlaying(false)}
+                                    onEnded={() => setIsPlaying(false)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onDoubleClick={(e) => e.stopPropagation()}
+                                />
+                            )}
+
+                            {/* Scrubber Bar */}
+                            <div
+                                ref={scrubberRef}
+                                className="absolute bottom-0 left-0 right-0 h-6 z-40 cursor-ew-resize flex items-end group/scrubber scrubber-bar px-1 pb-1"
+                                onClick={(e) => e.stopPropagation()}
+                                onMouseEnter={() => setIsHoveringScrubber(true)}
+                                onMouseLeave={() => setIsHoveringScrubber(false)}
+                                onMouseMove={handleScrub}
+                            >
+                                <div className="w-full h-1 bg-white/20 group-hover/scrubber:bg-white/30 group-hover/scrubber:h-1.5 transition-all rounded-full overflow-hidden backdrop-blur-sm relative">
+                                    {/* Progress indicator could go here */}
+                                </div>
                             </div>
                         </>
                     ) : (
@@ -137,8 +166,8 @@ export const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
                         />
                     )}
 
-                    {/* Inline Play/Pause Button - Always visible for videos */}
-                    {asset.type === 'video' && (
+                    {/* Inline Play/Pause Button - Always visible for videos, unless scrubbing */}
+                    {asset.type === 'video' && !isHoveringScrubber && (
                         <div
                             className="absolute bottom-2 left-2 z-30 transition-opacity"
                             onClick={(e) => e.stopPropagation()}
@@ -172,7 +201,10 @@ export const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
                         </div>
                     )}
 
-                    <div className="absolute right-2 top-2 z-10 flex gap-2 overlay-controls">
+                    <div className={cn(
+                        "absolute right-2 top-2 z-10 flex gap-2 overlay-controls transition-opacity duration-200",
+                        isHoveringScrubber ? "opacity-0" : "opacity-100"
+                    )}>
                         {/* Lineage indicator - shows if asset has input images */}
                         {asset.metadata.inputs && asset.metadata.inputs.length > 0 && (
                             <div

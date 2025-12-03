@@ -58,6 +58,7 @@ interface AppState {
     lineageAssetId: string | null;
     currentPath: string | null;
     viewMode: 'grid' | 'list';
+    aspectRatio: 'square' | 'video' | 'portrait';
     isLoading: boolean;
     loadingMessage: string;
 
@@ -118,6 +119,7 @@ interface AppState {
     setLineageAssetId: (id: string | null) => void;
     setCurrentPath: (path: string | null) => void;
     setViewMode: (mode: 'grid' | 'list') => void;
+    setAspectRatio: (ratio: 'square' | 'video' | 'portrait') => void;
     setLoading: (isLoading: boolean, message?: string) => void;
     loadAssets: () => Promise<void>;
     fetchSyncStats: () => Promise<void>;
@@ -178,6 +180,10 @@ export const useStore = create<AppState>((set, get) => ({
     setCurrentPath: (path) => set({ currentPath: path }),
     setViewMode: (mode) => set({ viewMode: mode }),
     setLoading: (isLoading, message = '') => set({ isLoading, loadingMessage: message }),
+
+    // Aspect Ratio
+    aspectRatio: 'square',
+    setAspectRatio: (ratio: 'square' | 'video' | 'portrait') => set({ aspectRatio: ratio }),
 
     // New config actions
     setSortConfig: (key, direction) => set({ sortConfig: { key, direction } }),

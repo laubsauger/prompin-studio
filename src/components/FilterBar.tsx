@@ -20,6 +20,8 @@ export interface FilterBarUIProps {
     onFilterConfigChange: (config: Partial<{ likedOnly: boolean; type: 'all' | 'image' | 'video'; tagId?: string | null; status?: AssetStatus | 'all' }>) => void;
     viewMode: 'grid' | 'list';
     onViewModeChange: (mode: 'grid' | 'list') => void;
+    aspectRatio: 'square' | 'video' | 'portrait';
+    onAspectRatioChange: (ratio: 'square' | 'video' | 'portrait') => void;
 }
 
 export const FilterBarUI: React.FC<FilterBarUIProps> = ({
@@ -32,12 +34,14 @@ export const FilterBarUI: React.FC<FilterBarUIProps> = ({
     filterConfig,
     onFilterConfigChange,
     viewMode,
-    onViewModeChange
+    onViewModeChange,
+    aspectRatio,
+    onAspectRatioChange
 }) => {
     // Check if any filters are active
     const hasActiveFilters = filterConfig.likedOnly ||
-                           (filterConfig.type && filterConfig.type !== 'all') ||
-                           filter !== 'all';
+        (filterConfig.type && filterConfig.type !== 'all') ||
+        filter !== 'all';
 
     const clearAllFilters = () => {
         onFilterConfigChange({ likedOnly: false, type: 'all', tagId: null, status: 'all' });
@@ -162,6 +166,15 @@ export const FilterBarUI: React.FC<FilterBarUIProps> = ({
             <div className="flex items-center gap-2 ml-auto">
                 {viewMode === 'grid' && (
                     <div className="flex items-center gap-2 mr-2">
+                        <Select
+                            value={aspectRatio}
+                            onChange={(e) => onAspectRatioChange(e.target.value as any)}
+                            className="w-[100px] h-8 text-xs"
+                        >
+                            <option value="square">Square</option>
+                            <option value="video">Landscape</option>
+                            <option value="portrait">Portrait</option>
+                        </Select>
                         <Slider
                             value={[thumbnailSize]}
                             onValueChange={(value) => onThumbnailSizeChange(value[0])}
@@ -212,6 +225,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({ thumbnailSize, onThumbnail
     const setFilterConfig = useStore(state => state.setFilterConfig);
     const viewMode = useStore(state => state.viewMode);
     const setViewMode = useStore(state => state.setViewMode);
+    const aspectRatio = useStore(state => state.aspectRatio);
+    const setAspectRatio = useStore(state => state.setAspectRatio);
 
     return (
         <FilterBarUI
@@ -225,6 +240,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({ thumbnailSize, onThumbnail
             onFilterConfigChange={setFilterConfig}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
+            aspectRatio={aspectRatio}
+            onAspectRatioChange={setAspectRatio}
         />
     );
 };
