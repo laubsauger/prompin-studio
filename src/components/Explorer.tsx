@@ -103,7 +103,7 @@ export const Explorer: React.FC = () => {
         }
 
         // 6. Sort
-        return [...result].sort((a, b) => {
+        const sorted = [...result].sort((a, b) => {
             const { key, direction } = sortConfig;
             let valA = key === 'path' ? a.path : (a.metadata as any)[key] || 0;
             let valB = key === 'path' ? b.path : (b.metadata as any)[key] || 0;
@@ -112,6 +112,9 @@ export const Explorer: React.FC = () => {
             if (valA > valB) return direction === 'asc' ? 1 : -1;
             return 0;
         });
+
+        console.log('[Explorer] filteredAssets length:', sorted.length);
+        return sorted;
     }, [assets, filter, filterConfig, sortConfig, currentPath]);
 
     const handleRangeChanged = useCallback((range: { startIndex: number; endIndex: number }) => {
@@ -123,7 +126,10 @@ export const Explorer: React.FC = () => {
 
     return (
         <div className="flex h-full flex-col bg-background text-foreground">
-            <div className="flex items-center justify-end border-b border-border bg-card p-2 shadow-sm z-10">
+            <div className="flex items-center justify-end border-b border-border bg-card p-2 shadow-sm z-10 relative">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-xs text-muted-foreground bg-background/80 px-2 py-1 rounded border">
+                    Debug: {filteredAssets.length} items
+                </div>
                 <FilterBar
                     thumbnailSize={thumbnailSize}
                     onThumbnailSizeChange={setThumbnailSize}
@@ -138,10 +144,10 @@ export const Explorer: React.FC = () => {
                 ) : viewMode === 'grid' ? (
                     <VirtuosoGrid
                         ref={virtuosoRef as React.RefObject<VirtuosoGridHandle>}
-                        style={{ height: '100%' }}
+                        style={{ height: '100%', width: '100%' }}
                         totalCount={filteredAssets.length}
                         rangeChanged={handleRangeChanged}
-                        overscan={{ main: 1000, reverse: 1000 }}
+                        overscan={200}
                         components={{
                             List: React.forwardRef((props, ref) => (
                                 <div
@@ -175,10 +181,10 @@ export const Explorer: React.FC = () => {
                 ) : (
                     <Virtuoso
                         ref={virtuosoRef as React.RefObject<VirtuosoHandle>}
-                        style={{ height: '100%' }}
+                        style={{ height: '100%', width: '100%' }}
                         totalCount={filteredAssets.length}
                         rangeChanged={handleRangeChanged}
-                        overscan={{ main: 1000, reverse: 1000 }}
+                        overscan={200}
                         itemContent={(index) => {
                             const asset = filteredAssets[index];
                             return (

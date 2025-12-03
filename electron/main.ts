@@ -282,7 +282,9 @@ ipcMain.handle('set-root-path', async (event, path) => {
 });
 
 ipcMain.handle('get-assets', async () => {
-  return indexerService.getAssets();
+  const assets = indexerService.getAssets();
+  console.log('[Main] get-assets returning:', assets.length);
+  return assets;
 });
 
 ipcMain.handle('search-assets', async (event, searchQuery, filters) => {
@@ -319,9 +321,7 @@ ipcMain.handle('update-asset-metadata', async (event, assetId, metadata) => {
   return indexerService.updateAssetMetadata(assetId, metadata);
 });
 
-ipcMain.handle('delete-tag', async (event, tagId) => {
-  return indexerService.deleteTag(tagId);
-});
+
 
 ipcMain.handle('get-asset', async (event, assetId) => {
   return indexerService.getAsset(assetId);

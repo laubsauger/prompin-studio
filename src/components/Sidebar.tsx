@@ -271,7 +271,13 @@ export const Sidebar: React.FC = () => {
                             className={cn("w-full justify-start gap-2 px-4", currentPath === null && !filterConfig.likedOnly && !filterConfig.status && "bg-accent")}
                             onClick={() => {
                                 setCurrentPath(null);
-                                setFilterConfig({ likedOnly: false, status: undefined });
+                                setFilterConfig({
+                                    likedOnly: false,
+                                    status: undefined,
+                                    relatedToAssetId: undefined,
+                                    tagId: undefined,
+                                    scratchPadId: undefined
+                                });
                             }}
                         >
                             <Layers className="h-4 w-4" />
@@ -284,7 +290,13 @@ export const Sidebar: React.FC = () => {
                             className={cn("w-full justify-start gap-2 px-4", filterConfig.status === 'unsorted' && "bg-accent")}
                             onClick={() => {
                                 setCurrentPath(null);
-                                setFilterConfig({ status: 'unsorted', likedOnly: false });
+                                setFilterConfig({
+                                    status: 'unsorted',
+                                    likedOnly: false,
+                                    relatedToAssetId: undefined,
+                                    tagId: undefined,
+                                    scratchPadId: undefined
+                                });
                                 useStore.getState().setLastInboxViewTime(Date.now());
                             }}
                         >
@@ -303,7 +315,13 @@ export const Sidebar: React.FC = () => {
                             variant="ghost"
                             size="sm"
                             className={cn("w-full justify-start gap-2 px-4", filterConfig.likedOnly && "bg-accent")}
-                            onClick={() => setFilterConfig({ likedOnly: true, status: undefined })}
+                            onClick={() => setFilterConfig({
+                                likedOnly: true,
+                                status: undefined,
+                                relatedToAssetId: undefined,
+                                tagId: undefined,
+                                scratchPadId: undefined
+                            })}
                         >
                             <Star className="h-4 w-4" />
                             <span className="flex-1 text-left">Favorites</span>

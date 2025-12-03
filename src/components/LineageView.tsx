@@ -14,17 +14,18 @@ const LineageGraph: React.FC<{ rootAsset: Asset, lineageAssets: Asset[] }> = ({ 
         const g = new dagre.graphlib.Graph();
         g.setGraph({
             rankdir: 'LR',
-            nodesep: 100, // Increased vertical separation
-            ranksep: 200, // Increased horizontal separation
+            ranker: 'longest-path', // Better for lineage/hierarchical flows
+            nodesep: 50, // Vertical spacing between nodes
+            ranksep: 100, // Reduced rank separation for tighter layout
             marginx: 50,
             marginy: 50
         });
         g.setDefaultEdgeLabel(() => ({}));
 
         // Card size: w-64 (256px)
-        // Height: ~300px (256px image + 40px meta)
-        const nodeWidth = 256;
-        const nodeHeight = 300;
+        // We allocate slightly more space for the node in the graph
+        const nodeWidth = 300;
+        const nodeHeight = 400;
 
         lineageAssets.forEach(asset => {
             g.setNode(asset.id, { width: nodeWidth, height: nodeHeight });
@@ -62,94 +63,99 @@ const LineageGraph: React.FC<{ rootAsset: Asset, lineageAssets: Asset[] }> = ({ 
     }, [rootAsset, lineageAssets]);
 
     // Padding for the container
-    const padding = 100;
-    const containerWidth = Math.max(window.innerWidth, graphWidth + padding * 2);
-    const containerHeight = Math.max(window.innerHeight, graphHeight + padding * 2);
+    const padding = 1000;
+    const containerWidth = graphWidth + padding * 2;
+    const containerHeight = graphHeight + padding * 2;
+    const cardWidth = 256;
+    const nodeWidth = 300;
+    const cardOffset = (nodeWidth - cardWidth) / 2;
 
     return (
-        <div className="relative overflow-auto" style={{ width: '100%', height: '100%' }}>
-            <div className="relative" style={{ width: `${containerWidth}px`, height: `${containerHeight}px` }}>
-                {/* SVG for connections */}
-                <svg
-                    className="absolute inset-0 pointer-events-none"
-                    style={{ width: '100%', height: '100%', zIndex: 0 }}
-                    viewBox={`0 0 ${containerWidth} ${containerHeight}`}
-                >
-                    <defs>
-                        <marker
-                            id="arrowhead"
-                            markerWidth="10"
-                            markerHeight="7"
-                            refX="9"
-                            refY="3.5"
-                            orient="auto"
-                        >
-                            <polygon
-                                points="0 0, 10 3.5, 0 7"
-                                fill="currentColor"
-                                className="text-muted-foreground/60"
-                            />
-                        </marker>
-                    </defs>
-                    {edges.map(({ from, to }, index) => {
-                        const fromPos = nodePositions.get(from);
-                        const toPos = nodePositions.get(to);
-                        if (!fromPos || !toPos) return null;
+        <div className="relative" style={{ width: `${containerWidth}px`, height: `${containerHeight}px` }}>
+            {/* SVG for connections */}
+            <svg
+                className="absolute inset-0 pointer-events-none"
+                style={{ width: '100%', height: '100%', zIndex: 0 }}
+                viewBox={`0 0 ${containerWidth} ${containerHeight}`}
+            >
+                <defs>
+                    <marker
+                        id="arrowhead"
+                        markerWidth="10"
+                        markerHeight="7"
+                        refX="9"
+                        refY="3.5"
+                        orient="auto"
+                    >
+                        <polygon
+                            points="0 0, 10 3.5, 0 7"
+                            fill="currentColor"
+                            className="text-muted-foreground/60"
+                        />
+                    </marker>
+                </defs>
+                {edges.map(({ from, to }, index) => {
+                    const fromPos = nodePositions.get(from);
+                    const toPos = nodePositions.get(to);
+                    if (!fromPos || !toPos) return null;
 
-                        // Calculate connection points
-                        // fromPos/toPos are top-left coordinates relative to graph origin
-                        // We need to add padding
-                        const startX = fromPos.x + padding + 256; // Right edge of source card
-                        const startY = fromPos.y + padding + 150; // Vertical center
-                        const endX = toPos.x + padding; // Left edge of target card
-                        const endY = toPos.y + padding + 150; // Vertical center
+                    // Calculate connection points
+                    // We align to the center of the image (assuming 256x256 image)
+                    const imageCenterY = 128;
 
-                        // Use a curved path (Bezier)
-                        const midX = (startX + endX) / 2;
-                        const path = `M ${startX} ${startY} C ${midX} ${startY}, ${midX} ${endY}, ${endX} ${endY}`;
+                    // Start: Right edge of source card
+                    const startX = fromPos.x + padding + cardOffset + cardWidth;
+                    const startY = fromPos.y + padding + imageCenterY;
 
-                        return (
-                            <path
-                                key={index}
-                                d={path}
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                fill="none"
-                                className="text-muted-foreground/60"
-                                markerEnd="url(#arrowhead)"
-                                style={{
-                                    filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1))',
-                                }}
-                            />
-                        );
-                    })}
-                </svg>
+                    // End: Left edge of target card
+                    const endX = toPos.x + padding + cardOffset;
+                    const endY = toPos.y + padding + imageCenterY;
 
-                {/* Render nodes */}
-                {Array.from(nodePositions.entries()).map(([assetId, position]) => {
-                    const asset = assetId === rootAsset.id ? rootAsset : lineageAssets.find(a => a.id === assetId);
-                    if (!asset) return null;
+                    // Use a curved path (Bezier)
+                    const midX = (startX + endX) / 2;
+                    const path = `M ${startX} ${startY} C ${midX} ${startY}, ${midX} ${endY}, ${endX} ${endY}`;
 
                     return (
-                        <div
-                            key={assetId}
-                            className="absolute"
+                        <path
+                            key={index}
+                            d={path}
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            fill="none"
+                            className="text-muted-foreground/60"
+                            markerEnd="url(#arrowhead)"
                             style={{
-                                left: `${position.x + padding}px`,
-                                top: `${position.y + padding}px`,
-                                width: '256px',
-                                zIndex: 10
+                                filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1))',
                             }}
-                        >
-                            <div className={assetId === rootAsset.id ? "ring-4 ring-primary ring-offset-4 rounded-lg" : ""}>
-                                <div className="w-64">
-                                    <AssetCard asset={asset} />
-                                </div>
-                            </div>
-                        </div>
+                        />
                     );
                 })}
-            </div>
+            </svg>
+
+            {/* Render nodes */}
+            {Array.from(nodePositions.entries()).map(([assetId, position]) => {
+                const asset = assetId === rootAsset.id ? rootAsset : lineageAssets.find(a => a.id === assetId);
+                if (!asset) return null;
+
+                return (
+                    <div
+                        key={assetId}
+                        className="absolute"
+                        style={{
+                            left: `${position.x + padding + cardOffset}px`,
+                            top: `${position.y + padding}px`,
+                            width: `${cardWidth}px`,
+                            zIndex: 10
+                        }}
+                    >
+                        <div className={assetId === rootAsset.id ? "ring-4 ring-primary ring-offset-4 rounded-lg" : ""}>
+                            <div className="w-64">
+                                <AssetCard asset={asset} />
+                            </div>
+                        </div>
+                    </div>
+                );
+            })}
         </div>
     );
 };
@@ -306,9 +312,7 @@ export const LineageView: React.FC = () => {
                                             height: '100%',
                                         }}
                                     >
-                                        <div className="w-full h-full flex items-center justify-center">
-                                            <LineageGraph rootAsset={rootAsset} lineageAssets={lineageAssets} />
-                                        </div>
+                                        <LineageGraph rootAsset={rootAsset} lineageAssets={lineageAssets} />
                                     </TransformComponent>
 
                                     <div className="absolute bottom-4 left-4 bg-background/80 backdrop-blur-sm border rounded-lg p-2 text-xs text-muted-foreground">
