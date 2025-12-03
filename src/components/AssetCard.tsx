@@ -65,6 +65,25 @@ export const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
     }, [isPlaying, asset.type]);
 
     const handleScrub = useCallback((e: React.MouseEvent) => {
+        // Only allow hover scrubbing if NOT playing to avoid conflict
+        if (!videoRef.current || !scrubberRef.current || asset.type !== 'video') return;
+        if (isPlaying) return;
+
+        // Check if metadata is loaded
+        if (videoRef.current.readyState < 1) return;
+
+        const rect = scrubberRef.current.getBoundingClientRect();
+        const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+        const percentage = x / rect.width;
+
+        const duration = videoRef.current.duration;
+        if (duration && Number.isFinite(duration)) {
+            videoRef.current.currentTime = duration * percentage;
+        }
+    }, [asset.type, isPlaying]);
+
+    const handleSeek = useCallback((e: React.MouseEvent) => {
+        e.stopPropagation();
         if (!videoRef.current || !scrubberRef.current || asset.type !== 'video') return;
 
         const rect = scrubberRef.current.getBoundingClientRect();
@@ -127,6 +146,7 @@ export const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
                                         "absolute inset-0 z-20 w-full h-full object-contain bg-black transition-opacity duration-200",
                                         (!isPlaying && !isHoveringScrubber) ? "opacity-0 pointer-events-none" : "opacity-100"
                                     )}
+                                    preload="metadata"
                                     playsInline
                                     muted={!isPlaying} // Mute when just previewing/scrubbing? Or maybe always unmute if user explicitly plays?
                                     // Let's keep it simple: if isPlaying is true, we want sound. If scrubbing, maybe we want sound too?
@@ -145,8 +165,8 @@ export const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
                             {/* Scrubber Bar */}
                             <div
                                 ref={scrubberRef}
-                                className="absolute bottom-0 left-0 right-0 h-6 z-40 cursor-ew-resize flex items-end group/scrubber scrubber-bar px-1 pb-1"
-                                onClick={(e) => e.stopPropagation()}
+                                className="absolute bottom-0 left-0 right-0 h-6 z-40 cursor-ew-resize flex items-end group/scrubber scrubber-bar px-1"
+                                onClick={handleSeek}
                                 onMouseEnter={() => setIsHoveringScrubber(true)}
                                 onMouseLeave={() => setIsHoveringScrubber(false)}
                                 onMouseMove={handleScrub}
@@ -224,7 +244,7 @@ export const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
                             className={cn(
                                 "rounded-full p-1.5 backdrop-blur-md transition-colors",
                                 asset.metadata.liked
-                                    ? "bg-red-500/80 text-white hover:bg-red-600/80"
+                                    ? "bg-black/40 text-red-500 hover:bg-black/60"
                                     : "bg-black/40 text-white/70 hover:bg-black/60 hover:text-white"
                             )}
                         >

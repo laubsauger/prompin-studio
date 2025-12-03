@@ -1,0 +1,109 @@
+import React from 'react';
+import { Layers, Inbox, Star, GitFork, Trash2 } from 'lucide-react';
+import { useStore } from '../../store';
+import { Button } from '../ui/button';
+import { cn } from '../../lib/utils';
+import { SidebarSection } from './SidebarSection';
+
+interface LibrarySectionProps {
+    isOpen: boolean;
+    onToggle: () => void;
+}
+
+export const LibrarySection: React.FC<LibrarySectionProps> = ({ isOpen, onToggle }) => {
+    const assets = useStore(state => state.assets);
+    const currentPath = useStore(state => state.currentPath);
+    const setCurrentPath = useStore(state => state.setCurrentPath);
+    const filterConfig = useStore(state => state.filterConfig);
+    const setFilterConfig = useStore(state => state.setFilterConfig);
+    const lastInboxViewTime = useStore(state => state.lastInboxViewTime);
+
+    return (
+        <SidebarSection
+            title="Library"
+            isOpen={isOpen}
+            onToggle={onToggle}
+        >
+            <Button
+                variant="ghost"
+                size="sm"
+                className={cn("w-full justify-start gap-2 px-4", currentPath === null && !filterConfig.likedOnly && !filterConfig.status && "bg-accent")}
+                onClick={() => {
+                    setCurrentPath(null);
+                    setFilterConfig({
+                        likedOnly: false,
+                        status: undefined,
+                        relatedToAssetId: undefined,
+                        tagId: undefined,
+                        scratchPadId: undefined
+                    });
+                }}
+            >
+                <Layers className="h-4 w-4" />
+                <span className="flex-1 text-left">All Media</span>
+                <span className="text-[10px] text-muted-foreground">{assets.length}</span>
+            </Button>
+            <Button
+                variant="ghost"
+                size="sm"
+                className={cn("w-full justify-start gap-2 px-4", filterConfig.status === 'unsorted' && "bg-accent")}
+                onClick={() => {
+                    setCurrentPath(null);
+                    setFilterConfig({
+                        status: 'unsorted',
+                        likedOnly: false,
+                        relatedToAssetId: undefined,
+                        tagId: undefined,
+                        scratchPadId: undefined
+                    });
+                    useStore.getState().setLastInboxViewTime(Date.now());
+                }}
+            >
+                <div className="relative">
+                    <Inbox className="h-4 w-4" />
+                    {assets.some(a => a.status === 'unsorted' && a.createdAt > lastInboxViewTime) && (
+                        <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full border border-card" />
+                    )}
+                </div>
+                <span className="flex-1 text-left">Inbox</span>
+                <span className="text-[10px] text-muted-foreground">
+                    {assets.filter(a => a.status === 'unsorted').length}
+                </span>
+            </Button>
+            <Button
+                variant="ghost"
+                size="sm"
+                className={cn("w-full justify-start gap-2 px-4", filterConfig.likedOnly && "bg-accent")}
+                onClick={() => setFilterConfig({
+                    likedOnly: true,
+                    status: undefined,
+                    relatedToAssetId: undefined,
+                    tagId: undefined,
+                    scratchPadId: undefined
+                })}
+            >
+                <Star className="h-4 w-4" />
+                <span className="flex-1 text-left">Favorites</span>
+                <span className="text-[10px] text-muted-foreground">
+                    {assets.filter(a => a.metadata.liked).length}
+                </span>
+            </Button>
+            {filterConfig.relatedToAssetId && (
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full justify-start gap-2 px-4 bg-accent text-accent-foreground"
+                    onClick={() => setFilterConfig({ relatedToAssetId: undefined })}
+                >
+                    <GitFork className="h-4 w-4 rotate-180" />
+                    <span className="flex-1 text-left truncate">
+                        Related to: {assets.find(a => a.id === filterConfig.relatedToAssetId)?.path.split('/').pop() || 'Asset'}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">
+                        <Trash2 className="h-3 w-3 hover:text-destructive" />
+                    </span>
+                </Button>
+            )}
+        </SidebarSection>
+    );
+};
