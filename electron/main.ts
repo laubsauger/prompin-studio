@@ -40,6 +40,8 @@ function createWindow() {
   } else {
     win.loadFile(path.join(RENDERER_DIST, 'index.html'));
   }
+
+  indexerService.setMainWindow(win);
 }
 
 function createMenu() {

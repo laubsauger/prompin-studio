@@ -145,6 +145,7 @@ interface AppState {
     rootPath: string | null;
     refreshAssets: () => Promise<void>;
     selectAll: () => void;
+    onAssetUpdated: (asset: Asset) => void;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -673,5 +674,9 @@ export const useStore = create<AppState>((set, get) => ({
     selectAll: () => set(state => ({
         selectedIds: new Set(state.assets.map(a => a.id)),
         lastSelectedId: null
+    })),
+
+    onAssetUpdated: (updatedAsset) => set(state => ({
+        assets: state.assets.map(a => a.id === updatedAsset.id ? updatedAsset : a)
     }))
 }));

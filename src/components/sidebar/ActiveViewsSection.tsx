@@ -5,7 +5,12 @@ import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import { SidebarSection } from './SidebarSection';
 
-export const ActiveViewsSection: React.FC = () => {
+interface ActiveViewsSectionProps {
+    isOpen: boolean;
+    onToggle: () => void;
+}
+
+export const ActiveViewsSection: React.FC<ActiveViewsSectionProps> = ({ isOpen, onToggle }) => {
     const activeViews = useStore(state => state.activeViews);
     const filterConfig = useStore(state => state.filterConfig);
     const setFilterConfig = useStore(state => state.setFilterConfig);
@@ -15,8 +20,8 @@ export const ActiveViewsSection: React.FC = () => {
     return (
         <SidebarSection
             title="Active Views"
-            isOpen={true}
-            onToggle={() => { }}
+            isOpen={isOpen}
+            onToggle={onToggle}
             className="mb-2"
         >
             {activeViews.map(view => (

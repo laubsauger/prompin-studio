@@ -137,28 +137,28 @@ export const SyncStatusModal: React.FC<SyncStatusModalProps> = ({ isOpen, onClos
 
                     {/* Errors */}
                     {hasErrors && (
-                        <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20">
-                            <div className="flex items-center gap-2 mb-3">
+                        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                            <div className="flex items-center gap-2 mb-2">
                                 <AlertCircle className="h-4 w-4 text-red-500" />
                                 <div className="text-sm font-medium text-red-500">
                                     Errors ({syncStats.errors!.length})
                                 </div>
                             </div>
-                            <div className="space-y-2 max-h-48 overflow-y-auto">
-                                {syncStats.errors!.slice(0, 20).map((error, idx) => (
-                                    <div key={idx} className="p-2 rounded bg-background/50 border border-border">
-                                        <div className="text-xs font-mono text-muted-foreground truncate mb-1">
+                            <div className="space-y-1.5 max-h-32 overflow-y-auto pr-2">
+                                {syncStats.errors!.slice(0, 10).map((error, idx) => (
+                                    <div key={idx} className="p-2 rounded bg-background/50 border border-border/50">
+                                        <div className="text-[11px] font-mono text-muted-foreground truncate" title={error.file}>
                                             {error.file}
                                         </div>
-                                        <div className="text-xs text-red-500">{error.error}</div>
+                                        <div className="text-[11px] text-red-400 mt-0.5">{error.error}</div>
                                         <div className="text-[10px] text-muted-foreground mt-1">
                                             {formatDistanceToNow(new Date(error.timestamp), { addSuffix: true })}
                                         </div>
                                     </div>
                                 ))}
-                                {syncStats.errors!.length > 20 && (
-                                    <div className="text-xs text-muted-foreground text-center py-2">
-                                        ... and {syncStats.errors!.length - 20} more errors
+                                {syncStats.errors!.length > 10 && (
+                                    <div className="text-xs text-muted-foreground text-center py-1">
+                                        ... and {syncStats.errors!.length - 10} more errors
                                     </div>
                                 )}
                             </div>
@@ -167,10 +167,10 @@ export const SyncStatusModal: React.FC<SyncStatusModalProps> = ({ isOpen, onClos
 
                     {/* All Clear Message */}
                     {!hasErrors && !hasThumbnailFailures && syncStats.status === 'idle' && (
-                        <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20 flex items-center gap-3">
-                            <CheckCircle2 className="h-5 w-5 text-green-500" />
+                        <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20 flex items-center gap-2">
+                            <CheckCircle2 className="h-4 w-4 text-green-500" />
                             <div className="text-sm text-green-500">
-                                All files synced successfully with no errors
+                                All files synced successfully
                             </div>
                         </div>
                     )}

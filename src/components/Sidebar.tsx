@@ -23,6 +23,7 @@ export const Sidebar: React.FC = () => {
     const [isFoldersOpen, setIsFoldersOpen] = useState(true);
     const [isTagsOpen, setIsTagsOpen] = useState(true);
     const [isStatusOpen, setIsStatusOpen] = useState(true);
+    const [isActiveViewsOpen, setIsActiveViewsOpen] = useState(true);
     const [isScratchPadsOpen, setIsScratchPadsOpen] = useState(true);
 
     const createTag = useStore(state => state.createTag);
@@ -69,7 +70,10 @@ export const Sidebar: React.FC = () => {
                         onToggle={() => setIsStatusOpen(!isStatusOpen)}
                     />
 
-                    <ActiveViewsSection />
+                    <ActiveViewsSection
+                        isOpen={isActiveViewsOpen}
+                        onToggle={() => setIsActiveViewsOpen(!isActiveViewsOpen)}
+                    />
 
                     <ScratchPadSection
                         isOpen={isScratchPadsOpen}

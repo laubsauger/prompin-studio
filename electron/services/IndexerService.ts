@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
-import { app } from 'electron';
+import { app, BrowserWindow } from 'electron';
 import db from '../db.js';
 import { Asset, SyncStats, AssetMetadata } from '../../src/types.js';
 // @ts-ignore
@@ -20,6 +20,7 @@ export class IndexerService {
     private watcher: FSWatcher | null = null;
     private rootPath: string = '';
     private thumbnailCachePath: string;
+    private mainWindow: BrowserWindow | null = null;
     private stats: SyncStats = {
         totalFiles: 0,
         processedFiles: 0,
@@ -42,6 +43,10 @@ export class IndexerService {
 
         // Migrate old thumbnails from project root if they exist
         this.migrateLegacyThumbnails();
+    }
+
+    public setMainWindow(window: BrowserWindow) {
+        this.mainWindow = window;
     }
 
     private async migrateLegacyThumbnails() {
@@ -101,6 +106,27 @@ export class IndexerService {
         this.stats.filesByType = { images: 0, videos: 0, other: 0 };
         this.stats.skippedFiles = 0;
         this.stats.thumbnailProgress = { current: 0, total: 0 };
+
+        // CLEANUP: Remove stale data from previous root paths
+        console.log('[IndexerService] Cleaning up stale data...');
+        try {
+            // Delete assets that don't belong to the current root path
+            const deleteAssets = db.prepare('DELETE FROM assets WHERE rootPath != ?');
+            const assetsResult = deleteAssets.run(this.rootPath);
+            console.log(`[IndexerService] Deleted ${assetsResult.changes} stale assets.`);
+
+            // Delete folders that are not within the current root path
+            // We use a LIKE query to match paths starting with the root path
+            // Note: We append a separator to ensure we don't match partial folder names (e.g. /root vs /root2)
+            // But rootPath might not have a trailing slash.
+            // Actually, for folders, we store the full absolute path.
+            // So we can delete where path does not start with rootPath.
+            const deleteFolders = db.prepare('DELETE FROM folders WHERE path NOT LIKE ?');
+            const foldersResult = deleteFolders.run(`${this.rootPath}%`);
+            console.log(`[IndexerService] Deleted ${foldersResult.changes} stale folders.`);
+        } catch (error) {
+            console.error('[IndexerService] Failed to cleanup stale data:', error);
+        }
 
         // 1. Fast Pre-Scan to get accurate counts
         console.log('[IndexerService] Starting fast pre-scan...');
@@ -915,40 +941,45 @@ export class IndexerService {
                     ...asset,
                     metadata: JSON.stringify(asset.metadata)
                 });
-            } catch (error: any) {
-                // Handle race condition where (rootPath, path) already exists
-                if (error.code === 'SQLITE_CONSTRAINT' && error.message.includes('assets.rootPath, assets.path')) {
-                    // Fetch the conflicting record to get its ID
-                    const conflict = db.prepare('SELECT id FROM assets WHERE rootPath = ? AND path = ?').get(asset.rootPath, asset.path) as any;
-
-                    if (conflict) {
-                        try {
-                            // Update the conflicting record with the new ID and metadata
-                            db.prepare(`
-                                UPDATE assets 
-                                SET id = @newId,
-                                    updatedAt = @updatedAt, 
-                                    status = @status, 
-                                    metadata = @metadata,
-                                    thumbnailPath = @thumbnailPath,
-                                    type = @type
-                                WHERE id = @oldId
-                            `).run({
-                                newId: asset.id,
-                                oldId: conflict.id,
-                                updatedAt: asset.updatedAt,
-                                status: asset.status,
-                                metadata: JSON.stringify(asset.metadata),
-                                thumbnailPath: asset.thumbnailPath,
-                                type: asset.type
-                            });
-                        } catch (updateError) {
-                            console.error(`[IndexerService] Failed to resolve conflict for ${asset.path}:`, updateError);
-                        }
-                    }
-                } else {
-                    throw error;
+                // If we have a main window, emit an update event for this specific asset
+                if (this.mainWindow) {
+                    this.mainWindow.webContents.send('asset-updated', asset);
                 }
+
+                return asset;
+            } catch (error: any) {
+                // If there's a conflict (e.g., unique constraint violation on path),
+                // it means the asset was likely added by another process or a previous run.
+                // In this case, we attempt to update it instead.
+                // This can happen if the file system watcher triggers multiple times for the same file.
+                if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+                    console.warn(`[IndexerService] Conflict detected for asset ${asset.path}. Attempting to update.`);
+                    const updateStmt = db.prepare(`
+                        UPDATE assets
+                        SET path = @path,
+                            rootPath = @rootPath,
+                            type = @type,
+                            updatedAt = @updatedAt,
+                            status = @status,
+                            metadata = @metadata,
+                            thumbnailPath = @thumbnailPath
+                        WHERE id = @id
+                    `);
+                    updateStmt.run({
+                        ...asset,
+                        metadata: JSON.stringify(asset.metadata)
+                    });
+
+                    // Emit update for the new asset ID (since the old one is gone/updated)
+                    if (this.mainWindow) {
+                        this.mainWindow.webContents.send('asset-updated', asset);
+                    }
+
+                    return asset;
+                }
+
+                console.error('[IndexerService] Error upserting asset:', error);
+                throw error;
             }
         }
     }
