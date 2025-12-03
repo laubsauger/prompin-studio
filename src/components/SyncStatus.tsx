@@ -3,7 +3,7 @@ import { useStore } from '../store';
 import { cn } from '../lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 
-import { Loader2, RefreshCw, AlertCircle } from 'lucide-react';
+import { Loader2, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { SyncStatusModal } from './SyncStatusModal';
 
 export const SyncStatus: React.FC = () => {
@@ -45,7 +45,7 @@ export const SyncStatus: React.FC = () => {
                         ) : hasErrors || hasThumbnailFailures ? (
                             <AlertCircle className="h-4 w-4 text-yellow-500" />
                         ) : (
-                            <div className="h-3 w-3 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
+                            <CheckCircle2 className="h-4 w-4 text-green-500" />
                         )}
                         <div className="flex flex-col">
                             <span className="font-medium text-sm">

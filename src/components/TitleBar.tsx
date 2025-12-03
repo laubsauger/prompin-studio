@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FolderOpen, Settings, Loader2, RefreshCw } from 'lucide-react';
+import { FolderOpen, Settings, Loader2, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useStore } from '../store';
 import { useSettingsStore } from '../store/settings';
@@ -30,6 +30,9 @@ export const TitleBar: React.FC = () => {
 
     const isSyncing = syncStats?.status !== 'idle';
     const progress = syncStats && syncStats.totalFiles > 0 ? (syncStats.processedFiles / syncStats.totalFiles) * 100 : 0;
+    const hasErrors = syncStats?.errors && syncStats.errors.length > 0;
+    const hasThumbnailFailures = (syncStats?.thumbnailsFailed || 0) > 0;
+    const hasIssues = hasErrors || hasThumbnailFailures;
 
     // Responsive breakpoints
     const showAppTitle = windowWidth > 500;
@@ -69,8 +72,10 @@ export const TitleBar: React.FC = () => {
                                 <div className="flex items-center gap-2 shrink-0">
                                     {isSyncing ? (
                                         <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                                    ) : hasIssues ? (
+                                        <AlertCircle className="h-3 w-3 text-yellow-500" />
                                     ) : (
-                                        <div className="h-2 w-2 rounded-full bg-green-500" />
+                                        <CheckCircle2 className="h-3 w-3 text-green-500" />
                                     )}
                                     <span className="whitespace-nowrap">{isSyncing ? 'Syncing...' : 'Ready'}</span>
                                 </div>

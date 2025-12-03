@@ -1,8 +1,8 @@
 <img src="https://github.com/user-attachments/assets/68145096-c21c-457b-b084-1d226dd14caa" width="250" height="250">
 <img width="470" height="252" alt="image" src="https://github.com/user-attachments/assets/193ff9f5-e419-40f8-b247-b68bbc57eb60" />
 
-# Generative AI Studio
-High-performance media workflow app for Generative AI teams.
+# Prompin' Studio
+High-performance media workflow app for media production teams.
 
 ## Features
 - **Fast Media Browsing**: Virtualized grid view for handling thousands of assets.
@@ -58,3 +58,17 @@ High-performance media workflow app for Generative AI teams.
 - `src/`: Renderer process code (React components, Store).
 - `src/components/`: UI components (Explorer, AssetCard, etc.).
 - `src/store.ts`: Zustand store for global state.
+
+## Architecture
+
+### Indexer Service
+The `IndexerService` is the core backend component responsible for scanning, watching, and indexing media assets. It is designed as a modular system:
+
+- **Scanner**: Traverses the file system, handling symlinks by indexing them relative to the current root path to ensure data isolation.
+- **Watcher**: Listens for real-time file system changes using `chokidar`.
+- **MetadataExtractor**: Extracts media metadata (resolution, duration) using `ffprobe`.
+- **ThumbnailGenerator**: Manages background thumbnail generation queues.
+- **AssetManager**: Handles all database interactions (CRUD, search, tagging).
+
+### Data Isolation
+To prevent data leakage between projects, the system enforces strict isolation based on the current `rootPath`. Symlinks pointing outside the root folder are indexed as if they were inside, preserving the project's self-contained structure. Assets from other root paths remain in the database but are filtered out at query time.
