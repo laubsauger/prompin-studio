@@ -181,6 +181,30 @@ export const MetadataForm: React.FC<MetadataFormProps> = ({
                 />
             </div>
 
+            {/* Input Assets - moved from left column */}
+            {showLineage !== false && (
+                <div className="space-y-3">
+                    <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">Input Assets (Lineage)</h4>
+                    <div className="flex flex-wrap gap-3">
+                        {metadata.inputs?.map(input => (
+                            <InputAssetThumbnail
+                                key={input}
+                                assetId={input}
+                                onRemove={() => removeInput(input)}
+                            />
+                        ))}
+                        <button
+                            type="button"
+                            onClick={() => setIsAssetPickerOpen(true)}
+                            className="w-24 h-24 rounded-lg border-2 border-dashed border-muted-foreground/25 hover:border-muted-foreground/50 bg-muted/30 hover:bg-muted/50 flex flex-col items-center justify-center gap-1 transition-all"
+                        >
+                            <Plus className="h-5 w-5 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground">Add Input</span>
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Generation Details */}
             <div className="space-y-4">
                 <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">Generation Details</h4>

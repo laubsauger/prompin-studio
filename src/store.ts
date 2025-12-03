@@ -5,7 +5,6 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Asset, SyncStats, AssetStatus, AssetMetadata } from './types';
 
 // Lazily load ipcRenderer to avoid issues during test initialization if window.require is not yet mocked
-// Lazily load ipcRenderer to avoid issues during test initialization if window.require is not yet mocked
 const getIpcRenderer = () => {
     if (window.ipcRenderer) return window.ipcRenderer;
 
@@ -32,6 +31,23 @@ const getIpcRenderer = () => {
     };
 };
 
+export interface FilterConfig {
+    likedOnly: boolean;
+    type: 'all' | 'image' | 'video';
+    tagId?: string | null;
+    scratchPadId?: string | null;
+    status?: AssetStatus | 'all';
+    authorId?: string;
+    project?: string;
+    scene?: string;
+    shot?: string;
+    platform?: string;
+    model?: string;
+    dateFrom?: number;
+    dateTo?: number;
+    relatedToAssetId?: string;
+}
+
 interface AppState {
     assets: Asset[];
     syncStats: SyncStats | null;
@@ -46,22 +62,7 @@ interface AppState {
     loadingMessage: string;
 
     sortConfig: { key: 'createdAt' | 'updatedAt' | 'path'; direction: 'asc' | 'desc' };
-    filterConfig: {
-        likedOnly: boolean;
-        type: 'all' | 'image' | 'video';
-        tagId?: string | null;
-        scratchPadId?: string | null;
-        status?: AssetStatus | 'all';
-        authorId?: string;
-        project?: string;
-        scene?: string;
-        shot?: string;
-        platform?: string;
-        model?: string;
-        dateFrom?: number;
-        dateTo?: number;
-        relatedToAssetId?: string;
-    };
+    filterConfig: FilterConfig;
     searchQuery: string;
     folderColors: Record<string, string>;
     tags: { id: string; name: string; color?: string }[];
@@ -100,11 +101,17 @@ interface AppState {
     handleUpload: (metadata: { project: string; scene: string; tags: string[]; description?: string; author?: string; targetPath?: string }) => Promise<void>;
 
     // Scratch Pad Actions
-    createScratchPad: (name: string, initialAssetIds?: string[]) => void;
+    createScratchPad: (name: string, initialAssetIds?: string[]) => string;
     deleteScratchPad: (id: string) => void;
     addToScratchPad: (padId: string, assetIds: string[]) => void;
     removeFromScratchPad: (padId: string, assetId: string) => void;
     renameScratchPad: (id: string, name: string) => void;
+
+    // Active Views (Temporary saved searches)
+    activeViews: Array<{ id: string; name: string; filterConfig: FilterConfig; query?: string }>;
+    addActiveView: (name: string, filterConfig: FilterConfig, query?: string) => void;
+    removeActiveView: (id: string) => void;
+    updateActiveView: (id: string, config: Partial<FilterConfig>) => void;
 
     setFilter: (filter: Asset['status'] | 'all') => void;
     setViewingAssetId: (id: string | null) => void;
@@ -130,6 +137,7 @@ interface AppState {
     initStore: () => Promise<void>;
     rootPath: string | null;
     refreshAssets: () => Promise<void>;
+    selectAll: () => void;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -182,9 +190,13 @@ export const useStore = create<AppState>((set, get) => ({
         set({ lastInboxViewTime: time });
     },
     // Scratch Pad Actions
-    createScratchPad: (name, initialAssetIds = []) => set(state => ({
-        scratchPads: [...state.scratchPads, { id: uuidv4(), name, assetIds: initialAssetIds }]
-    })),
+    createScratchPad: (name, initialAssetIds = []) => {
+        const id = uuidv4();
+        set(state => ({
+            scratchPads: [...state.scratchPads, { id, name, assetIds: initialAssetIds }]
+        }));
+        return id;
+    },
 
     deleteScratchPad: (id) => set(state => ({
         scratchPads: state.scratchPads.filter(p => p.id !== id),
@@ -212,6 +224,31 @@ export const useStore = create<AppState>((set, get) => ({
     renameScratchPad: (id, name) => set(state => ({
         scratchPads: state.scratchPads.map(p =>
             p.id === id ? { ...p, name } : p
+        )
+    })),
+
+    // Active Views Implementation
+    activeViews: [],
+    addActiveView: (name, filterConfig, query) => set(state => {
+        const existing = state.activeViews.find(v => v.name === name);
+        if (existing) return { activeViews: state.activeViews };
+        return {
+            activeViews: [...state.activeViews, {
+                id: uuidv4(),
+                name,
+                filterConfig,
+                query
+            }]
+        };
+    }),
+    removeActiveView: (id) => set(state => ({
+        activeViews: state.activeViews.filter(v => v.id !== id)
+    })),
+    updateActiveView: (id, config) => set(state => ({
+        activeViews: state.activeViews.map(v =>
+            v.id === id
+                ? { ...v, filterConfig: { ...v.filterConfig, ...config } }
+                : v
         )
     })),
 
@@ -248,6 +285,16 @@ export const useStore = create<AppState>((set, get) => ({
             if (filterConfig.dateTo) backendFilters.dateTo = filterConfig.dateTo;
             if (filterConfig.tagId) backendFilters.tagIds = [filterConfig.tagId];
             if (filterConfig.relatedToAssetId) backendFilters.relatedToAssetId = filterConfig.relatedToAssetId;
+
+            if (filterConfig.scratchPadId) {
+                const scratchPad = get().scratchPads.find(p => p.id === filterConfig.scratchPadId);
+                if (scratchPad && scratchPad.assetIds.length > 0) {
+                    backendFilters.ids = scratchPad.assetIds;
+                } else if (scratchPad) {
+                    // Empty scratch pad
+                    backendFilters.ids = ['non-existent-id']; // Hack to return empty result
+                }
+            }
 
             const assets = await getIpcRenderer().invoke('search-assets', searchQuery, backendFilters);
 

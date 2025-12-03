@@ -5,12 +5,14 @@ interface LoadingScreenProps {
     message?: string;
     progress?: number;
     details?: string;
+    subDetails?: string;
 }
 
 export const LoadingScreen: React.FC<LoadingScreenProps> = ({
     message = 'Loading...',
     progress,
-    details
+    details,
+    subDetails
 }) => {
     return (
         <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-background/95 backdrop-blur-sm">
@@ -27,7 +29,10 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
                 <div className="text-center space-y-2">
                     <h2 className="text-xl font-semibold">{message}</h2>
                     {details && (
-                        <p className="text-sm text-muted-foreground">{details}</p>
+                        <p className="text-sm text-muted-foreground/70">{details}</p>
+                    )}
+                    {subDetails && (
+                        <p className="text-sm text-muted-foreground">{subDetails}</p>
                     )}
                 </div>
 

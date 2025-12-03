@@ -6,192 +6,150 @@ import type { Asset } from '../types';
 import { ZoomIn, ZoomOut, Maximize2, Home } from 'lucide-react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { Button } from './ui/button';
+import dagre from 'dagre';
 
-// Simplified graph layout for better performance
-
-// Simplified graph layout for better performance
 const LineageGraph: React.FC<{ rootAsset: Asset, lineageAssets: Asset[] }> = ({ rootAsset, lineageAssets }) => {
-    // Calculate node positions using a simple force-directed-like layout
-    const nodePositions = useMemo(() => {
-        const positions = new Map<string, { x: number; y: number; level: number }>();
-        const visited = new Set<string>();
+    // Calculate node positions using dagre
+    const { nodePositions, edges, graphWidth, graphHeight } = useMemo(() => {
+        const g = new dagre.graphlib.Graph();
+        g.setGraph({
+            rankdir: 'LR',
+            nodesep: 100, // Increased vertical separation
+            ranksep: 200, // Increased horizontal separation
+            marginx: 50,
+            marginy: 50
+        });
+        g.setDefaultEdgeLabel(() => ({}));
 
-        // Position root at center
-        positions.set(rootAsset.id, { x: 0, y: 0, level: 0 });
-        visited.add(rootAsset.id);
+        // Card size: w-64 (256px)
+        // Height: ~300px (256px image + 40px meta)
+        const nodeWidth = 256;
+        const nodeHeight = 300;
 
-        // Position inputs to the left with more spacing
-        const inputQueue: { asset: Asset; level: number }[] = [];
-        if (rootAsset.metadata.inputs) {
-            rootAsset.metadata.inputs.forEach((inputId, index) => {
-                const inputAsset = lineageAssets.find(a => a.id === inputId);
-                if (inputAsset && !visited.has(inputId)) {
-                    const yOffset = (index - (rootAsset.metadata.inputs!.length - 1) / 2) * 300; // Vertical spacing
-                    positions.set(inputId, { x: -350, y: yOffset, level: -1 }); // Horizontal spacing
-                    visited.add(inputId);
-                    inputQueue.push({ asset: inputAsset, level: -1 });
-                }
-            });
-        }
-
-        // Recursively position input ancestors with more spacing
-        while (inputQueue.length > 0) {
-            const { asset, level } = inputQueue.shift()!;
-            if (asset.metadata.inputs) {
-                asset.metadata.inputs.forEach((inputId, index) => {
-                    const inputAsset = lineageAssets.find(a => a.id === inputId);
-                    if (inputAsset && !visited.has(inputId)) {
-                        const parentPos = positions.get(asset.id)!;
-                        const yOffset = (index - (asset.metadata.inputs!.length - 1) / 2) * 300;
-                        positions.set(inputId, {
-                            x: parentPos.x - 350,
-                            y: parentPos.y + yOffset,
-                            level: level - 1
-                        });
-                        visited.add(inputId);
-                        if (level > -3) { // Limit depth for performance
-                            inputQueue.push({ asset: inputAsset, level: level - 1 });
-                        }
-                    }
-                });
-            }
-        }
-
-        // Position outputs to the right with more spacing
-        const outputAssets = lineageAssets.filter(a => a.metadata.inputs?.includes(rootAsset.id));
-        const outputQueue: { asset: Asset; level: number }[] = [];
-
-        outputAssets.forEach((outputAsset, index) => {
-            if (!visited.has(outputAsset.id)) {
-                const yOffset = (index - (outputAssets.length - 1) / 2) * 300;
-                positions.set(outputAsset.id, { x: 350, y: yOffset, level: 1 });
-                visited.add(outputAsset.id);
-                outputQueue.push({ asset: outputAsset, level: 1 });
-            }
+        lineageAssets.forEach(asset => {
+            g.setNode(asset.id, { width: nodeWidth, height: nodeHeight });
         });
 
-        // Recursively position output descendants with more spacing
-        while (outputQueue.length > 0) {
-            const { asset, level } = outputQueue.shift()!;
-            const childAssets = lineageAssets.filter(a => a.metadata.inputs?.includes(asset.id));
-            childAssets.forEach((childAsset, index) => {
-                if (!visited.has(childAsset.id)) {
-                    const parentPos = positions.get(asset.id)!;
-                    const yOffset = (index - (childAssets.length - 1) / 2) * 300;
-                    positions.set(childAsset.id, {
-                        x: parentPos.x + 350,
-                        y: parentPos.y + yOffset,
-                        level: level + 1
-                    });
-                    visited.add(childAsset.id);
-                    if (level < 3) { // Limit depth for performance
-                        outputQueue.push({ asset: childAsset, level: level + 1 });
-                    }
-                }
-            });
-        }
-
-        return positions;
-    }, [rootAsset, lineageAssets]);
-
-    // Create edges (connections between nodes)
-    const edges = useMemo(() => {
+        // Add edges
         const edgeList: { from: string; to: string }[] = [];
         lineageAssets.forEach(asset => {
             if (asset.metadata.inputs) {
                 asset.metadata.inputs.forEach(inputId => {
-                    if (nodePositions.has(asset.id) && nodePositions.has(inputId)) {
+                    if (lineageAssets.some(a => a.id === inputId)) {
+                        g.setEdge(inputId, asset.id);
                         edgeList.push({ from: inputId, to: asset.id });
                     }
                 });
             }
         });
-        return edgeList;
-    }, [lineageAssets, nodePositions]);
+
+        dagre.layout(g);
+
+        const positions = new Map<string, { x: number; y: number }>();
+        g.nodes().forEach(v => {
+            const node = g.node(v);
+            // dagre returns center coordinates, we need top-left for absolute positioning
+            positions.set(v, {
+                x: node.x - nodeWidth / 2,
+                y: node.y - nodeHeight / 2
+            });
+        });
+
+        const graphWidth = g.graph().width || 1000;
+        const graphHeight = g.graph().height || 1000;
+
+        return { nodePositions: positions, edges: edgeList, graphWidth, graphHeight };
+    }, [rootAsset, lineageAssets]);
+
+    // Padding for the container
+    const padding = 100;
+    const containerWidth = Math.max(window.innerWidth, graphWidth + padding * 2);
+    const containerHeight = Math.max(window.innerHeight, graphHeight + padding * 2);
 
     return (
-        <div className="relative" style={{ width: '4000px', height: '4000px' }}>
-            {/* SVG for connections */}
-            <svg
-                className="absolute inset-0 pointer-events-none"
-                style={{ width: '100%', height: '100%' }}
-                viewBox="-2000 -2000 4000 4000"
-            >
-                <defs>
-                    <marker
-                        id="arrowhead"
-                        markerWidth="10"
-                        markerHeight="10"
-                        refX="9"
-                        refY="5"
-                        orient="auto"
-                    >
-                        <polygon
-                            points="0 0, 10 5, 0 10"
-                            fill="currentColor"
-                            className="text-muted-foreground/40"
-                        />
-                    </marker>
-                </defs>
-                {edges.map(({ from, to }, index) => {
-                    const fromPos = nodePositions.get(from);
-                    const toPos = nodePositions.get(to);
-                    if (!fromPos || !toPos) return null;
+        <div className="relative overflow-auto" style={{ width: '100%', height: '100%' }}>
+            <div className="relative" style={{ width: `${containerWidth}px`, height: `${containerHeight}px` }}>
+                {/* SVG for connections */}
+                <svg
+                    className="absolute inset-0 pointer-events-none"
+                    style={{ width: '100%', height: '100%', zIndex: 0 }}
+                    viewBox={`0 0 ${containerWidth} ${containerHeight}`}
+                >
+                    <defs>
+                        <marker
+                            id="arrowhead"
+                            markerWidth="10"
+                            markerHeight="7"
+                            refX="9"
+                            refY="3.5"
+                            orient="auto"
+                        >
+                            <polygon
+                                points="0 0, 10 3.5, 0 7"
+                                fill="currentColor"
+                                className="text-muted-foreground/60"
+                            />
+                        </marker>
+                    </defs>
+                    {edges.map(({ from, to }, index) => {
+                        const fromPos = nodePositions.get(from);
+                        const toPos = nodePositions.get(to);
+                        if (!fromPos || !toPos) return null;
 
-                    // Calculate connection points (from right edge to left edge)
-                    // Cards are 256px wide (w-64) and about 296px tall (256px square + 40px bottom)
-                    // Connect from middle of right edge to middle of left edge
-                    const cardHeight = 296; // Approximate height
-                    const startX = fromPos.x + 128; // Right edge of source card
-                    const startY = fromPos.y + (cardHeight / 2); // Vertical center of card
-                    const endX = toPos.x - 128; // Left edge of target card
-                    const endY = toPos.y + (cardHeight / 2); // Vertical center of card
+                        // Calculate connection points
+                        // fromPos/toPos are top-left coordinates relative to graph origin
+                        // We need to add padding
+                        const startX = fromPos.x + padding + 256; // Right edge of source card
+                        const startY = fromPos.y + padding + 150; // Vertical center
+                        const endX = toPos.x + padding; // Left edge of target card
+                        const endY = toPos.y + padding + 150; // Vertical center
 
-                    // Use a curved path for better visualization
-                    const midX = (startX + endX) / 2;
-                    const path = `M ${startX} ${startY} C ${midX} ${startY}, ${midX} ${endY}, ${endX} ${endY}`;
+                        // Use a curved path (Bezier)
+                        const midX = (startX + endX) / 2;
+                        const path = `M ${startX} ${startY} C ${midX} ${startY}, ${midX} ${endY}, ${endX} ${endY}`;
+
+                        return (
+                            <path
+                                key={index}
+                                d={path}
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                fill="none"
+                                className="text-muted-foreground/60"
+                                markerEnd="url(#arrowhead)"
+                                style={{
+                                    filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1))',
+                                }}
+                            />
+                        );
+                    })}
+                </svg>
+
+                {/* Render nodes */}
+                {Array.from(nodePositions.entries()).map(([assetId, position]) => {
+                    const asset = assetId === rootAsset.id ? rootAsset : lineageAssets.find(a => a.id === assetId);
+                    if (!asset) return null;
 
                     return (
-                        <path
-                            key={index}
-                            d={path}
-                            stroke="currentColor"
-                            strokeWidth="8"
-                            fill="none"
-                            className="text-muted-foreground/40"
-                            markerEnd="url(#arrowhead)"
+                        <div
+                            key={assetId}
+                            className="absolute"
                             style={{
-                                filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15))',
-                                vectorEffect: 'non-scaling-stroke' // Ensures stroke doesn't scale with zoom
+                                left: `${position.x + padding}px`,
+                                top: `${position.y + padding}px`,
+                                width: '256px',
+                                zIndex: 10
                             }}
-                        />
-                    );
-                })}
-            </svg>
-
-            {/* Render nodes with full AssetCards */}
-            {Array.from(nodePositions.entries()).map(([assetId, position]) => {
-                const asset = assetId === rootAsset.id ? rootAsset : lineageAssets.find(a => a.id === assetId);
-                if (!asset) return null;
-
-                return (
-                    <div
-                        key={assetId}
-                        className="absolute"
-                        style={{
-                            left: `${position.x + 2000 - 128}px`, // Center horizontally (256px width / 2)
-                            top: `${position.y + 2000}px`, // Position at y directly (no offset needed)
-                            zIndex: assetId === rootAsset.id ? 10 : 1
-                        }}
-                    >
-                        <div className={assetId === rootAsset.id ? "ring-4 ring-primary ring-offset-4 rounded-lg" : ""}>
-                            <div className="w-64">
-                                <AssetCard asset={asset} />
+                        >
+                            <div className={assetId === rootAsset.id ? "ring-4 ring-primary ring-offset-4 rounded-lg" : ""}>
+                                <div className="w-64">
+                                    <AssetCard asset={asset} />
+                                </div>
                             </div>
                         </div>
-                    </div>
-                );
-            })}
+                    );
+                })}
+            </div>
         </div>
     );
 };
@@ -264,7 +222,7 @@ export const LineageView: React.FC = () => {
                     <div className="flex items-center justify-between pr-10">
                         <DialogTitle>Asset Lineage Graph</DialogTitle>
 
-                        {/* Zoom Controls - moved away from close button */}
+                        {/* Zoom Controls */}
                         <div className="flex items-center gap-2">
                             <Button
                                 variant="ghost"
@@ -309,12 +267,12 @@ export const LineageView: React.FC = () => {
                         </div>
                     ) : rootAsset ? (
                         <TransformWrapper
-                            key={`${lineageAssetId}-${optimalScale}`} // Force remount when scale changes
+                            key={`${lineageAssetId}-${optimalScale}`}
                             ref={transformRef}
                             initialScale={optimalScale}
                             minScale={0.1}
                             maxScale={2}
-                            centerOnInit={false} // We'll handle centering manually
+                            centerOnInit={false}
                             limitToBounds={false}
                             initialPositionX={0}
                             initialPositionY={0}
@@ -331,9 +289,8 @@ export const LineageView: React.FC = () => {
                                 mode: "reset"
                             }}
                             onInit={(ref) => {
-                                // Center on the selected asset after initialization
                                 setTimeout(() => {
-                                    ref.centerView(optimalScale, 500); // Add animation duration for smooth centering
+                                    ref.centerView(optimalScale, 500);
                                 }, 150);
                             }}
                         >
@@ -354,7 +311,6 @@ export const LineageView: React.FC = () => {
                                         </div>
                                     </TransformComponent>
 
-                                    {/* Mini-map / Overview (optional future enhancement) */}
                                     <div className="absolute bottom-4 left-4 bg-background/80 backdrop-blur-sm border rounded-lg p-2 text-xs text-muted-foreground">
                                         <div className="flex items-center gap-2">
                                             <span>Scroll to pan</span>

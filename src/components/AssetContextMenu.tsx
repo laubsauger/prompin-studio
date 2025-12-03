@@ -141,8 +141,11 @@ export const AssetContextMenu: React.FC<AssetContextMenuProps> = ({ asset, child
                     </ContextMenuItem>
                     <ContextMenuItem onClick={(e) => {
                         e.stopPropagation();
-                        useStore.getState().setCurrentPath(null);
-                        useStore.getState().setFilterConfig({
+
+                        const name = `Derived from ${asset.path.split('/').pop()}`;
+
+                        // Create Active View
+                        useStore.getState().addActiveView(name, {
                             relatedToAssetId: asset.id,
                             type: 'all',
                             status: 'all',
@@ -150,6 +153,22 @@ export const AssetContextMenu: React.FC<AssetContextMenuProps> = ({ asset, child
                             tagId: undefined,
                             scratchPadId: undefined
                         });
+
+                        // We don't automatically switch to it, or maybe we should?
+                        // User said "hop around between normal view and those"
+                        // Let's just create it and maybe notify or switch?
+                        // The user said "creates a temporary item under library... navigate away"
+                        // So let's just create it. The user can click it in the sidebar.
+                        // Actually, let's switch to it for convenience, but it's now a persistent view in the sidebar.
+
+                        // Find the newly created view (or existing one)
+                        const views = useStore.getState().activeViews;
+                        const view = views.find(v => v.name === name);
+                        if (view) {
+                            useStore.getState().setCurrentPath(null);
+                            useStore.getState().setFilterConfig(view.filterConfig);
+                            // We might need to track which active view is selected to highlight it in sidebar
+                        }
                     }}>
                         <GitFork className="mr-2 h-4 w-4 rotate-180" /> Show Derived Assets
                     </ContextMenuItem>

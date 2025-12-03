@@ -46,18 +46,24 @@ export function SearchPalette() {
         debouncedSearch(value);
     };
 
-    // Keyboard shortcut to open search
+    // Keyboard shortcuts to open/close search
     useEffect(() => {
         const down = (e: KeyboardEvent) => {
             if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault();
                 setOpen((open) => !open);
             }
+
+            // Close on Escape when open
+            if (e.key === 'Escape' && open) {
+                e.preventDefault();
+                setOpen(false);
+            }
         };
 
         document.addEventListener('keydown', down);
         return () => document.removeEventListener('keydown', down);
-    }, []);
+    }, [open]);
 
     return (
         <>

@@ -295,12 +295,46 @@ export const MediaViewer: React.FC = () => {
                 {/* Media Display */}
                 <div className="flex-1 overflow-hidden flex items-center justify-center bg-black/5">
                     {asset.type === 'image' ? (
-                        <div className="w-full h-full flex items-center justify-center p-4">
+                        <div className="w-full h-full relative">
                             <TransformWrapper
-                                minScale={0.5}
-                                maxScale={5}
+                                minScale={0.1}
+                                maxScale={10}
                                 initialScale={1}
-                                centerOnInit={true}
+                                centerOnInit={false}
+                                limitToBounds={false}
+                                panning={{
+                                    disabled: false,
+                                    velocityDisabled: false,
+                                }}
+                                wheel={{
+                                    step: 0.1,
+                                }}
+                                doubleClick={{
+                                    mode: 'reset'
+                                }}
+                                alignmentAnimation={{
+                                    velocityAlignmentTime: 200,
+                                }}
+                                onInit={(ref) => {
+                                    // Ensure image fits in viewport initially
+                                    setTimeout(() => {
+                                        const container = ref.instance.wrapperComponent;
+                                        const img = container?.querySelector('img');
+                                        if (img && container) {
+                                            const containerRect = container.getBoundingClientRect();
+                                            const imgWidth = img.naturalWidth;
+                                            const imgHeight = img.naturalHeight;
+
+                                            if (imgWidth && imgHeight) {
+                                                const scaleX = containerRect.width / imgWidth;
+                                                const scaleY = containerRect.height / imgHeight;
+                                                const scale = Math.min(scaleX, scaleY, 1) * 0.9; // 90% to leave some padding
+
+                                                ref.centerView(scale, 0);
+                                            }
+                                        }
+                                    }, 100);
+                                }}
                             >
                                 <TransformComponent
                                     wrapperStyle={{
@@ -310,21 +344,25 @@ export const MediaViewer: React.FC = () => {
                                         alignItems: 'center',
                                         justifyContent: 'center'
                                     }}
-                                    contentStyle={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center'
-                                    }}
                                 >
                                     <img
                                         src={`media://${asset.path}`}
                                         alt={asset.path}
-                                        className="max-w-full max-h-full object-contain"
                                         style={{
-                                            maxHeight: '100%',
-                                            maxWidth: '100%',
-                                            width: 'auto',
-                                            height: 'auto'
+                                            display: 'block',
+                                            cursor: 'grab',
+                                            maxWidth: 'none',
+                                            maxHeight: 'none',
+                                        }}
+                                        draggable={false}
+                                        onLoad={(e) => {
+                                            // Trigger proper scaling once image is loaded
+                                            const img = e.currentTarget;
+                                            const container = img.closest('.react-transform-wrapper');
+                                            if (container) {
+                                                const event = new Event('resize');
+                                                window.dispatchEvent(event);
+                                            }
                                         }}
                                     />
                                 </TransformComponent>

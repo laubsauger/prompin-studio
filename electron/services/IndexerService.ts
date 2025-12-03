@@ -506,6 +506,7 @@ export class IndexerService {
         platformUrl?: string;
         model?: string;
         tagIds?: string[];
+        ids?: string[];
         dateFrom?: number;
         dateTo?: number;
         relatedToAssetId?: string;
@@ -538,6 +539,14 @@ export class IndexerService {
             `);
             filters.tagIds.forEach((tagId, i) => {
                 params[`tagId${i}`] = tagId;
+            });
+        }
+
+        // Add ids filter
+        if (filters?.ids && filters.ids.length > 0) {
+            conditions.push(`a.id IN (${filters.ids.map((_, i) => `@id${i}`).join(',')})`);
+            filters.ids.forEach((id, i) => {
+                params[`id${i}`] = id;
             });
         }
 

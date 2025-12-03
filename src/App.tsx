@@ -81,9 +81,10 @@ function App() {
       {/* Loading Screen */}
       {(isLoading || syncStats?.status === 'scanning') && (
         <LoadingScreen
-          message={loadingMessage || `Scanning ${rootFolder}...`}
+          message={loadingMessage || 'Scanning folder'}
           progress={loadingProgress}
-          details={loadingDetails}
+          details={loadingMessage ? undefined : rootFolder}
+          subDetails={loadingDetails}
         />
       )}
     </>

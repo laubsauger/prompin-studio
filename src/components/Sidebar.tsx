@@ -467,6 +467,58 @@ export const Sidebar: React.FC = () => {
                         </Button>
                     </SidebarSection>
 
+                    {/* Active Views Section */}
+                    <SidebarSection
+                        title="Active Views"
+                        isOpen={true}
+                        onToggle={() => { }}
+                        className="mb-2"
+                    >
+                        {useStore(state => state.activeViews).map(view => (
+                            <div
+                                key={view.id}
+                                className={cn(
+                                    "flex items-center w-full hover:bg-accent/50 group pr-2 cursor-pointer",
+                                    // Check if this view's config matches current config (simplified check)
+                                    // Or we can just check if we are in this view mode if we tracked it
+                                    // For now, let's just use equality of filter config if possible, or just rely on user clicking
+                                    // Actually, we should probably track `activeViewId` in store to highlight correctly
+                                    // But for now, let's just highlight if filterConfig matches
+                                    JSON.stringify(filterConfig) === JSON.stringify(view.filterConfig) && "bg-accent text-accent-foreground"
+                                )}
+                            >
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="flex-1 justify-start gap-2 font-normal h-8 px-4 hover:bg-transparent"
+                                    onClick={() => {
+                                        setFilterConfig(view.filterConfig);
+                                        setCurrentPath(null);
+                                    }}
+                                >
+                                    <GitFork size={14} className="text-blue-500 rotate-180" />
+                                    <span className="truncate">{view.name}</span>
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        useStore.getState().removeActiveView(view.id);
+                                    }}
+                                >
+                                    <Trash2 size={12} className="text-muted-foreground hover:text-destructive" />
+                                </Button>
+                            </div>
+                        ))}
+                        {useStore(state => state.activeViews).length === 0 && (
+                            <div className="px-4 py-2 text-xs text-muted-foreground italic">
+                                No active views
+                            </div>
+                        )}
+                    </SidebarSection>
+
                     {/* Scratch Pads Section */}
                     <SidebarSection
                         title="Scratch Pads"

@@ -47,28 +47,20 @@ export const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
         ? `thumbnail://${asset.thumbnailPath}`
         : `media://${asset.path}`;
 
-    // Sync video state with player
-    React.useEffect(() => {
-        if (!playerRef.current) return;
-        if (isPlaying) {
-            playerRef.current.play();
-        } else {
-            playerRef.current.pause();
-        }
-    }, [isPlaying]);
-
-    const handlePlayPauseClick = (e: React.MouseEvent) => {
+    const handlePlayPauseClick = React.useCallback((e: React.MouseEvent) => {
         e.stopPropagation();
         e.preventDefault();
-        if (!playerRef.current) return;
+
+        if (!playerRef.current || asset.type !== 'video') return;
+
         if (isPlaying) {
             playerRef.current.pause();
-            setIsPlaying(false);
         } else {
-            playerRef.current.play();
-            setIsPlaying(true);
+            playerRef.current.play().catch((err) => {
+                console.error('Failed to play video:', err);
+            });
         }
-    };
+    }, [isPlaying, asset.type]);
 
     return (
         <AssetContextMenu asset={asset}>
@@ -80,61 +72,69 @@ export const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
                 onClick={handleClick}
             >
                 <div className="aspect-square relative bg-muted/20">
-                    {isPlaying && asset.type === 'video' ? (
-                        <div
-                            className="absolute inset-0 z-20 vidstack-player bg-black"
-                            onClick={(e) => e.stopPropagation()}
-                            onDoubleClick={(e) => e.stopPropagation()}
-                        >
-                            <MediaPlayer
-                                ref={playerRef}
-                                src={`media://${asset.path}`}
-                                viewType="video"
-                                streamType="on-demand"
-                                logLevel="warn"
-                                crossOrigin
-                                playsInline
-                                className="w-full h-full"
-                                // Remove autoPlay, we control it via useEffect/onCanPlay
-                                onCanPlay={() => {
-                                    if (playerRef.current) {
-                                        playerRef.current.play();
-                                    }
-                                }}
-                                onEnded={() => {
-                                    const player = playerRef.current;
-                                    if (player?.state.duration === 0) return;
-                                    setIsPlaying(false);
-                                }}
-                                onPause={() => {
-                                    setIsPlaying(false);
-                                }}
-                                onPlay={() => {
-                                    setIsPlaying(true);
-                                }}
-                                onError={(e) => {
-                                    console.error('[AssetCard] Video error:', e);
-                                }}
-                            >
-                                <MediaProvider className="w-full h-full [&>video]:object-cover [&>video]:w-full [&>video]:h-full" />
-                                <MinimalVideoLayout />
-                            </MediaPlayer>
-                        </div>
-                    ) : (
+                    {asset.type === 'video' ? (
                         <>
-                            {asset.type === 'video' && !asset.thumbnailPath ? (
-                                <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
-                                    <Film className="w-8 h-8 opacity-50" />
-                                </div>
-                            ) : (
-                                <img
-                                    src={thumbnailSrc}
-                                    alt={asset.path}
-                                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                                    loading="lazy"
-                                />
+                            {/* Show thumbnail when not playing */}
+                            {!isPlaying && (
+                                !asset.thumbnailPath ? (
+                                    <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+                                        <Film className="w-8 h-8 opacity-50" />
+                                    </div>
+                                ) : (
+                                    <img
+                                        src={thumbnailSrc}
+                                        alt={asset.path}
+                                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                        loading="lazy"
+                                    />
+                                )
                             )}
+                            {/* Always render the player for videos, but control visibility */}
+                            <div
+                                className={cn(
+                                    "absolute inset-0 z-20 vidstack-player bg-black",
+                                    !isPlaying && "opacity-0 pointer-events-none"
+                                )}
+                                onClick={(e) => e.stopPropagation()}
+                                onDoubleClick={(e) => e.stopPropagation()}
+                            >
+                                <MediaPlayer
+                                    ref={playerRef}
+                                    src={`media://${asset.path}`}
+                                    viewType="video"
+                                    streamType="on-demand"
+                                    logLevel="warn"
+                                    crossOrigin
+                                    playsInline
+                                    className="w-full h-full"
+                                    autoPlay={false}
+                                    onPlay={() => {
+                                        setIsPlaying(true);
+                                    }}
+                                    onPause={() => {
+                                        setIsPlaying(false);
+                                    }}
+                                    onEnded={() => {
+                                        setIsPlaying(false);
+                                    }}
+                                    onError={(e) => {
+                                        console.error('[AssetCard] Video error:', e);
+                                        setIsPlaying(false);
+                                    }}
+                                >
+                                    <MediaProvider className="w-full h-full [&>video]:object-cover [&>video]:w-full [&>video]:h-full" />
+                                    <MinimalVideoLayout />
+                                </MediaPlayer>
+                            </div>
                         </>
+                    ) : (
+                        /* Image handling */
+                        <img
+                            src={thumbnailSrc}
+                            alt={asset.path}
+                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                            loading="lazy"
+                        />
                     )}
 
                     {/* Inline Play/Pause Button - Always visible for videos */}
