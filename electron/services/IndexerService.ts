@@ -100,11 +100,21 @@ export class IndexerService {
         this.stats.errors = [];
         this.stats.filesByType = { images: 0, videos: 0, other: 0 };
         this.stats.skippedFiles = 0;
+        this.stats.thumbnailProgress = { current: 0, total: 0 };
 
-        // Manual recursive scan to ensure we find files even if chokidar fails on network drives
+        // 1. Fast Pre-Scan to get accurate counts
+        console.log('[IndexerService] Starting fast pre-scan...');
+        await this.preScan(this.rootPath);
+        console.log(`[IndexerService] Pre-scan complete. Found ${this.stats.totalFiles} files.`);
+
+        // 2. Manual recursive scan to index files (fast, no thumbnails)
         console.log('[IndexerService] Starting manual recursive scan...');
-        this.scanDirectory(this.rootPath).then(() => {
+        this.scanDirectory(this.rootPath).then(async () => {
             console.log('[IndexerService] Manual scan complete.');
+
+            // 3. Start background thumbnail generation
+            this.processThumbnails();
+
             this.stats.status = 'idle';
             this.stats.lastSync = Date.now();
         }).catch(err => {
@@ -154,7 +164,7 @@ export class IndexerService {
         this.rehomeAssets(this.rootPath);
     }
 
-    private async scanDirectory(dirPath: string) {
+    private async preScan(dirPath: string) {
         try {
             const entries = await fs.readdir(dirPath, { withFileTypes: true });
             for (const entry of entries) {
@@ -163,11 +173,33 @@ export class IndexerService {
 
                 if (entry.isDirectory()) {
                     this.stats.totalFolders = (this.stats.totalFolders || 0) + 1;
-                    // console.log(`[Manual Scan] Found folder: ${fullPath}`);
+                    await this.preScan(fullPath);
+                } else if (entry.isFile()) {
+                    if (this.isMediaFile(fullPath)) {
+                        this.stats.totalFiles++;
+                    } else {
+                        this.stats.skippedFiles = (this.stats.skippedFiles || 0) + 1;
+                    }
+                }
+            }
+        } catch (error) {
+            console.error(`[Pre-Scan] Error scanning directory ${dirPath}:`, error);
+        }
+    }
+
+    private async scanDirectory(dirPath: string) {
+        try {
+            const entries = await fs.readdir(dirPath, { withFileTypes: true });
+            for (const entry of entries) {
+                const fullPath = path.join(dirPath, entry.name);
+                if (entry.name.startsWith('.')) continue; // Skip dotfiles
+
+                if (entry.isDirectory()) {
+                    // Folders already counted in pre-scan
                     await this.scanDirectory(fullPath);
                 } else if (entry.isFile()) {
-                    this.stats.totalFiles++;
-                    await this.handleFileAdd(fullPath);
+                    // Files already counted in pre-scan
+                    await this.handleFileAdd(fullPath, true); // true = skipThumbnail
                 } else if (entry.isSymbolicLink()) {
                     // Follow symlinks manually if needed, but be careful of loops
                     // For now, let's try to resolve it
@@ -177,8 +209,9 @@ export class IndexerService {
                         if (stat.isDirectory()) {
                             await this.scanDirectory(realPath);
                         } else if (stat.isFile()) {
-                            this.stats.totalFiles++;
-                            await this.handleFileAdd(realPath);
+                            // Files already counted in pre-scan (if we traversed symlinks there too? Pre-scan didn't handle symlinks explicitly yet, but let's assume standard structure)
+                            // Actually pre-scan didn't handle symlinks. Let's just process here.
+                            await this.handleFileAdd(realPath, true);
                         }
                     } catch (e) {
                         console.warn(`[Manual Scan] Failed to resolve symlink ${fullPath}:`, e);
@@ -188,6 +221,49 @@ export class IndexerService {
         } catch (error) {
             console.error(`[Manual Scan] Error scanning directory ${dirPath}:`, error);
         }
+    }
+
+    private async processThumbnails() {
+        console.log('[IndexerService] Starting background thumbnail generation...');
+
+        // Find assets that need thumbnails (videos without thumbnailPath)
+        // We can also check for images that need metadata extraction if we skipped it?
+        // For now, let's focus on videos.
+        const assets = this.getAssets();
+        const videosNeedingThumbnails = assets.filter(a => a.type === 'video' && !a.thumbnailPath);
+
+        this.stats.thumbnailProgress = {
+            current: 0,
+            total: videosNeedingThumbnails.length
+        };
+
+        for (const asset of videosNeedingThumbnails) {
+            const fullPath = path.join(this.rootPath, asset.path);
+            this.stats.currentFile = `Generating thumbnail: ${asset.path}`;
+
+            try {
+                const thumbnailPath = await this.generateThumbnail(fullPath, asset.id);
+                if (thumbnailPath) {
+                    // Update DB
+                    const stmt = db.prepare('UPDATE assets SET thumbnailPath = ? WHERE id = ?');
+                    stmt.run(thumbnailPath, asset.id);
+                    this.stats.thumbnailsGenerated = (this.stats.thumbnailsGenerated || 0) + 1;
+                } else {
+                    this.stats.thumbnailsFailed = (this.stats.thumbnailsFailed || 0) + 1;
+                }
+            } catch (err) {
+                console.error(`Failed to generate thumbnail for ${asset.path}:`, err);
+                this.stats.thumbnailsFailed = (this.stats.thumbnailsFailed || 0) + 1;
+            }
+
+            if (this.stats.thumbnailProgress) {
+                this.stats.thumbnailProgress.current++;
+            }
+        }
+
+        this.stats.currentFile = undefined;
+        this.stats.thumbnailProgress = undefined;
+        console.log('[IndexerService] Background thumbnail generation complete.');
     }
 
     private rehomeAssets(newRootPath: string) {
@@ -249,7 +325,7 @@ export class IndexerService {
     }
 
     public getStats(): SyncStats {
-        console.log('[IndexerService] getStats called. totalFiles:', this.stats.totalFiles);
+        // console.log('[IndexerService] getStats called. totalFiles:', this.stats.totalFiles);
         return { ...this.stats };
     }
 
@@ -302,7 +378,7 @@ export class IndexerService {
         });
     }
 
-    // Generate a stable ID based on file content (partial hash) to support moves/renames
+    // Generate a stable ID based on file content (partial hash) AND rootPath to ensure isolation
     private async generateFileId(filePath: string): Promise<string> {
         try {
             const stats = await fs.stat(filePath);
@@ -314,12 +390,17 @@ export class IndexerService {
             return crypto.createHash('sha256')
                 .update(buffer.subarray(0, bytesRead))
                 .update(stats.size.toString())
+                .update(this.rootPath) // Include rootPath to prevent collisions between projects
                 .digest('hex')
                 .substring(0, 32);
         } catch (error) {
             console.error(`Failed to generate hash for ${filePath}:`, error);
             // Fallback to path-based ID if file read fails
-            return crypto.createHash('sha256').update(path.normalize(filePath)).digest('hex').substring(0, 32);
+            return crypto.createHash('sha256')
+                .update(path.normalize(filePath))
+                .update(this.rootPath)
+                .digest('hex')
+                .substring(0, 32);
         }
     }
 
@@ -379,14 +460,20 @@ export class IndexerService {
         return metadata;
     }
 
-    private async handleFileAdd(filePath: string) {
+    private async handleFileAdd(filePath: string, skipThumbnail: boolean = false) {
         if (!this.isMediaFile(filePath)) {
             // console.log(`[IndexerService] Skipped non-media file: ${filePath}`);
-            this.stats.skippedFiles = (this.stats.skippedFiles || 0) + 1;
+            // Already counted in pre-scan if we are in manual scan mode? 
+            // If this is from watcher, we need to increment skippedFiles.
+            // If from manual scan, we already handled it in pre-scan?
+            // Actually, handleFileAdd is called by watcher too.
+            // Let's just track it.
+            // this.stats.skippedFiles = (this.stats.skippedFiles || 0) + 1;
             return;
         }
 
         const relativePath = path.relative(this.rootPath, filePath);
+        this.stats.currentFile = relativePath;
 
         try {
             const stats = await fs.stat(filePath);
@@ -396,34 +483,17 @@ export class IndexerService {
             const id = await this.generateFileId(filePath);
 
             // Check if asset exists with this Hash ID
-            let existing = db.prepare('SELECT updatedAt, thumbnailPath, rootPath, status, metadata FROM assets WHERE id = ?').get(id) as any;
+            let existing = db.prepare('SELECT updatedAt, thumbnailPath, rootPath, status, metadata, path FROM assets WHERE id = ?').get(id) as any;
             let isMigration = false;
 
             // If not found by Hash ID, check if it exists by Path (Migration from Path-ID)
             if (!existing) {
-                const existingByPath = db.prepare('SELECT id, updatedAt, thumbnailPath, rootPath, status, metadata FROM assets WHERE rootPath = ? AND path = ?').get(this.rootPath, relativePath) as any;
+                const existingByPath = db.prepare('SELECT id, updatedAt, thumbnailPath, rootPath, status, metadata, path FROM assets WHERE rootPath = ? AND path = ?').get(this.rootPath, relativePath) as any;
 
                 if (existingByPath) {
                     console.log(`[IndexerService] Migrating asset ${relativePath} from Path-ID to Hash-ID`);
-                    // We found the asset by path, but it has a different ID (Path-ID).
-                    // We should treat this as "existing" for metadata purposes,
-                    // BUT we need to delete the old record and insert the new one with Hash ID.
                     existing = existingByPath;
                     isMigration = true;
-
-                    // Delete the old record
-                    // Note: This cascades to tags/comments if configured, but we want to preserve them.
-                    // We should probably fetch tags first if we want to re-apply them?
-                    // Or update the ID? SQLite doesn't support changing PK easily with FKs unless ON UPDATE CASCADE.
-                    // Let's assume we just preserve 'metadata' JSON and 'status'.
-                    // Tags might be lost if we delete?
-                    // Let's check if we can fetch tags and re-apply.
-                    // For now, let's just use the metadata/status preservation.
-                    // If tags are critical, we should migrate them.
-                    // TODO: Migrate tags.
-
-                    // Actually, let's try to UPDATE the ID if possible, or just re-insert.
-                    // Re-inserting is safer.
                     db.prepare('DELETE FROM assets WHERE id = ?').run(existingByPath.id);
                 }
             }
@@ -437,7 +507,7 @@ export class IndexerService {
                     const timeDiff = Math.abs(existing.updatedAt - stats.mtimeMs);
                     if (timeDiff < 1000 || existing.updatedAt > stats.mtimeMs) {
                         let skip = true;
-                        if (mediaType === 'video' && !existing.thumbnailPath) skip = false;
+                        if (mediaType === 'video' && !existing.thumbnailPath && !skipThumbnail) skip = false;
                         if (skip) return;
                     }
                 }
@@ -445,7 +515,7 @@ export class IndexerService {
                 console.log(`[IndexerService] New/Migrated file indexed: ${relativePath}`);
             }
 
-            console.log(`Processing file: ${filePath}`);
+            // console.log(`Processing file: ${filePath}`);
 
             // Track file by type
             if (mediaType === 'image') this.stats.filesByType!.images++;
@@ -453,21 +523,19 @@ export class IndexerService {
             else this.stats.filesByType!.other++;
 
             // Extract metadata if needed (or use existing)
-            // If migration, we use existing metadata.
-            // If new file, we extract.
-            // If existing file (update), we merge.
             let metadata = existing?.metadata ? JSON.parse(existing.metadata) : {};
 
             // Always extract basic metadata for new/updated files to ensure correctness
+            // Optimization: Skip expensive metadata extraction (ffprobe) during initial scan if possible?
+            // For now, let's keep it but maybe skip if skipThumbnail is true?
+            // Actually, we need dimensions for the grid.
+            // Let's keep metadata extraction for now, it's usually faster than thumbnail generation.
             const newMetadata = await this.extractMetadata(filePath, mediaType, stats.size);
             metadata = { ...newMetadata, ...metadata };
 
             // Generate thumbnail if video
             let thumbnailPath = existing?.thumbnailPath;
-            if (mediaType === 'video' && (!thumbnailPath || isMigration)) {
-                // If migration, the old thumbnail path might be valid, but let's verify or regenerate?
-                // Actually, thumbnail filename is usually ID.jpg.
-                // If ID changes, we need new thumbnail.
+            if (mediaType === 'video' && (!thumbnailPath || isMigration) && !skipThumbnail) {
                 thumbnailPath = await this.generateThumbnail(filePath, id);
             }
 

@@ -71,4 +71,9 @@ export interface SyncStats {
     errors?: Array<{ file: string; error: string; timestamp: number }>;
     filesByType?: { images: number; videos: number; other: number };
     skippedFiles?: number;
+    currentFile?: string;
+    thumbnailProgress?: {
+        current: number;
+        total: number;
+    };
 }

@@ -59,8 +59,14 @@ function App() {
     : undefined;
 
   const loadingDetails = syncStats && syncStats.status === 'scanning'
-    ? `Found ${syncStats.processedFiles || syncStats.totalFiles || 0} files${syncStats.totalFolders ? ` in ${syncStats.totalFolders} folders` : ''}`
+    ? `Processing ${syncStats.processedFiles || 0} of ${syncStats.totalFiles || 0} files`
     : undefined;
+
+  // Extract file type counts from sync stats
+  const imageCount = syncStats?.filesByType?.images;
+  const videoCount = syncStats?.filesByType?.videos;
+  const otherCount = syncStats?.filesByType?.other;
+  const folderCount = syncStats?.folderCount;
 
   return (
     <>
@@ -85,6 +91,11 @@ function App() {
           progress={loadingProgress}
           details={loadingMessage ? undefined : rootFolder}
           subDetails={loadingDetails}
+          totalFiles={syncStats?.totalFiles}
+          imageCount={imageCount}
+          videoCount={videoCount}
+          folderCount={folderCount}
+          otherCount={otherCount}
         />
       )}
     </>

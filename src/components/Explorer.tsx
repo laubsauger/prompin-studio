@@ -105,8 +105,13 @@ export const Explorer: React.FC = () => {
             result = result.filter(a => a.type === filterConfig.type);
         }
 
-        // 4. Filter by Tag
-        if (filterConfig.tagId) {
+        // 4. Filter by Tags (multi-select with OR logic)
+        if (filterConfig.tagIds && filterConfig.tagIds.length > 0) {
+            result = result.filter(a =>
+                a.tags?.some(t => filterConfig.tagIds!.includes(t.id))
+            );
+        } else if (filterConfig.tagId) {
+            // Fallback to old single tag filter for backward compatibility
             result = result.filter(a => a.tags?.some(t => t.id === filterConfig.tagId));
         }
 
@@ -123,8 +128,8 @@ export const Explorer: React.FC = () => {
         // 6. Sort
         const sorted = [...result].sort((a, b) => {
             const { key, direction } = sortConfig;
-            let valA = key === 'path' ? a.path : (a.metadata as any)[key] || 0;
-            let valB = key === 'path' ? b.path : (b.metadata as any)[key] || 0;
+            const valA = key === 'path' ? a.path : (a.metadata as any)[key] || 0;
+            const valB = key === 'path' ? b.path : (b.metadata as any)[key] || 0;
 
             if (valA < valB) return direction === 'asc' ? -1 : 1;
             if (valA > valB) return direction === 'asc' ? 1 : -1;
@@ -145,9 +150,6 @@ export const Explorer: React.FC = () => {
     return (
         <div className="flex h-full flex-col bg-background text-foreground">
             <div className="flex items-center justify-end border-b border-border bg-card p-2 shadow-sm z-10 relative">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-xs text-muted-foreground bg-background/80 px-2 py-1 rounded border">
-                    Debug: {filteredAssets.length} items
-                </div>
                 <FilterBar
                     thumbnailSize={thumbnailSize}
                     onThumbnailSizeChange={setThumbnailSize}

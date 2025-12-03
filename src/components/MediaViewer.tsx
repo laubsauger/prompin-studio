@@ -273,10 +273,6 @@ export const MediaViewer: React.FC = () => {
                     {asset.type === 'image' ? (
                         <div className="w-full h-full relative">
                             <TransformWrapper
-                                ref={(ref) => {
-                                    // We can't assign to a ref object directly if it's not a mutable ref object
-                                    // But we can use a callback ref to trigger logic
-                                }}
                                 minScale={0.1}
                                 maxScale={10}
                                 initialScale={1}

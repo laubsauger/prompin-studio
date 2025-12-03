@@ -34,7 +34,8 @@ const getIpcRenderer = () => {
 export interface FilterConfig {
     likedOnly: boolean;
     type: 'all' | 'image' | 'video';
-    tagId?: string | null;
+    tagId?: string | null;  // Legacy single tag filter
+    tagIds?: string[];  // New multi-select tags
     scratchPadId?: string | null;
     status?: AssetStatus | 'all';
     statuses?: AssetStatus[];  // New multi-select statuses

@@ -21,7 +21,9 @@ export function AdvancedFilters() {
         resetFilters();
     };
 
+    console.log('filterConfig', filterConfig);
     const activeFilterCount = Object.entries(filterConfig).filter(([key, value]) => {
+        console.log('key', key, 'value', value);
         if (key === 'type' && value === 'all') return false;
         if (key === 'status' && value === 'all') return false;
         if (key === 'likedOnly' && !value) return false;

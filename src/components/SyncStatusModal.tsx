@@ -37,6 +37,11 @@ export const SyncStatusModal: React.FC<SyncStatusModalProps> = ({ isOpen, onClos
                                 )}
                                 {syncStats.status}
                             </div>
+                            {syncStats.currentFile && (
+                                <div className="text-xs text-muted-foreground mt-2 truncate" title={syncStats.currentFile}>
+                                    {syncStats.currentFile}
+                                </div>
+                            )}
                         </div>
 
                         <div className="p-4 rounded-lg bg-muted/30 border border-border">
@@ -49,11 +54,22 @@ export const SyncStatusModal: React.FC<SyncStatusModalProps> = ({ isOpen, onClos
                         <div className="p-4 rounded-lg bg-muted/30 border border-border">
                             <div className="text-sm text-muted-foreground mb-1">Total Files</div>
                             <div className="text-lg font-semibold">{syncStats.totalFiles}</div>
+                            {syncStats.skippedFiles !== undefined && syncStats.skippedFiles > 0 && (
+                                <div className="text-xs text-muted-foreground mt-1">
+                                    ({syncStats.skippedFiles} skipped)
+                                </div>
+                            )}
                         </div>
 
                         <div className="p-4 rounded-lg bg-muted/30 border border-border">
                             <div className="text-sm text-muted-foreground mb-1">Processed</div>
                             <div className="text-lg font-semibold">{syncStats.processedFiles}</div>
+                            <div className="w-full bg-secondary h-1.5 mt-2 rounded-full overflow-hidden">
+                                <div
+                                    className="bg-primary h-full transition-all duration-300"
+                                    style={{ width: `${syncStats.totalFiles > 0 ? (syncStats.processedFiles / syncStats.totalFiles) * 100 : 0}%` }}
+                                />
+                            </div>
                         </div>
                     </div>
 
@@ -110,6 +126,20 @@ export const SyncStatusModal: React.FC<SyncStatusModalProps> = ({ isOpen, onClos
                                 </div>
                             </div>
                         </div>
+                        {syncStats.thumbnailProgress && syncStats.thumbnailProgress.total > 0 && (
+                            <div className="mt-3">
+                                <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                                    <span>Generating...</span>
+                                    <span>{Math.round((syncStats.thumbnailProgress.current / syncStats.thumbnailProgress.total) * 100)}%</span>
+                                </div>
+                                <div className="w-full bg-secondary h-1.5 rounded-full overflow-hidden">
+                                    <div
+                                        className="bg-primary h-full transition-all duration-300"
+                                        style={{ width: `${(syncStats.thumbnailProgress.current / syncStats.thumbnailProgress.total) * 100}%` }}
+                                    />
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Errors */}

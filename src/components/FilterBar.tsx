@@ -7,6 +7,7 @@ import { cn } from '../lib/utils';
 import { Slider } from './ui/slider';
 import { AdvancedFilters } from './AdvancedFilters';
 import { StatusMultiSelect } from './StatusMultiSelect';
+import { TagsMultiSelect } from './TagsMultiSelect';
 import type { AssetStatus } from '../types';
 
 export interface FilterBarUIProps {
@@ -47,6 +48,7 @@ export const FilterBarUI: React.FC<FilterBarUIProps> = ({
     const hasActiveFilters = filterConfig.likedOnly ||
         (filterConfig.type && filterConfig.type !== 'all') ||
         (filterConfig.statuses && filterConfig.statuses.length > 0) ||
+        (filterConfig.tagIds && filterConfig.tagIds.length > 0) ||
         filter !== 'all' ||
         filterConfig.tagId ||
         filterConfig.scratchPadId ||
@@ -138,6 +140,14 @@ export const FilterBarUI: React.FC<FilterBarUIProps> = ({
                 <StatusMultiSelect
                     selectedStatuses={filterConfig.statuses || []}
                     onStatusChange={(statuses) => onFilterConfigChange({ statuses })}
+                />
+            </div>
+
+            {/* Tags filter with multi-select */}
+            <div className="flex items-center gap-1 border-r border-border pr-2 mr-2">
+                <TagsMultiSelect
+                    selectedTagIds={filterConfig.tagIds || []}
+                    onTagsChange={(tagIds) => onFilterConfigChange({ tagIds })}
                 />
             </div>
 
