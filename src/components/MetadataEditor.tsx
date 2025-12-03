@@ -6,7 +6,6 @@ import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
 import { Film, Plus, Settings, X, Check, ChevronsUpDown } from 'lucide-react';
 
-import { InputAssetThumbnail } from './InputAssetThumbnail';
 import { AssetPickerDialog } from './AssetPickerDialog';
 import { Badge } from './ui/badge';
 import { CreateTagDialog } from './CreateTagDialog';
@@ -73,11 +72,6 @@ export const MetadataEditor: React.FC<MetadataEditorProps> = ({ isOpen, onClose,
         const newInputs = selectedAssets.map(a => a.id);
         const mergedInputs = Array.from(new Set([...currentInputs, ...newInputs]));
         setMetadata(prev => ({ ...prev, inputs: mergedInputs }));
-    };
-
-    const removeInput = (input: string) => {
-        const currentInputs = metadata.inputs || [];
-        setMetadata(prev => ({ ...prev, inputs: currentInputs.filter(i => i !== input) }));
     };
 
     const toggleTag = (tagId: string) => {
@@ -152,14 +146,6 @@ export const MetadataEditor: React.FC<MetadataEditorProps> = ({ isOpen, onClose,
                                 <div className="space-y-2">
                                     <div className="flex items-center justify-between">
                                         <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">Tags</h4>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => setIsManageTagsOpen(true)}
-                                            className="h-6 px-2"
-                                        >
-                                            <Settings className="h-3 w-3" />
-                                        </Button>
                                     </div>
 
                                     <Popover open={openTags} onOpenChange={setOpenTags}>

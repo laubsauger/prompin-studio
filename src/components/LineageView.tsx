@@ -18,7 +18,7 @@ const LineageGraph: React.FC<{ rootAsset: Asset, lineageAssets: Asset[], onLayou
         const g = new dagre.graphlib.Graph();
         g.setGraph({
             rankdir: 'LR',
-            ranker: 'network-simplex', // Default, usually better for general DAGs
+            ranker: 'longest-path', // Better for timeline/lineage alignment
             nodesep: 100, // Vertical spacing between nodes
             ranksep: 200, // Horizontal spacing - reduced to bring nodes closer
             marginx: 100,
@@ -38,7 +38,7 @@ const LineageGraph: React.FC<{ rootAsset: Asset, lineageAssets: Asset[], onLayou
         if (aspectRatio === 'portrait') imageHeight = 455; // 9/16 of 256
 
         const nodeWidth = 256; // Exact match to card width
-        const nodeHeight = imageHeight + 80; // Approximate card height with metadata
+        const nodeHeight = imageHeight + 50; // Reduced buffer to match card footer height
         // const imageCenterY = imageHeight / 2; // Unused
 
         lineageAssets.forEach(asset => {
