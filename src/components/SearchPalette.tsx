@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Search, Loader2, RefreshCw, Inbox, Star, X } from 'lucide-react';
 import { useStore } from '../store';
 import { debounce } from '../utils/debounce';

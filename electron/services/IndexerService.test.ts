@@ -192,4 +192,55 @@ describe('IndexerService Integration', () => {
         const assets = service.getAssets();
         expect(assets.find((a: any) => a.id === asset.id)).toBeDefined();
     });
+
+    it('searchAssets should filter by relatedToAssetId', () => {
+        // Mocking upsertAsset for this test as it's not publicly exposed for direct insertion
+        // and ingestFile creates new assets, not suitable for pre-defined relationships.
+        const mockUpsertAsset = (asset: any) => {
+            // This directly interacts with the mocked DB's assets Map
+            // In a real scenario, you might have a public helper or use ingestFile more creatively
+            // For this test, we'll simulate the DB insertion directly
+            const dbMock = vi.mocked(require('../db').default);
+            dbMock.prepare('INSERT INTO assets').run({
+                id: asset.id,
+                path: asset.path,
+                type: asset.type,
+                status: asset.status,
+                createdAt: asset.createdAt,
+                updatedAt: asset.updatedAt,
+                metadata: JSON.stringify(asset.metadata),
+                rootPath: asset.rootPath
+            });
+        };
+
+        const assetA = {
+            id: 'asset-a',
+            path: 'a.png',
+            type: 'image',
+            status: 'unsorted',
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            metadata: {},
+            rootPath: tempDir
+        };
+
+        const assetB = {
+            id: 'asset-b',
+            path: 'b.png',
+            type: 'image',
+            status: 'unsorted',
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            metadata: { inputs: ['asset-a'] },
+            rootPath: tempDir
+        };
+
+        mockUpsertAsset(assetA);
+        mockUpsertAsset(assetB);
+
+        const results = service.searchAssets('', { relatedToAssetId: 'asset-a' });
+        expect(results).toHaveLength(1);
+        expect(results[0].id).toBe('asset-b');
+
+    });
 });

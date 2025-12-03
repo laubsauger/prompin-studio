@@ -44,9 +44,7 @@ function App() {
 
       // Load initial data
       import('./store').then(({ useStore }) => {
-        useStore.getState().loadFolderColors();
-        useStore.getState().loadTags();
-        useStore.getState().loadAssets();
+        useStore.getState().initStore();
       });
     }
   }, [rootFolder]);

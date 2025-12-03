@@ -21,7 +21,6 @@ export const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
 
     const isSelected = useStore(state => state.selectedIds.has(asset.id));
     const [isPlaying, setIsPlaying] = useState(false);
-    const [isVideoPaused, setIsVideoPaused] = useState(false);
     const playerRef = useRef<MediaPlayerInstance>(null);
 
     const handleClick = (e: React.MouseEvent) => {
@@ -48,27 +47,26 @@ export const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
         ? `thumbnail://${asset.thumbnailPath}`
         : `media://${asset.path}`;
 
+    // Sync video state with player
+    React.useEffect(() => {
+        if (!playerRef.current) return;
+        if (isPlaying) {
+            playerRef.current.play();
+        } else {
+            playerRef.current.pause();
+        }
+    }, [isPlaying]);
+
     const handlePlayPauseClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         e.preventDefault();
-        console.log('[AssetCard] Play button clicked');
-
+        if (!playerRef.current) return;
         if (isPlaying) {
-            // This path shouldn't be reachable as button is hidden, but logging just in case
-            console.log('[AssetCard] isPlaying is true, toggling pause');
-            if (playerRef.current) {
-                if (isVideoPaused) {
-                    playerRef.current.play();
-                    setIsVideoPaused(false);
-                } else {
-                    playerRef.current.pause();
-                    setIsVideoPaused(true);
-                }
-            }
+            playerRef.current.pause();
+            setIsPlaying(false);
         } else {
-            console.log('[AssetCard] Starting playback');
+            playerRef.current.play();
             setIsPlaying(true);
-            setIsVideoPaused(false);
         }
     };
 
@@ -97,25 +95,22 @@ export const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
                                 crossOrigin
                                 playsInline
                                 className="w-full h-full"
-                                autoPlay
+                                // Remove autoPlay, we control it via useEffect/onCanPlay
+                                onCanPlay={() => {
+                                    if (playerRef.current) {
+                                        playerRef.current.play();
+                                    }
+                                }}
                                 onEnded={() => {
                                     const player = playerRef.current;
-                                    // Ignore onEnded if duration is 0 (metadata not loaded or race condition)
-                                    if (player?.state.duration === 0) {
-                                        console.log('[AssetCard] Ignoring onEnded with duration 0');
-                                        return;
-                                    }
-                                    console.log('[AssetCard] Video ended. Duration:', player?.state.duration);
+                                    if (player?.state.duration === 0) return;
                                     setIsPlaying(false);
-                                    setIsVideoPaused(false);
                                 }}
                                 onPause={() => {
-                                    console.log('[AssetCard] Video paused');
-                                    setIsVideoPaused(true);
+                                    setIsPlaying(false);
                                 }}
                                 onPlay={() => {
-                                    console.log('[AssetCard] Video playing');
-                                    setIsVideoPaused(false);
+                                    setIsPlaying(true);
                                 }}
                                 onError={(e) => {
                                     console.error('[AssetCard] Video error:', e);
@@ -153,7 +148,7 @@ export const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
                                 onClick={handlePlayPauseClick}
                                 className="rounded-full p-2 bg-black/50 text-white hover:bg-primary hover:text-primary-foreground backdrop-blur-sm transition-colors"
                             >
-                                {isPlaying && !isVideoPaused ? (
+                                {isPlaying ? (
                                     <Pause className="h-3 w-3 fill-current" />
                                 ) : (
                                     <Play className="h-3 w-3 fill-current" />

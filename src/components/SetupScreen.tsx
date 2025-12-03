@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useSettingsStore } from '../store/settings';
 import { useStore } from '../store';
 import { Input } from './ui/input';
-import { Label } from './ui/label';
+
 import { Button } from './ui/button';
 import { Sparkles, FolderOpen, Zap, Users, Shield } from 'lucide-react';
 import { Logo } from './Logo';

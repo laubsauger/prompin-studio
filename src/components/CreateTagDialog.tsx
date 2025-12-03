@@ -7,7 +7,7 @@ import { Label } from './ui/label';
 interface CreateTagDialogProps {
     isOpen: boolean;
     onClose: () => void;
-    onCreateTag: (name: string, color?: string) => void;
+    onCreateTag: (name: string, color?: string) => void | Promise<any>;
 }
 
 const TAG_COLORS = [

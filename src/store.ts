@@ -60,6 +60,7 @@ interface AppState {
         model?: string;
         dateFrom?: number;
         dateTo?: number;
+        relatedToAssetId?: string;
     };
     searchQuery: string;
     folderColors: Record<string, string>;
@@ -126,6 +127,7 @@ interface AppState {
     clearSelection: () => void;
     setRootPath: () => Promise<string | null>;
     loadFolderColors: () => Promise<void>;
+    initStore: () => Promise<void>;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -168,7 +170,14 @@ export const useStore = create<AppState>((set, get) => ({
 
     // New config actions
     setSortConfig: (key, direction) => set({ sortConfig: { key, direction } }),
-    setLastInboxViewTime: (time) => set({ lastInboxViewTime: time }),
+    setLastInboxViewTime: (time) => {
+        try {
+            localStorage.setItem('lastInboxViewTime', JSON.stringify(time));
+        } catch (e) {
+            console.error('Failed to persist lastInboxViewTime', e);
+        }
+        set({ lastInboxViewTime: time });
+    },
     // Scratch Pad Actions
     createScratchPad: (name) => set(state => ({
         scratchPads: [...state.scratchPads, { id: uuidv4(), name, assetIds: [] }]
@@ -204,7 +213,16 @@ export const useStore = create<AppState>((set, get) => ({
     })),
 
 
-    setFilterConfig: (config) => set(state => ({ filterConfig: { ...state.filterConfig, ...config } })),
+    setFilterConfig: (config) => {
+        const newConfig = { ...get().filterConfig, ...config };
+        // Persist to localStorage
+        try {
+            localStorage.setItem('filterConfig', JSON.stringify(newConfig));
+        } catch (e) {
+            console.error('Failed to persist filterConfig', e);
+        }
+        set({ filterConfig: newConfig });
+    },
     setSearchQuery: (query) => set({ searchQuery: query }),
     searchAssets: async (query, filters) => {
         const searchQuery = query ?? get().searchQuery;
@@ -226,6 +244,7 @@ export const useStore = create<AppState>((set, get) => ({
             if (filterConfig.dateFrom) backendFilters.dateFrom = filterConfig.dateFrom;
             if (filterConfig.dateTo) backendFilters.dateTo = filterConfig.dateTo;
             if (filterConfig.tagId) backendFilters.tagIds = [filterConfig.tagId];
+            if (filterConfig.relatedToAssetId) backendFilters.relatedToAssetId = filterConfig.relatedToAssetId;
 
             const assets = await getIpcRenderer().invoke('search-assets', searchQuery, backendFilters);
 
@@ -247,7 +266,9 @@ export const useStore = create<AppState>((set, get) => ({
 
     // Tag Actions
     loadTags: async () => {
+        console.log('[Store] Loading tags...');
         const tags = await getIpcRenderer().invoke('get-tags');
+        console.log('[Store] Loaded tags:', tags.length);
         set({ tags });
     },
     loadFolders: async () => {
@@ -256,7 +277,8 @@ export const useStore = create<AppState>((set, get) => ({
     },
     createTag: async (name, color) => {
         const tag = await getIpcRenderer().invoke('create-tag', name, color);
-        get().loadTags();
+        console.log('[Store] Created tag, reloading tags...');
+        await get().loadTags();
         return tag;
     },
     deleteTag: async (id) => {
@@ -268,11 +290,39 @@ export const useStore = create<AppState>((set, get) => ({
         // We might need to reload assets to get updated tags if they are part of asset metadata
         // Or we can just reload tags if we want to update counts (if we had them)
         // For now, let's reload assets to be safe if we decide to include tags in asset objects
-        get().loadAssets();
+        await get().loadAssets();
     },
     removeTagFromAsset: async (assetId, tagId) => {
         await getIpcRenderer().invoke('remove-tag-from-asset', assetId, tagId);
         get().loadAssets();
+    },
+
+    initStore: async () => {
+        // Load persisted filter config
+        try {
+            const storedFilter = localStorage.getItem('filterConfig');
+            if (storedFilter) {
+                set({ filterConfig: JSON.parse(storedFilter) });
+            }
+        } catch (e) {
+            console.error('Failed to load filterConfig', e);
+        }
+
+        // Load persisted inbox view time
+        try {
+            const storedInbox = localStorage.getItem('lastInboxViewTime');
+            if (storedInbox) {
+                set({ lastInboxViewTime: JSON.parse(storedInbox) });
+            }
+        } catch (e) {
+            console.error('Failed to load lastInboxViewTime', e);
+        }
+
+        // Initial data loads
+        await get().loadAssets();
+        await get().loadTags();
+        await get().loadFolderColors();
+        await get().loadFolders();
     },
 
     loadFolderColors: async () => {
@@ -410,16 +460,18 @@ export const useStore = create<AppState>((set, get) => ({
     },
 
     updateAssetStatus: async (id, status) => {
-        // Optimistic update
+        // Optimistic UI update
         set(state => ({
             assets: state.assets.map(a => a.id === id ? { ...a, status } : a)
         }));
         try {
             await getIpcRenderer().invoke('update-asset-status', id, status);
+            // Refresh assets from backend to ensure persistence
+            await get().loadAssets();
         } catch (error) {
             console.error('Failed to update status:', error);
-            // Revert on failure could be implemented here
-            get().loadAssets();
+            // Revert UI if needed by reloading assets
+            await get().loadAssets();
         }
     },
 

@@ -59,6 +59,20 @@ export const AssetContextMenu: React.FC<AssetContextMenuProps> = ({ asset, child
                     }}>
                         <GitFork className="mr-2 h-4 w-4" /> View Lineage
                     </ContextMenuItem>
+                    <ContextMenuItem onClick={(e) => {
+                        e.stopPropagation();
+                        useStore.getState().setCurrentPath(null);
+                        useStore.getState().setFilterConfig({
+                            relatedToAssetId: asset.id,
+                            type: 'all',
+                            status: 'all',
+                            likedOnly: false,
+                            tagId: undefined,
+                            scratchPadId: undefined
+                        });
+                    }}>
+                        <GitFork className="mr-2 h-4 w-4 rotate-180" /> Show Derived Assets
+                    </ContextMenuItem>
 
                     <ContextMenuSub>
                         <ContextMenuSubTrigger>

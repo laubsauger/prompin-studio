@@ -316,7 +316,7 @@ export class IndexerService {
             const mediaType = this.getMediaType(filePath);
 
             // Check if file hasn't changed
-            const existing = db.prepare('SELECT updatedAt, thumbnailPath, rootPath FROM assets WHERE id = ?').get(id) as any;
+            const existing = db.prepare('SELECT updatedAt, thumbnailPath, rootPath, status FROM assets WHERE id = ?').get(id) as any;
 
             if (existing) {
                 // If rootPath has changed (e.g. user opened a subfolder of a previously indexed folder),
@@ -382,7 +382,7 @@ export class IndexerService {
                 id,
                 path: relativePath,
                 type: mediaType,
-                status: 'unsorted',
+                status: existing?.status || 'unsorted',
                 createdAt: stats.birthtimeMs,
                 updatedAt: stats.mtimeMs,
                 metadata,
@@ -478,6 +478,7 @@ export class IndexerService {
         tagIds?: string[];
         dateFrom?: number;
         dateTo?: number;
+        relatedToAssetId?: string;
     }): Asset[] {
         let sql = `
             SELECT DISTINCT a.* FROM assets a
@@ -498,13 +499,26 @@ export class IndexerService {
 
         // Add tag joins if filtering by tags
         if (filters?.tagIds && filters.tagIds.length > 0) {
-            sql += `
-                JOIN asset_tags at ON at.assetId = a.id
-            `;
-            conditions.push(`at.tagId IN (${filters.tagIds.map((_, i) => `@tag${i}`).join(', ')})`);
+            conditions.push(`
+                EXISTS (
+                    SELECT 1 FROM asset_tags at 
+                    WHERE at.assetId = a.id 
+                    AND at.tagId IN (${filters.tagIds.map((_, i) => `@tagId${i}`).join(',')})
+                )
+            `);
             filters.tagIds.forEach((tagId, i) => {
-                params[`tag${i}`] = tagId;
+                params[`tagId${i}`] = tagId;
             });
+        }
+
+        if (filters?.relatedToAssetId) {
+            conditions.push(`
+                EXISTS (
+                    SELECT 1 FROM json_each(a.metadata, '$.inputs')
+                    WHERE json_each.value = @relatedToAssetId
+                )
+            `);
+            params.relatedToAssetId = filters.relatedToAssetId;
         }
 
         // Add filter conditions

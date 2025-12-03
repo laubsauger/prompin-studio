@@ -24,7 +24,7 @@ export const Explorer: React.FC = () => {
     const sortConfig = useStore(state => state.sortConfig);
     const currentPath = useStore(state => state.currentPath);
     const viewMode = useStore(state => state.viewMode);
-    const gridSize = useSettingsStore(state => state.gridSize);
+
     const setScrollPosition = useSettingsStore(state => state.setScrollPosition);
     const getScrollPosition = useSettingsStore(state => state.getScrollPosition);
 

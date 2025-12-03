@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { useStore } from '../store';
-import { Folder, FolderOpen, Star, Layers, ChevronDown, ChevronRight, ChevronLeft, Plus, Tag, AlertCircle, CheckCircle, StickyNote, Trash2, Inbox } from 'lucide-react';
+import { Folder, FolderOpen, Star, Layers, ChevronDown, ChevronRight, ChevronLeft, Plus, Tag, AlertCircle, CheckCircle, StickyNote, Trash2, Inbox, GitFork } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Button } from './ui/button';
 import { CreateTagDialog } from './CreateTagDialog';
@@ -311,6 +311,22 @@ export const Sidebar: React.FC = () => {
                                 {assets.filter(a => a.metadata.liked).length}
                             </span>
                         </Button>
+                        {filterConfig.relatedToAssetId && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="w-full justify-start gap-2 px-4 bg-accent text-accent-foreground"
+                                onClick={() => setFilterConfig({ relatedToAssetId: undefined })}
+                            >
+                                <GitFork className="h-4 w-4 rotate-180" />
+                                <span className="flex-1 text-left truncate">
+                                    Related to: {assets.find(a => a.id === filterConfig.relatedToAssetId)?.path.split('/').pop() || 'Asset'}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground">
+                                    <Trash2 className="h-3 w-3 hover:text-destructive" />
+                                </span>
+                            </Button>
+                        )}
                     </SidebarSection>
 
                     {/* Folders Section */}

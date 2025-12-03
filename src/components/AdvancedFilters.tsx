@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ChevronDown, Calendar, User, Film, Tag, Cpu } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronDown, Calendar, Film, Tag, Cpu } from 'lucide-react';
 import { useStore } from '../store';
 import { Button } from './ui/button';
 import { Select } from './ui/select';

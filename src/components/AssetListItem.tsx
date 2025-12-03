@@ -199,8 +199,8 @@ const arePropsEqual = (prevProps: Readonly<AssetListItemProps>, nextProps: Reado
         prev.metadata.height === next.metadata.height &&
         prev.metadata.duration === next.metadata.duration &&
         prev.updatedAt === next.updatedAt &&
-        prev.tags?.length === next.tags?.length &&
-        prev.tags?.every((t, i) => t.id === next.tags?.[i]?.id)
+        (prev.tags?.length ?? 0) === (next.tags?.length ?? 0) &&
+        (prev.tags ?? []).every((t, i) => t.id === next.tags?.[i]?.id)
     );
 };
 

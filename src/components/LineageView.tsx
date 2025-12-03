@@ -15,7 +15,7 @@ interface LineageNodeProps {
 const LineageNode: React.FC<LineageNodeProps> = ({ asset, depth, isRoot }) => {
     const assets = useStore(state => state.assets);
 
-    // Find input assets
+    // Find input assets (parents)
     const inputAssets = useMemo(() => {
         if (!asset.metadata.inputs || asset.metadata.inputs.length === 0) return [];
         return asset.metadata.inputs
@@ -23,24 +23,29 @@ const LineageNode: React.FC<LineageNodeProps> = ({ asset, depth, isRoot }) => {
             .filter((a): a is Asset => !!a);
     }, [asset, assets]);
 
+    // Find output assets (children) - assets that have this asset as an input
+    const outputAssets = useMemo(() => {
+        return assets.filter(a => a.metadata.inputs?.includes(asset.id));
+    }, [asset, assets]);
+
     return (
-        <div className="flex flex-col items-center gap-4">
-            {/* Render Inputs First (Recursively) */}
+        <div className="flex items-center gap-8">
+            {/* Render Inputs (Parents) to the Left */}
             {inputAssets.length > 0 && (
-                <div className="flex gap-8 items-end mb-4">
+                <div className="flex flex-col gap-8 items-end">
                     {inputAssets.map(inputAsset => (
-                        <div key={inputAsset.id} className="flex flex-col items-center relative">
-                            <LineageNode asset={inputAsset} depth={depth + 1} />
+                        <div key={inputAsset.id} className="flex items-center relative">
+                            <LineageNode asset={inputAsset} depth={depth - 1} />
                             {/* Connector Line */}
-                            <div className="h-8 w-px bg-border my-2" />
-                            <ArrowRight className="h-4 w-4 text-muted-foreground rotate-90" />
+                            <div className="w-8 h-px bg-border mx-2" />
+                            <ArrowRight className="h-4 w-4 text-muted-foreground" />
                         </div>
                     ))}
                 </div>
             )}
 
             {/* Render Current Asset */}
-            <div className="relative group">
+            <div className="relative group flex flex-col items-center">
                 <div className={`w-64 transition-all duration-300 ${isRoot ? 'scale-110 ring-2 ring-primary ring-offset-2 rounded-xl' : ''}`}>
                     <AssetCard asset={asset} />
                 </div>
@@ -50,6 +55,34 @@ const LineageNode: React.FC<LineageNodeProps> = ({ asset, depth, isRoot }) => {
                     </div>
                 )}
             </div>
+
+            {/* Render Outputs (Children) to the Right - ONLY if isRoot to avoid infinite recursion for now, or handle better layout */}
+            {/* Actually, for a tree view, we usually expand outwards. 
+               The current recursive structure `LineageNode` renders its own inputs.
+               If we add outputs here, we need to be careful about direction.
+               
+               If we are traversing UP (inputs), we shouldn't render outputs of inputs (siblings).
+               If we are traversing DOWN (outputs), we shouldn't render inputs of outputs (which would be us).
+               
+               Let's change the strategy:
+               The `LineageView` should render the Root.
+               The Root renders its Inputs (left) and Outputs (right).
+               The Inputs render their Inputs (left).
+               The Outputs render their Outputs (right).
+            */}
+
+            {/* Render Outputs (Children) to the Right */}
+            {outputAssets.length > 0 && depth >= 0 && (
+                <div className="flex flex-col gap-8 items-start">
+                    {outputAssets.map(outputAsset => (
+                        <div key={outputAsset.id} className="flex items-center relative">
+                            <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                            <div className="w-8 h-px bg-border mx-2" />
+                            <LineageNode asset={outputAsset} depth={depth + 1} />
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 };

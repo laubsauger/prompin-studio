@@ -82,7 +82,7 @@ describe('Store Actions', () => {
     });
 
     it('should handle upload and apply tags', async () => {
-        const { handleUpload, tags } = useStore.getState();
+        const { handleUpload } = useStore.getState();
         // Setup mock tags
         useStore.setState({ tags: [{ id: 'tag-1', name: 'Tag 1' }] });
 

@@ -138,7 +138,7 @@ export const MediaViewer: React.FC = () => {
                                                             if (isApplied) {
                                                                 removeTagFromAsset(asset.id, tag.id);
                                                             } else {
-                                                                addTagToAsset(asset.id, tag);
+                                                                addTagToAsset(asset.id, tag.id);
                                                             }
                                                         }}
                                                     >
@@ -289,7 +289,7 @@ export const MediaViewer: React.FC = () => {
             <CreateTagDialog
                 isOpen={isCreateTagDialogOpen}
                 onClose={() => setIsCreateTagDialogOpen(false)}
-                onCreateTag={handleCreateTag}
+                onCreateTag={(name, color) => handleCreateTag(name, color || '#000000')}
             />
 
             <MetadataEditor
