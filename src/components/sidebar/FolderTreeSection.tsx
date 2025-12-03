@@ -85,15 +85,15 @@ export const FolderTreeSection: React.FC<FolderTreeSectionProps> = ({ isOpen, on
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="flex-1 justify-start gap-2 font-normal h-8 px-2 hover:bg-transparent"
+                            className="flex-1 justify-start gap-2 font-normal h-8 px-2 hover:bg-transparent min-w-0"
                             onClick={() => setCurrentPath(node.path)}
                         >
                             {isSelected ?
                                 <FolderOpen className="h-4 w-4 shrink-0" style={{ color: folderColor || 'var(--primary)' }} /> :
                                 <Folder className="h-4 w-4 shrink-0" style={{ color: folderColor || 'currentColor' }} />
                             }
-                            <span className="truncate">{node.name}</span>
-                            <span className="ml-auto text-[10px] text-muted-foreground opacity-70">{node.count}</span>
+                            <span className="truncate flex-1 min-w-0 text-left">{node.name}</span>
+                            <span className="text-[10px] text-muted-foreground opacity-70 shrink-0 ml-1">{node.count}</span>
                         </Button>
                     </div>
                 )}

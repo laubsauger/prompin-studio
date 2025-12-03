@@ -84,6 +84,7 @@ interface AppState {
     // Actions
     setSortConfig: (key: 'createdAt' | 'updatedAt' | 'path', direction: 'asc' | 'desc') => void;
     setFilterConfig: (config: Partial<AppState['filterConfig']>) => void;
+    resetFilters: () => void;
     setSearchQuery: (query: string) => void;
     searchAssets: (query?: string, filters?: Partial<AppState['filterConfig']>) => Promise<void>;
     setFolderColor: (path: string, color: string) => void;
@@ -275,6 +276,30 @@ export const useStore = create<AppState>((set, get) => ({
             console.error('Failed to persist filterConfig', e);
         }
         set({ filterConfig: newConfig });
+    },
+    resetFilters: () => {
+        const emptyConfig: FilterConfig = {
+            likedOnly: false,
+            type: 'all',
+            statuses: [],
+            tagId: null,
+            scratchPadId: null,
+            authorId: undefined,
+            project: undefined,
+            scene: undefined,
+            shot: undefined,
+            platform: undefined,
+            model: undefined,
+            dateFrom: undefined,
+            dateTo: undefined,
+            relatedToAssetId: undefined
+        };
+        try {
+            localStorage.setItem('filterConfig', JSON.stringify(emptyConfig));
+        } catch (e) {
+            console.error('Failed to persist filterConfig', e);
+        }
+        set({ filterConfig: emptyConfig, filter: 'all', searchQuery: '' });
     },
     setSearchQuery: (query) => set({ searchQuery: query }),
     searchAssets: async (query, filters) => {

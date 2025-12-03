@@ -82,6 +82,20 @@ export const MediaViewer: React.FC = () => {
     const fileName = asset.path.split('/').pop() || asset.path;
     const folderPath = asset.path.substring(0, asset.path.lastIndexOf('/')) || '/';
 
+    // Extract color name from bg-color-500 pattern for new badge style
+    const colorName = statusConfig.color.match(/bg-(\w+)-/)?.[1] || 'gray';
+    const getBadgeColors = (color: string) => {
+        const colorMap: Record<string, string> = {
+            'gray': 'border-gray-400 text-gray-600 bg-gray-50',
+            'yellow': 'border-yellow-400 text-yellow-700 bg-yellow-50',
+            'orange': 'border-orange-400 text-orange-700 bg-orange-50',
+            'green': 'border-green-400 text-green-700 bg-green-50',
+            'slate': 'border-slate-400 text-slate-700 bg-slate-50',
+            'red': 'border-red-400 text-red-700 bg-red-50',
+        };
+        return colorMap[color] || colorMap.gray;
+    };
+
     const handleRevealInFinder = async () => {
         const ipc = (window as any).ipcRenderer;
         if (ipc) {
@@ -104,38 +118,34 @@ export const MediaViewer: React.FC = () => {
                             <div className="flex items-center gap-2">
                                 <span className="font-medium text-sm truncate" title={fileName}>{fileName}</span>
                                 <Badge
-                                    variant="secondary"
-                                    className={cn("text-[10px] h-5 px-1.5", statusConfig.color, "text-white border-none")}
+                                    variant="outline"
+                                    className={cn("text-[10px] h-5 px-1.5 font-medium", getBadgeColors(colorName))}
                                 >
                                     {statusConfig.label}
                                 </Badge>
-                                {asset.metadata.liked && (
-                                    <Heart className="h-4 w-4 text-red-500 fill-current" />
-                                )}
                             </div>
                             <span className="font-mono text-xs text-muted-foreground truncate" title={folderPath}>
                                 {folderPath}
                             </span>
                         </div>
 
-                        {/* Action Buttons */}
-                        <div className="flex items-center gap-2">
+                        {/* Action Buttons - Icon Only */}
+                        <div className="flex items-center gap-1">
                             <Button
                                 variant="ghost"
-                                size="sm"
+                                size="icon"
                                 onClick={() => toggleLike(asset.id)}
-                                className={cn(asset.metadata.liked && "text-red-500")}
+                                className={cn("h-8 w-8", asset.metadata.liked && "text-red-500")}
+                                title={asset.metadata.liked ? "Unlike" : "Like"}
                             >
-                                <Heart className={cn("h-4 w-4 mr-1", asset.metadata.liked && "fill-current")} />
-                                {asset.metadata.liked ? 'Liked' : 'Like'}
+                                <Heart className={cn("h-4 w-4", asset.metadata.liked && "fill-current")} />
                             </Button>
 
                             {/* Status Dropdown */}
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="sm">
-                                        <Edit className="h-4 w-4 mr-1" />
-                                        Status
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" title="Change Status">
+                                        <Edit className="h-4 w-4" />
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent>
@@ -155,9 +165,8 @@ export const MediaViewer: React.FC = () => {
                             {/* Tags Dropdown */}
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="sm">
-                                        <Tag className="h-4 w-4 mr-1" />
-                                        Tags
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" title="Manage Tags">
+                                        <Tag className="h-4 w-4" />
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent className="w-48">
@@ -198,30 +207,32 @@ export const MediaViewer: React.FC = () => {
 
                             <Button
                                 variant="ghost"
-                                size="sm"
+                                size="icon"
+                                className="h-8 w-8"
                                 onClick={handleRevealInFinder}
+                                title="Reveal in Finder"
                             >
-                                <FolderOpen className="h-4 w-4 mr-1" />
-                                Reveal
+                                <FolderOpen className="h-4 w-4" />
                             </Button>
 
                             <Button
                                 variant="ghost"
-                                size="sm"
+                                size="icon"
+                                className={cn("h-8 w-8", showMetadata && "bg-accent")}
                                 onClick={() => setShowMetadata(!showMetadata)}
+                                title={showMetadata ? "Hide Info" : "Show Info"}
                             >
-                                <Info className="h-4 w-4 mr-1" />
-                                Info
-                                {showMetadata ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />}
+                                <Info className="h-4 w-4" />
                             </Button>
 
                             <Button
                                 variant="ghost"
-                                size="sm"
+                                size="icon"
+                                className="h-8 w-8"
                                 onClick={() => setIsMetadataEditorOpen(true)}
+                                title="Edit Metadata"
                             >
-                                <Edit className="h-4 w-4 mr-1" />
-                                Edit
+                                <Edit className="h-4 w-4" />
                             </Button>
                         </div>
 

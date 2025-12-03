@@ -34,9 +34,9 @@ export const StatusFilterSection: React.FC<StatusFilterSectionProps> = ({ isOpen
                     });
                 }}
             >
-                <AlertCircle className="h-3 w-3 text-yellow-500" />
-                <span className="flex-1 text-left text-xs">Review Requested</span>
-                <span className="text-[10px] text-muted-foreground">
+                <AlertCircle className="h-3 w-3 text-yellow-500 shrink-0" />
+                <span className="flex-1 text-left text-xs truncate min-w-0">Review Requested</span>
+                <span className="text-[10px] text-muted-foreground shrink-0">
                     {assets.filter(a => a.status === 'review_requested').length}
                 </span>
             </Button>
@@ -53,9 +53,9 @@ export const StatusFilterSection: React.FC<StatusFilterSectionProps> = ({ isOpen
                     });
                 }}
             >
-                <div className="w-3 h-3 rounded-full bg-orange-500" />
-                <span className="flex-1 text-left text-xs">Pending Approval</span>
-                <span className="text-[10px] text-muted-foreground">
+                <div className="w-3 h-3 rounded-full bg-orange-500 shrink-0" />
+                <span className="flex-1 text-left text-xs truncate min-w-0">Pending Approval</span>
+                <span className="text-[10px] text-muted-foreground shrink-0">
                     {assets.filter(a => a.status === 'pending').length}
                 </span>
             </Button>
@@ -72,9 +72,9 @@ export const StatusFilterSection: React.FC<StatusFilterSectionProps> = ({ isOpen
                     });
                 }}
             >
-                <CheckCircle className="h-3 w-3 text-green-500" />
-                <span className="flex-1 text-left text-xs">Approved</span>
-                <span className="text-[10px] text-muted-foreground">
+                <CheckCircle className="h-3 w-3 text-green-500 shrink-0" />
+                <span className="flex-1 text-left text-xs truncate min-w-0">Approved</span>
+                <span className="text-[10px] text-muted-foreground shrink-0">
                     {assets.filter(a => a.status === 'approved').length}
                 </span>
             </Button>

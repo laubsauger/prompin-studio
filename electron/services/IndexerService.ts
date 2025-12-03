@@ -29,7 +29,8 @@ export class IndexerService {
         thumbnailsGenerated: 0,
         thumbnailsFailed: 0,
         errors: [],
-        filesByType: { images: 0, videos: 0, other: 0 }
+        filesByType: { images: 0, videos: 0, other: 0 },
+        skippedFiles: 0
     };
 
     constructor() {
@@ -98,6 +99,7 @@ export class IndexerService {
         this.stats.thumbnailsFailed = 0;
         this.stats.errors = [];
         this.stats.filesByType = { images: 0, videos: 0, other: 0 };
+        this.stats.skippedFiles = 0;
 
         // Manual recursive scan to ensure we find files even if chokidar fails on network drives
         console.log('[IndexerService] Starting manual recursive scan...');
@@ -379,7 +381,8 @@ export class IndexerService {
 
     private async handleFileAdd(filePath: string) {
         if (!this.isMediaFile(filePath)) {
-            console.log(`[IndexerService] Skipped non-media file: ${filePath}`);
+            // console.log(`[IndexerService] Skipped non-media file: ${filePath}`);
+            this.stats.skippedFiles = (this.stats.skippedFiles || 0) + 1;
             return;
         }
 

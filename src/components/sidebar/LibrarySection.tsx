@@ -47,9 +47,9 @@ export const LibrarySection: React.FC<LibrarySectionProps> = ({ isOpen, onToggle
                     });
                 }}
             >
-                <Layers className="h-4 w-4" />
-                <span className="flex-1 text-left">All Media</span>
-                <span className="text-[10px] text-muted-foreground">{assets.length}</span>
+                <Layers className="h-4 w-4 shrink-0" />
+                <span className="flex-1 text-left truncate min-w-0">All Media</span>
+                <span className="text-[10px] text-muted-foreground shrink-0">{assets.length}</span>
             </Button>
             <Button
                 variant="ghost"
@@ -67,14 +67,14 @@ export const LibrarySection: React.FC<LibrarySectionProps> = ({ isOpen, onToggle
                     useStore.getState().setLastInboxViewTime(Date.now());
                 }}
             >
-                <div className="relative">
+                <div className="relative shrink-0">
                     <Inbox className="h-4 w-4" />
                     {assets.some(a => a.status === 'unsorted' && a.createdAt > lastInboxViewTime) && (
                         <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full border border-card" />
                     )}
                 </div>
-                <span className="flex-1 text-left">Inbox</span>
-                <span className="text-[10px] text-muted-foreground">
+                <span className="flex-1 text-left truncate min-w-0">Inbox</span>
+                <span className="text-[10px] text-muted-foreground shrink-0">
                     {assets.filter(a => a.status === 'unsorted').length}
                 </span>
             </Button>
@@ -90,9 +90,9 @@ export const LibrarySection: React.FC<LibrarySectionProps> = ({ isOpen, onToggle
                     scratchPadId: undefined
                 })}
             >
-                <Star className="h-4 w-4" />
-                <span className="flex-1 text-left">Favorites</span>
-                <span className="text-[10px] text-muted-foreground">
+                <Star className="h-4 w-4 shrink-0" />
+                <span className="flex-1 text-left truncate min-w-0">Favorites</span>
+                <span className="text-[10px] text-muted-foreground shrink-0">
                     {assets.filter(a => a.metadata.liked).length}
                 </span>
             </Button>
@@ -103,11 +103,11 @@ export const LibrarySection: React.FC<LibrarySectionProps> = ({ isOpen, onToggle
                     className="w-full justify-start gap-2 px-4 bg-accent text-accent-foreground"
                     onClick={() => setFilterConfig({ relatedToAssetId: undefined })}
                 >
-                    <GitFork className="h-4 w-4 rotate-180" />
-                    <span className="flex-1 text-left truncate">
+                    <GitFork className="h-4 w-4 rotate-180 shrink-0" />
+                    <span className="flex-1 text-left truncate min-w-0">
                         Related to: {assets.find(a => a.id === filterConfig.relatedToAssetId)?.path.split('/').pop() || 'Asset'}
                     </span>
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-[10px] text-muted-foreground shrink-0">
                         <Trash2 className="h-3 w-3 hover:text-destructive" />
                     </span>
                 </Button>

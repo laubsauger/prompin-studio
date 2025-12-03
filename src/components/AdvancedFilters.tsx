@@ -5,11 +5,11 @@ import { Button } from './ui/button';
 import { Select } from './ui/select';
 import * as Popover from '@radix-ui/react-popover';
 import { cn } from '../lib/utils';
-import type { AssetStatus } from '../types';
+
 
 export function AdvancedFilters() {
     const [isOpen, setIsOpen] = useState(false);
-    const { filterConfig, setFilterConfig, searchAssets, tags } = useStore();
+    const { filterConfig, setFilterConfig, searchAssets, tags, resetFilters } = useStore();
 
     const handleFilterChange = (key: string, value: any) => {
         const newConfig = { ...filterConfig, [key]: value };
@@ -18,24 +18,7 @@ export function AdvancedFilters() {
     };
 
     const clearFilters = () => {
-        const clearedConfig = {
-            likedOnly: false,
-            type: 'all' as const,
-            status: 'all' as AssetStatus | 'all',
-            tagId: null,
-            authorId: undefined,
-            project: undefined,
-            scene: undefined,
-            shot: undefined,
-            platform: undefined,
-            model: undefined,
-            dateFrom: undefined,
-            dateTo: undefined,
-            relatedToAssetId: undefined,
-            scratchPadId: undefined
-        };
-        setFilterConfig(clearedConfig);
-        searchAssets(undefined, clearedConfig);
+        resetFilters();
     };
 
     const activeFilterCount = Object.entries(filterConfig).filter(([key, value]) => {

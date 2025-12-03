@@ -70,4 +70,5 @@ export interface SyncStats {
     thumbnailsFailed?: number;
     errors?: Array<{ file: string; error: string; timestamp: number }>;
     filesByType?: { images: number; videos: number; other: number };
+    skippedFiles?: number;
 }

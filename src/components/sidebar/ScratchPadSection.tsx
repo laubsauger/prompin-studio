@@ -46,15 +46,15 @@ export const ScratchPadSection: React.FC<ScratchPadSectionProps> = ({ isOpen, on
                     <Button
                         variant="ghost"
                         size="sm"
-                        className="flex-1 justify-start gap-2 font-normal h-8 px-4 hover:bg-transparent"
+                        className="flex-1 justify-start gap-2 font-normal h-8 px-4 hover:bg-transparent min-w-0"
                         onClick={() => {
                             setFilterConfig({ scratchPadId: pad.id });
                             setCurrentPath(null);
                         }}
                     >
-                        <StickyNote size={14} className="text-yellow-500" />
-                        <span className="truncate">{pad.name}</span>
-                        <span className="ml-auto text-[10px] text-muted-foreground opacity-70">
+                        <StickyNote size={14} className="text-yellow-500 shrink-0" />
+                        <span className="truncate flex-1 min-w-0 text-left">{pad.name}</span>
+                        <span className="text-[10px] text-muted-foreground opacity-70 shrink-0 ml-1">
                             {pad.assetIds.length}
                         </span>
                     </Button>

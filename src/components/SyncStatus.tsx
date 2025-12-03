@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useStore } from '../store';
 import { cn } from '../lib/utils';
+import { formatDistanceToNow } from 'date-fns';
 
 import { Loader2, RefreshCw, AlertCircle } from 'lucide-react';
 import { SyncStatusModal } from './SyncStatusModal';
@@ -33,62 +34,113 @@ export const SyncStatus: React.FC = () => {
     const hasErrors = syncStats.errors && syncStats.errors.length > 0;
     const hasThumbnailFailures = (syncStats.thumbnailsFailed || 0) > 0;
 
+    const imageCount = syncStats.filesByType?.images || 0;
+    const videoCount = syncStats.filesByType?.videos || 0;
+    const folderCount = syncStats.folderCount || 0;
+
     return (
         <>
-            <div className="h-8 border-t border-border bg-card flex items-center px-4 text-xs text-muted-foreground justify-between select-none">
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => setIsModalOpen(true)}
-                        className="flex items-center gap-2 hover:text-foreground transition-colors cursor-pointer"
-                    >
+            <div className="p-3 bg-card space-y-3 min-w-[280px]">
+                {/* Status Header */}
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
                         {isSyncing ? (
-                            <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                            <Loader2 className="h-4 w-4 animate-spin text-primary" />
                         ) : hasErrors || hasThumbnailFailures ? (
-                            <AlertCircle className="h-3 w-3 text-yellow-500" />
+                            <AlertCircle className="h-4 w-4 text-yellow-500" />
                         ) : (
-                            <div className="h-2 w-2 rounded-full bg-green-500" />
+                            <div className="h-3 w-3 rounded-full bg-green-500" />
                         )}
-                        <span className="font-medium">
+                        <span className="font-medium text-sm">
                             {isSyncing ? 'Syncing...' : 'Ready'}
                         </span>
-                    </button>
-
-                    <div className="h-3 w-[1px] bg-border" />
-
+                    </div>
                     <button
-                        onClick={() => setIsModalOpen(true)}
-                        className="flex items-center gap-2 hover:text-foreground transition-colors"
+                        onClick={triggerResync}
+                        disabled={isSyncing}
+                        className={cn(
+                            "flex items-center gap-1.5 text-xs hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+                            isSyncing && "animate-pulse"
+                        )}
                     >
-                        <span>{syncStats.processedFiles} / {syncStats.totalFiles} items</span>
-                        {syncStats.thumbnailsGenerated !== undefined && (
-                            <>
-                                <div className="h-3 w-[1px] bg-border" />
-                                <span className="text-[10px]">
-                                    {syncStats.thumbnailsGenerated} thumbnails
-                                </span>
-                            </>
-                        )}
-                        {isSyncing && (
-                            <div className="w-20 h-1.5 bg-secondary rounded-full overflow-hidden">
-                                <div
-                                    className="h-full bg-primary transition-all duration-300"
-                                    style={{ width: `${progress}%` }}
-                                />
-                            </div>
-                        )}
+                        <RefreshCw className={cn("h-3 w-3", isSyncing && "animate-spin")} />
+                        Resync
                     </button>
                 </div>
 
-                <button
-                    onClick={triggerResync}
-                    disabled={isSyncing}
-                    className={cn(
-                        "flex items-center gap-1.5 hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
-                        isSyncing && "animate-pulse"
+                {/* Progress Bar (when syncing) */}
+                {isSyncing && (
+                    <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden">
+                        <div
+                            className="h-full bg-primary transition-all duration-300"
+                            style={{ width: `${progress}%` }}
+                        />
+                    </div>
+                )}
+
+                {/* Stats Grid */}
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                    <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Total Files:</span>
+                        <span className="font-medium tabular-nums">{syncStats.totalFiles}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Processed:</span>
+                        <span className="font-medium tabular-nums">{syncStats.processedFiles}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Images:</span>
+                        <span className="font-medium tabular-nums">{imageCount}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Videos:</span>
+                        <span className="font-medium tabular-nums">{videoCount}</span>
+                    </div>
+                    {folderCount > 0 && (
+                        <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Folders:</span>
+                            <span className="font-medium tabular-nums">{folderCount}</span>
+                        </div>
                     )}
+                    {syncStats.thumbnailsGenerated !== undefined && (
+                        <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Thumbnails:</span>
+                            <span className="font-medium tabular-nums">{syncStats.thumbnailsGenerated}</span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Errors/Warnings */}
+                {(hasErrors || hasThumbnailFailures) && (
+                    <div className="pt-2 border-t border-border">
+                        {hasErrors && (
+                            <div className="flex items-center gap-2 text-xs text-yellow-500">
+                                <AlertCircle className="h-3 w-3" />
+                                <span>{syncStats.errors!.length} sync errors</span>
+                            </div>
+                        )}
+                        {hasThumbnailFailures && (
+                            <div className="flex items-center gap-2 text-xs text-yellow-500">
+                                <AlertCircle className="h-3 w-3" />
+                                <span>{syncStats.thumbnailsFailed} thumbnail failures</span>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Last Sync Time */}
+                {syncStats.lastSync && (
+                    <div className="pt-2 border-t border-border text-xs text-muted-foreground">
+                        Last sync: {formatDistanceToNow(new Date(syncStats.lastSync), { addSuffix: true })}
+                    </div>
+                )}
+
+                {/* Click for Details */}
+                <button
+                    onClick={() => setIsModalOpen(true)}
+                    className="w-full pt-2 border-t border-border text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
-                    <RefreshCw className={cn("h-3 w-3", isSyncing && "animate-spin")} />
-                    Resync
+                    Click for detailed sync status →
                 </button>
             </div>
 

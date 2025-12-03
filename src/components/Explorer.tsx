@@ -31,16 +31,7 @@ const GridItem = (props: any) => (
     <div {...props} style={{ ...props.style, margin: 0 }} />
 );
 
-const ListPlaceholder = (_props: { height: number; context: any }) => (
-    <div
-        style={{
-            height: '100%',
-            backgroundColor: 'hsl(var(--muted))',
-            borderRadius: 'var(--radius)',
-            opacity: 0.5
-        }}
-    />
-);
+
 
 export const Explorer: React.FC = () => {
     const assets = useStore(state => state.assets);
@@ -177,15 +168,9 @@ export const Explorer: React.FC = () => {
                         overscan={3000}
                         context={{ thumbnailSize }}
                         computeItemKey={(index) => filteredAssets[index].id}
-                        scrollSeekConfiguration={{
-                            enter: (velocity) => Math.abs(velocity) > 200,
-                            exit: (velocity) => Math.abs(velocity) < 30,
-                            change: (_, range) => console.log('scroll seek range', range),
-                        }}
                         components={{
                             List: GridList,
-                            Item: GridItem,
-                            ScrollSeekPlaceholder: ListPlaceholder
+                            Item: GridItem
                         }}
                         itemContent={(index) => {
                             const asset = filteredAssets[index];
@@ -207,10 +192,6 @@ export const Explorer: React.FC = () => {
                         rangeChanged={handleRangeChanged}
                         overscan={3000}
                         computeItemKey={(index) => filteredAssets[index].id}
-                        scrollSeekConfiguration={{
-                            enter: (velocity) => Math.abs(velocity) > 200,
-                            exit: (velocity) => Math.abs(velocity) < 30,
-                        }}
                         itemContent={(index) => {
                             const asset = filteredAssets[index];
                             return (

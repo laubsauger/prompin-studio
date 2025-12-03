@@ -20,8 +20,8 @@ const LineageGraph: React.FC<{ rootAsset: Asset, lineageAssets: Asset[], onLayou
         g.setGraph({
             rankdir: 'LR',
             ranker: 'longest-path', // Better for timeline/lineage alignment
-            nodesep: 100, // Vertical spacing between nodes
-            ranksep: 200, // Horizontal spacing - reduced to bring nodes closer
+            nodesep: 150, // Vertical spacing between nodes
+            ranksep: 300, // Horizontal spacing
             marginx: 100,
             marginy: 100
         });
@@ -38,8 +38,9 @@ const LineageGraph: React.FC<{ rootAsset: Asset, lineageAssets: Asset[], onLayou
         if (aspectRatio === 'video') imageHeight = 144;
         if (aspectRatio === 'portrait') imageHeight = 455; // 9/16 of 256
 
-        const nodeWidth = 256; // Exact match to card width
-        const nodeHeight = imageHeight + 42; // Reduced buffer to match card footer height exactly
+        // Increase node dimensions to account for rings/shadows and force more spacing
+        const nodeWidth = 320; // 256 + 64px buffer
+        const nodeHeight = imageHeight + 100; // Extra buffer for metadata and spacing
         // const imageCenterY = imageHeight / 2; // Unused
 
         lineageAssets.forEach(asset => {

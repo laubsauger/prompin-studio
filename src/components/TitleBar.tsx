@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { FolderOpen, Settings, Loader2, RefreshCw } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useStore } from '../store';
@@ -9,10 +9,12 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from './ui/hover-card';
 import { SyncStatus } from './SyncStatus';
 import { Logo } from './Logo';
 import { SearchPalette } from './SearchPalette';
+import { PathDisplay } from './PathDisplay';
 
 export const TitleBar: React.FC = () => {
     const { setRootPath, syncStats, fetchSyncStats, triggerResync, currentPath } = useStore();
     const { setSettingsOpen, rootFolder } = useSettingsStore();
+    const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
     React.useEffect(() => {
         fetchSyncStats();
@@ -20,31 +22,46 @@ export const TitleBar: React.FC = () => {
         return () => clearInterval(interval);
     }, [fetchSyncStats]);
 
+    React.useEffect(() => {
+        const handleResize = () => setWindowWidth(window.innerWidth);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     const isSyncing = syncStats?.status !== 'idle';
     const progress = syncStats && syncStats.totalFiles > 0 ? (syncStats.processedFiles / syncStats.totalFiles) * 100 : 0;
 
+    // Responsive breakpoints
+    const showAppTitle = windowWidth > 500;
+    const showItemCount = windowWidth > 700;
+    const showFullPath = windowWidth > 600;
+
     return (
         <div className="h-10 bg-background border-b border-border flex items-center justify-between px-4 pl-20 select-none" style={{ WebkitAppRegion: 'drag' } as any}>
-            <div className="flex items-center gap-4 text-sm font-medium text-muted-foreground">
-                <div className="flex items-center gap-2">
-                    <Logo className="w-4 h-4" />
-                    <span className="text-foreground">Prompin' Studio</span>
-                    <div className="h-4 w-[1px] bg-border mx-2" />
-                    {rootFolder && (
-                        <div className="flex items-center gap-1 text-xs">
-                            <span className="opacity-70">{rootFolder}</span>
-                            {currentPath && (
-                                <>
-                                    <span className="opacity-50">/</span>
-                                    <span className="text-foreground">{currentPath}</span>
-                                </>
-                            )}
-                        </div>
-                    )}
-                </div>
+            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground min-w-0 overflow-hidden">
+                <Logo className="w-4 h-4 shrink-0" />
+                {showAppTitle && (
+                    <span className="text-foreground whitespace-nowrap shrink-0">Prompin' Studio</span>
+                )}
+                {rootFolder && (
+                    <>
+                        <div className="h-4 w-[1px] bg-border shrink-0 mx-2" />
+                        {showFullPath ? (
+                            <PathDisplay
+                                rootFolder={rootFolder}
+                                currentPath={currentPath}
+                                className="min-w-0"
+                            />
+                        ) : (
+                            <span className="text-xs opacity-70 truncate" title={`${rootFolder}${currentPath ? '/' + currentPath : ''}`}>
+                                {currentPath ? currentPath.split('/').pop() : rootFolder.split('/').pop()}
+                            </span>
+                        )}
+                    </>
+                )}
             </div>
 
-            <div className="flex items-center gap-4" style={{ WebkitAppRegion: 'no-drag' } as any}>
+            <div className="flex items-center gap-4 shrink-0" style={{ WebkitAppRegion: 'no-drag' } as any}>
                 <SearchPalette />
 
                 <div className="h-4 w-[1px] bg-border" />
@@ -53,26 +70,28 @@ export const TitleBar: React.FC = () => {
                     <HoverCard openDelay={200}>
                         <HoverCardTrigger asChild>
                             <div className="flex items-center gap-3 text-xs text-muted-foreground cursor-help">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 shrink-0">
                                     {isSyncing ? (
                                         <Loader2 className="h-3 w-3 animate-spin text-primary" />
                                     ) : (
                                         <div className="h-2 w-2 rounded-full bg-green-500" />
                                     )}
-                                    <span>{isSyncing ? 'Syncing...' : 'Ready'}</span>
+                                    <span className="whitespace-nowrap">{isSyncing ? 'Syncing...' : 'Ready'}</span>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <span>{syncStats.processedFiles} / {syncStats.totalFiles}</span>
-                                    {isSyncing && (
-                                        <div className="w-16 h-1 bg-secondary rounded-full overflow-hidden">
-                                            <div className="h-full bg-primary transition-all duration-300" style={{ width: `${progress}%` }} />
-                                        </div>
-                                    )}
-                                </div>
+                                {showItemCount && (
+                                    <div className="flex items-center gap-2 shrink-0">
+                                        <span className="whitespace-nowrap">{syncStats.processedFiles} / {syncStats.totalFiles}</span>
+                                        {isSyncing && (
+                                            <div className="w-16 h-1 bg-secondary rounded-full overflow-hidden">
+                                                <div className="h-full bg-primary transition-all duration-300" style={{ width: `${progress}%` }} />
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-5 w-5"
+                                    className="h-5 w-5 shrink-0"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         triggerResync();

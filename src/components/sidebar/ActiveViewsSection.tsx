@@ -30,14 +30,14 @@ export const ActiveViewsSection: React.FC = () => {
                     <Button
                         variant="ghost"
                         size="sm"
-                        className="flex-1 justify-start gap-2 font-normal h-8 px-4 hover:bg-transparent"
+                        className="flex-1 justify-start gap-2 font-normal h-8 px-4 hover:bg-transparent min-w-0"
                         onClick={() => {
                             setFilterConfig(view.filterConfig);
                             setCurrentPath(null);
                         }}
                     >
-                        <GitFork size={14} className="text-blue-500 rotate-180" />
-                        <span className="truncate">{view.name}</span>
+                        <GitFork size={14} className="text-blue-500 rotate-180 shrink-0" />
+                        <span className="truncate flex-1 min-w-0 text-left">{view.name}</span>
                     </Button>
                     <Button
                         variant="ghost"

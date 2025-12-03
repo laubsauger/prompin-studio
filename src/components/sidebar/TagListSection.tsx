@@ -46,16 +46,16 @@ export const TagListSection: React.FC<TagListSectionProps> = ({ isOpen, onToggle
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                className="flex-1 justify-start gap-2 h-7 px-4 hover:bg-transparent"
+                                className="flex-1 justify-start gap-2 h-7 px-4 hover:bg-transparent min-w-0"
                                 onClick={() => {
                                     setFilterConfig({
                                         tagId: filterConfig.tagId === tag.id ? null : tag.id
                                     });
                                 }}
                             >
-                                <Tag className="h-3 w-3" style={{ color: tag.color || 'currentColor' }} />
-                                <span className="flex-1 text-left text-xs">{tag.name}</span>
-                                <span className="text-[10px] text-muted-foreground opacity-70">{count}</span>
+                                <Tag className="h-3 w-3 shrink-0" style={{ color: tag.color || 'currentColor' }} />
+                                <span className="flex-1 text-left text-xs truncate min-w-0">{tag.name}</span>
+                                <span className="text-[10px] text-muted-foreground opacity-70 shrink-0">{count}</span>
                             </Button>
                             <Button
                                 variant="ghost"
