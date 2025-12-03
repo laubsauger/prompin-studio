@@ -7,6 +7,7 @@ import { ZoomIn, ZoomOut, Maximize2, Home } from 'lucide-react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { Button } from './ui/button';
 import dagre from 'dagre';
+import { cn } from '../lib/utils';
 
 const LineageGraph: React.FC<{ rootAsset: Asset, lineageAssets: Asset[] }> = ({ rootAsset, lineageAssets }) => {
     // Calculate node positions using dagre
@@ -167,6 +168,7 @@ export const LineageView: React.FC = () => {
     const [isLoading, setIsLoading] = React.useState(false);
     const transformRef = useRef<any>(null);
     const [optimalScale, setOptimalScale] = React.useState(0.6);
+    const [isScoped, setIsScoped] = React.useState(true);
 
     React.useEffect(() => {
         if (lineageAssetId) {
@@ -203,6 +205,44 @@ export const LineageView: React.FC = () => {
         [lineageAssets, lineageAssetId]
     );
 
+    const displayedAssets = useMemo(() => {
+        if (!isScoped || !rootAsset) return lineageAssets;
+
+        const scopedIds = new Set<string>();
+        scopedIds.add(rootAsset.id);
+
+        // Traverse Up (Ancestors)
+        const queueUp = [rootAsset.id];
+        while (queueUp.length > 0) {
+            const currentId = queueUp.shift()!;
+            const asset = lineageAssets.find(a => a.id === currentId);
+            if (asset && asset.metadata.inputs) {
+                for (const inputId of asset.metadata.inputs) {
+                    if (!scopedIds.has(inputId)) {
+                        scopedIds.add(inputId);
+                        queueUp.push(inputId);
+                    }
+                }
+            }
+        }
+
+        // Traverse Down (Descendants)
+        const queueDown = [rootAsset.id];
+        while (queueDown.length > 0) {
+            const currentId = queueDown.shift()!;
+            // Find assets that have currentId as input
+            const children = lineageAssets.filter(a => a.metadata.inputs?.includes(currentId));
+            for (const child of children) {
+                if (!scopedIds.has(child.id)) {
+                    scopedIds.add(child.id);
+                    queueDown.push(child.id);
+                }
+            }
+        }
+
+        return lineageAssets.filter(a => scopedIds.has(a.id));
+    }, [lineageAssets, rootAsset, isScoped]);
+
     if (!lineageAssetId) return null;
 
     const handleZoomIn = () => {
@@ -226,7 +266,29 @@ export const LineageView: React.FC = () => {
             <DialogContent className="max-w-[95vw] w-full h-[90vh] flex flex-col p-0 gap-0 bg-background/95 backdrop-blur-xl">
                 <DialogHeader className="p-4 border-b">
                     <div className="flex items-center justify-between pr-10">
-                        <DialogTitle>Asset Lineage Graph</DialogTitle>
+                        <div className="flex items-center gap-4">
+                            <DialogTitle>Asset Lineage Graph</DialogTitle>
+                            <div className="flex items-center bg-muted rounded-lg p-1">
+                                <button
+                                    onClick={() => setIsScoped(true)}
+                                    className={cn(
+                                        "px-3 py-1 text-xs font-medium rounded-md transition-all",
+                                        isScoped ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                                    )}
+                                >
+                                    Scoped
+                                </button>
+                                <button
+                                    onClick={() => setIsScoped(false)}
+                                    className={cn(
+                                        "px-3 py-1 text-xs font-medium rounded-md transition-all",
+                                        !isScoped ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                                    )}
+                                >
+                                    Full Graph
+                                </button>
+                            </div>
+                        </div>
 
                         {/* Zoom Controls */}
                         <div className="flex items-center gap-2">
@@ -273,7 +335,7 @@ export const LineageView: React.FC = () => {
                         </div>
                     ) : rootAsset ? (
                         <TransformWrapper
-                            key={`${lineageAssetId}-${optimalScale}`}
+                            key={`${lineageAssetId}-${optimalScale}-${isScoped}`}
                             ref={transformRef}
                             initialScale={optimalScale}
                             minScale={0.1}
@@ -312,7 +374,7 @@ export const LineageView: React.FC = () => {
                                             height: '100%',
                                         }}
                                     >
-                                        <LineageGraph rootAsset={rootAsset} lineageAssets={lineageAssets} />
+                                        <LineageGraph rootAsset={rootAsset} lineageAssets={displayedAssets} />
                                     </TransformComponent>
 
                                     <div className="absolute bottom-4 left-4 bg-background/80 backdrop-blur-sm border rounded-lg p-2 text-xs text-muted-foreground">
