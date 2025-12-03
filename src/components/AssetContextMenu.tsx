@@ -44,68 +44,6 @@ export const AssetContextMenu: React.FC<AssetContextMenuProps> = ({ asset, child
                     {children}
                 </ContextMenuTrigger>
                 <ContextMenuContent>
-                    <ContextMenuItem onClick={async (e) => {
-                        e.stopPropagation();
-                        const ipc = (window as any).ipcRenderer;
-                        if (ipc) {
-                            await ipc.invoke('reveal-in-finder', asset.path);
-                        }
-                    }}>
-                        <FolderOpen className="mr-2 h-4 w-4" /> Show in Finder
-                    </ContextMenuItem>
-                    <ContextMenuItem onClick={(e) => {
-                        e.stopPropagation();
-                        useStore.getState().setLineageAssetId(asset.id);
-                    }}>
-                        <GitFork className="mr-2 h-4 w-4" /> View Lineage
-                    </ContextMenuItem>
-                    <ContextMenuItem onClick={(e) => {
-                        e.stopPropagation();
-                        useStore.getState().setCurrentPath(null);
-                        useStore.getState().setFilterConfig({
-                            relatedToAssetId: asset.id,
-                            type: 'all',
-                            status: 'all',
-                            likedOnly: false,
-                            tagId: undefined,
-                            scratchPadId: undefined
-                        });
-                    }}>
-                        <GitFork className="mr-2 h-4 w-4 rotate-180" /> Show Derived Assets
-                    </ContextMenuItem>
-
-                    <ContextMenuSub>
-                        <ContextMenuSubTrigger>
-                            <StickyNote className="mr-2 h-4 w-4" />
-                            Scratch Pad
-                        </ContextMenuSubTrigger>
-                        <ContextMenuSubContent className="w-48">
-                            {useStore.getState().scratchPads.map(pad => (
-                                <ContextMenuItem
-                                    key={pad.id}
-                                    onClick={() => useStore.getState().addToScratchPad(pad.id, [asset.id])}
-                                >
-                                    {pad.name}
-                                </ContextMenuItem>
-                            ))}
-                            <ContextMenuSeparator />
-                            <ContextMenuItem onClick={(e) => {
-                                e.stopPropagation();
-                                setIsCreateScratchPadDialogOpen(true);
-                            }}>
-                                <Plus className="mr-2 h-4 w-4" />
-                                Create New...
-                            </ContextMenuItem>
-                        </ContextMenuSubContent>
-                    </ContextMenuSub>
-
-                    <ContextMenuItem onClick={(e) => {
-                        e.stopPropagation();
-                        setIsMetadataEditorOpen(true);
-                    }}>
-                        <FileText className="mr-2 h-4 w-4" /> Edit Metadata...
-                    </ContextMenuItem>
-                    <ContextMenuSeparator />
                     <ContextMenuItem onClick={(e) => {
                         e.stopPropagation();
                         toggleLike(asset.id);
@@ -113,7 +51,6 @@ export const AssetContextMenu: React.FC<AssetContextMenuProps> = ({ asset, child
                         <Heart className={cn("mr-2 h-4 w-4", asset.metadata.liked && "fill-current text-red-500")} />
                         {asset.metadata.liked ? 'Unlike' : 'Like'}
                     </ContextMenuItem>
-                    <ContextMenuSeparator />
 
                     <ContextMenuSub>
                         <ContextMenuSubTrigger>
@@ -176,6 +113,71 @@ export const AssetContextMenu: React.FC<AssetContextMenuProps> = ({ asset, child
                             })}
                         </ContextMenuSubContent>
                     </ContextMenuSub>
+
+                    <ContextMenuItem onClick={async (e) => {
+                        e.stopPropagation();
+                        const ipc = (window as any).ipcRenderer;
+                        if (ipc) {
+                            await ipc.invoke('reveal-in-finder', asset.path);
+                        }
+                    }}>
+                        <FolderOpen className="mr-2 h-4 w-4" /> Show in Finder
+                    </ContextMenuItem>
+
+                    <ContextMenuSeparator />
+
+                    <ContextMenuItem onClick={(e) => {
+                        e.stopPropagation();
+                        useStore.getState().setLineageAssetId(asset.id);
+                    }}>
+                        <GitFork className="mr-2 h-4 w-4" /> View Lineage
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={(e) => {
+                        e.stopPropagation();
+                        useStore.getState().setCurrentPath(null);
+                        useStore.getState().setFilterConfig({
+                            relatedToAssetId: asset.id,
+                            type: 'all',
+                            status: 'all',
+                            likedOnly: false,
+                            tagId: undefined,
+                            scratchPadId: undefined
+                        });
+                    }}>
+                        <GitFork className="mr-2 h-4 w-4 rotate-180" /> Show Derived Assets
+                    </ContextMenuItem>
+
+                    <ContextMenuSub>
+                        <ContextMenuSubTrigger>
+                            <StickyNote className="mr-2 h-4 w-4" />
+                            Scratch Pad
+                        </ContextMenuSubTrigger>
+                        <ContextMenuSubContent className="w-48">
+                            {useStore.getState().scratchPads.map(pad => (
+                                <ContextMenuItem
+                                    key={pad.id}
+                                    onClick={() => useStore.getState().addToScratchPad(pad.id, [asset.id])}
+                                >
+                                    {pad.name}
+                                </ContextMenuItem>
+                            ))}
+                            <ContextMenuSeparator />
+                            <ContextMenuItem onClick={(e) => {
+                                e.stopPropagation();
+                                setIsCreateScratchPadDialogOpen(true);
+                            }}>
+                                <Plus className="mr-2 h-4 w-4" />
+                                Create New...
+                            </ContextMenuItem>
+                        </ContextMenuSubContent>
+                    </ContextMenuSub>
+
+                    <ContextMenuItem onClick={(e) => {
+                        e.stopPropagation();
+                        setIsMetadataEditorOpen(true);
+                    }}>
+                        <FileText className="mr-2 h-4 w-4" /> Edit Metadata...
+                    </ContextMenuItem>
                 </ContextMenuContent>
             </ContextMenu>
 
@@ -189,6 +191,7 @@ export const AssetContextMenu: React.FC<AssetContextMenuProps> = ({ asset, child
                 isOpen={isCreateScratchPadDialogOpen}
                 onClose={() => setIsCreateScratchPadDialogOpen(false)}
                 onCreate={createScratchPad}
+                initialAssetIds={[asset.id]}
             />
 
             <MetadataEditor

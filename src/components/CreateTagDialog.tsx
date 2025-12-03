@@ -21,14 +21,12 @@ export const CreateTagDialog: React.FC<CreateTagDialogProps> = ({ isOpen, onClos
     const [name, setName] = useState('');
     const [selectedColor, setSelectedColor] = useState(TAG_COLORS[0]);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (name.trim()) {
-            onCreateTag(name.trim(), selectedColor);
-            // Keep dialog open to allow adding multiple tags
-            setName('');
-            setSelectedColor(TAG_COLORS[0]);
-            // Do NOT call onClose() here; user can close manually via Cancel or outside click
+            await onCreateTag(name.trim(), selectedColor);
+            // Close dialog after successful creation
+            handleClose();
         }
     };
 

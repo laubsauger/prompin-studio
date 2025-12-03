@@ -7,16 +7,17 @@ import { Label } from './ui/label';
 interface CreateScratchPadDialogProps {
     isOpen: boolean;
     onClose: () => void;
-    onCreate: (name: string) => void;
+    onCreate: (name: string, initialAssetIds?: string[]) => void;
+    initialAssetIds?: string[];
 }
 
-export const CreateScratchPadDialog: React.FC<CreateScratchPadDialogProps> = ({ isOpen, onClose, onCreate }) => {
+export const CreateScratchPadDialog: React.FC<CreateScratchPadDialogProps> = ({ isOpen, onClose, onCreate, initialAssetIds }) => {
     const [name, setName] = useState('');
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (name.trim()) {
-            onCreate(name.trim());
+            onCreate(name.trim(), initialAssetIds);
             setName('');
             onClose();
         }

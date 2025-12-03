@@ -51,8 +51,8 @@ export const MediaViewer: React.FC = () => {
         }
     };
 
-    const handleCreateTag = (name: string, color: string) => {
-        createTag(name, color);
+    const handleCreateTag = async (name: string, color: string) => {
+        await createTag(name, color);
         setIsCreateTagDialogOpen(false);
     };
 

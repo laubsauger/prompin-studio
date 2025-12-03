@@ -88,7 +88,6 @@ export const IngestionModal: React.FC = () => {
                             onChange={setMetadata}
                             tags={tags}
                             onTagsChange={setTags}
-                            showLineage={false} // Hide lineage for ingestion as we don't support it yet
                         />
                     </div>
                 </div>

@@ -100,7 +100,7 @@ interface AppState {
     handleUpload: (metadata: { project: string; scene: string; tags: string[]; description?: string; author?: string; targetPath?: string }) => Promise<void>;
 
     // Scratch Pad Actions
-    createScratchPad: (name: string) => void;
+    createScratchPad: (name: string, initialAssetIds?: string[]) => void;
     deleteScratchPad: (id: string) => void;
     addToScratchPad: (padId: string, assetIds: string[]) => void;
     removeFromScratchPad: (padId: string, assetId: string) => void;
@@ -128,6 +128,7 @@ interface AppState {
     setRootPath: () => Promise<string | null>;
     loadFolderColors: () => Promise<void>;
     initStore: () => Promise<void>;
+    refreshAssets: () => Promise<void>;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -179,8 +180,8 @@ export const useStore = create<AppState>((set, get) => ({
         set({ lastInboxViewTime: time });
     },
     // Scratch Pad Actions
-    createScratchPad: (name) => set(state => ({
-        scratchPads: [...state.scratchPads, { id: uuidv4(), name, assetIds: [] }]
+    createScratchPad: (name, initialAssetIds = []) => set(state => ({
+        scratchPads: [...state.scratchPads, { id: uuidv4(), name, assetIds: initialAssetIds }]
     })),
 
     deleteScratchPad: (id) => set(state => ({
@@ -290,11 +291,11 @@ export const useStore = create<AppState>((set, get) => ({
         // We might need to reload assets to get updated tags if they are part of asset metadata
         // Or we can just reload tags if we want to update counts (if we had them)
         // For now, let's reload assets to be safe if we decide to include tags in asset objects
-        await get().loadAssets();
+        await get().refreshAssets();
     },
     removeTagFromAsset: async (assetId, tagId) => {
         await getIpcRenderer().invoke('remove-tag-from-asset', assetId, tagId);
-        get().loadAssets();
+        get().refreshAssets();
     },
 
     initStore: async () => {
@@ -323,6 +324,18 @@ export const useStore = create<AppState>((set, get) => ({
         await get().loadTags();
         await get().loadFolderColors();
         await get().loadFolders();
+    },
+
+    refreshAssets: async () => {
+        // Silent reload without full-screen loading
+        try {
+            const assets = await getIpcRenderer().invoke('get-assets');
+            set({ assets });
+            // Also load folders to ensure structure is up to date
+            get().loadFolders();
+        } catch (error) {
+            console.error('Failed to refresh assets:', error);
+        }
     },
 
     loadFolderColors: async () => {
@@ -467,23 +480,23 @@ export const useStore = create<AppState>((set, get) => ({
         try {
             await getIpcRenderer().invoke('update-asset-status', id, status);
             // Refresh assets from backend to ensure persistence
-            await get().loadAssets();
+            await get().refreshAssets();
         } catch (error) {
             console.error('Failed to update status:', error);
             // Revert UI if needed by reloading assets
-            await get().loadAssets();
+            await get().refreshAssets();
         }
     },
 
     addComment: async (id, text) => {
         const authorId = 'current-user'; // TODO: Auth
         await getIpcRenderer().invoke('add-comment', id, text, authorId);
-        get().loadAssets();
+        get().refreshAssets();
     },
 
     updateMetadata: async (id, key, value) => {
         await getIpcRenderer().invoke('update-metadata', id, key, value);
-        get().loadAssets();
+        get().refreshAssets();
     },
 
     updateAssetMetadata: async (id, metadata) => {
@@ -492,7 +505,7 @@ export const useStore = create<AppState>((set, get) => ({
             assets: state.assets.map(a => a.id === id ? { ...a, metadata } : a)
         }));
         await getIpcRenderer().invoke('update-asset-metadata', id, metadata);
-        get().loadAssets();
+        get().refreshAssets();
     },
 
     regenerateThumbnails: async () => {

@@ -156,6 +156,32 @@ export const MetadataForm: React.FC<MetadataFormProps> = ({
 
     return (
         <div className="space-y-6">
+            {showLineage && (
+                <div className="space-y-2 pb-4 border-b">
+                    <Label>Input Assets (Lineage)</Label>
+                    <div className="flex flex-wrap gap-2 mb-2">
+                        {metadata.inputs?.map(input => (
+                            <Badge key={input} variant="outline" className="flex items-center gap-1">
+                                <span className="truncate max-w-[100px]">{input.substring(0, 8)}...</span>
+                                <button onClick={() => removeInput(input)} className="hover:text-destructive">
+                                    <X className="h-3 w-3" />
+                                </button>
+                            </Badge>
+                        ))}
+                    </div>
+                    <Button
+                        type="button"
+                        onClick={() => setIsAssetPickerOpen(true)}
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                    >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Input Assets...
+                    </Button>
+                </div>
+            )}
+
             {/* Core Metadata */}
             <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2 flex flex-col">
@@ -370,31 +396,7 @@ export const MetadataForm: React.FC<MetadataFormProps> = ({
                     }}
                 />
 
-                {showLineage && (
-                    <div className="space-y-2">
-                        <Label>Input Assets (Lineage)</Label>
-                        <div className="flex flex-wrap gap-2 mb-2">
-                            {metadata.inputs?.map(input => (
-                                <Badge key={input} variant="outline" className="flex items-center gap-1">
-                                    <span className="truncate max-w-[100px]">{input.substring(0, 8)}...</span>
-                                    <button onClick={() => removeInput(input)} className="hover:text-destructive">
-                                        <X className="h-3 w-3" />
-                                    </button>
-                                </Badge>
-                            ))}
-                        </div>
-                        <Button
-                            type="button"
-                            onClick={() => setIsAssetPickerOpen(true)}
-                            variant="outline"
-                            size="sm"
-                            className="w-full"
-                        >
-                            <Plus className="h-4 w-4 mr-2" />
-                            Add Input Assets...
-                        </Button>
-                    </div>
-                )}
+
             </div>
 
             <AssetPickerDialog
