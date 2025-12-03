@@ -16,13 +16,13 @@ export const TitleBar: React.FC = () => {
     const { setSettingsOpen, rootFolder } = useSettingsStore();
     const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
-    React.useEffect(() => {
+    useEffect(() => {
         fetchSyncStats();
         const interval = setInterval(fetchSyncStats, 1000);
         return () => clearInterval(interval);
     }, [fetchSyncStats]);
 
-    React.useEffect(() => {
+    useEffect(() => {
         const handleResize = () => setWindowWidth(window.innerWidth);
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
@@ -62,10 +62,6 @@ export const TitleBar: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-4 shrink-0" style={{ WebkitAppRegion: 'no-drag' } as any}>
-                <SearchPalette />
-
-                <div className="h-4 w-[1px] bg-border" />
-
                 {syncStats && (
                     <HoverCard openDelay={200}>
                         <HoverCardTrigger asChild>
@@ -108,6 +104,10 @@ export const TitleBar: React.FC = () => {
                         </HoverCardContent>
                     </HoverCard>
                 )}
+
+                <div className="h-4 w-[1px] bg-border" />
+
+                <SearchPalette />
 
                 <div className="h-4 w-px bg-border" />
 

@@ -23,28 +23,45 @@ interface StatusSelectorProps {
     onStatusChange: (status: AssetStatus) => void;
     className?: string;
     compact?: boolean;
+    overlayStyle?: boolean;  // Use overlay style colors
 }
 
 export function StatusSelector({
     currentStatus,
     onStatusChange,
     className,
-    compact = false
+    compact = false,
+    overlayStyle = false
 }: StatusSelectorProps) {
     const [open, setOpen] = useState(false);
 
     // Get color classes for status badges
-    const getStatusColors = (status: AssetStatus) => {
+    const getStatusColors = (status: AssetStatus, useOverlayStyle: boolean = false) => {
         const colorName = ASSET_STATUSES[status].color.match(/bg-(\w+)-/)?.[1] || 'gray';
-        const colorMap: Record<string, string> = {
-            'gray': 'border-gray-400 text-gray-600 bg-gray-50',
-            'yellow': 'border-yellow-400 text-yellow-700 bg-yellow-50',
-            'orange': 'border-orange-400 text-orange-700 bg-orange-50',
-            'green': 'border-green-400 text-green-700 bg-green-50',
-            'slate': 'border-slate-400 text-slate-700 bg-slate-50',
-            'red': 'border-red-400 text-red-700 bg-red-50',
-        };
-        return colorMap[colorName] || colorMap.gray;
+
+        if (useOverlayStyle) {
+            // Overlay style with semi-transparent dark backgrounds (matching AssetCard)
+            const colorMap: Record<string, string> = {
+                'gray': 'border-gray-400 text-gray-300 bg-gray-900/40',
+                'yellow': 'border-yellow-400 text-yellow-300 bg-yellow-900/40',
+                'orange': 'border-orange-400 text-orange-300 bg-orange-900/40',
+                'green': 'border-green-400 text-green-300 bg-green-900/40',
+                'slate': 'border-slate-400 text-slate-300 bg-slate-900/40',
+                'red': 'border-red-400 text-red-300 bg-red-900/40',
+            };
+            return colorMap[colorName] || colorMap.gray;
+        } else {
+            // Default light style
+            const colorMap: Record<string, string> = {
+                'gray': 'border-gray-400 text-gray-600 bg-gray-50',
+                'yellow': 'border-yellow-400 text-yellow-700 bg-yellow-50',
+                'orange': 'border-orange-400 text-orange-700 bg-orange-50',
+                'green': 'border-green-400 text-green-700 bg-green-50',
+                'slate': 'border-slate-400 text-slate-700 bg-slate-50',
+                'red': 'border-red-400 text-red-700 bg-red-50',
+            };
+            return colorMap[colorName] || colorMap.gray;
+        }
     };
 
     const handleStatusSelect = (status: AssetStatus) => {
@@ -67,7 +84,7 @@ export function StatusSelector({
                             variant="outline"
                             className={cn(
                                 "text-[10px] h-5 px-1.5 font-medium cursor-pointer hover:opacity-80 transition-opacity",
-                                getStatusColors(currentStatus)
+                                getStatusColors(currentStatus, overlayStyle)
                             )}
                         >
                             {currentConfig.label}
@@ -103,7 +120,7 @@ export function StatusSelector({
                                         <div className="flex items-center gap-1.5">
                                             <div className={cn(
                                                 "w-2 h-2 rounded-full border",
-                                                getStatusColors(status)
+                                                getStatusColors(status, overlayStyle)
                                             )} />
                                             {config.label}
                                         </div>
@@ -130,7 +147,7 @@ export function StatusSelector({
                     <div className="flex items-center gap-1.5">
                         <div className={cn(
                             "w-2 h-2 rounded-full border",
-                            getStatusColors(currentStatus)
+                            getStatusColors(currentStatus, overlayStyle)
                         )} />
                         {currentConfig.label}
                     </div>
@@ -165,7 +182,7 @@ export function StatusSelector({
                                     <div className="flex items-center gap-1.5">
                                         <div className={cn(
                                             "w-2 h-2 rounded-full border",
-                                            getStatusColors(status)
+                                            getStatusColors(status, overlayStyle)
                                         )} />
                                         {config.label}
                                     </div>

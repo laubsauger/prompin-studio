@@ -102,14 +102,7 @@ export const MediaViewer: React.FC = () => {
                 <div className="flex items-center justify-between p-4 border-b border-border bg-background/80 backdrop-blur-sm">
                     <div className="flex items-center gap-4 min-w-0 flex-1">
                         <div className="flex flex-col min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                                <span className="font-medium text-sm truncate" title={fileName}>{fileName}</span>
-                                <StatusSelector
-                                    currentStatus={asset.status}
-                                    onStatusChange={(status: AssetStatus) => updateAssetStatus(asset.id, status)}
-                                    compact
-                                />
-                            </div>
+                            <span className="font-medium text-sm truncate" title={fileName}>{fileName}</span>
                             <span className="font-mono text-xs text-muted-foreground truncate" title={folderPath}>
                                 {folderPath}
                             </span>
@@ -117,6 +110,13 @@ export const MediaViewer: React.FC = () => {
 
                         {/* Action Buttons - Icon Only */}
                         <div className="flex items-center gap-1">
+                            <StatusSelector
+                                currentStatus={asset.status}
+                                onStatusChange={(status: AssetStatus) => updateAssetStatus(asset.id, status)}
+                                compact
+                                overlayStyle
+                            />
+
                             <Button
                                 variant="ghost"
                                 size="icon"

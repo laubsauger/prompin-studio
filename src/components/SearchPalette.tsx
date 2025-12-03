@@ -80,7 +80,7 @@ export function SearchPalette() {
             <button
                 onClick={() => setOpen(true)}
                 className={cn(
-                    "relative h-7 w-64 flex items-center gap-2 px-2",
+                    "relative h-7 w-40 flex items-center gap-2 px-2",
                     "bg-secondary/50 border border-border rounded",
                     "text-muted-foreground text-xs",
                     "hover:bg-secondary/70 transition-colors"

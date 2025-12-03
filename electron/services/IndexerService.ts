@@ -889,23 +889,68 @@ export class IndexerService {
     }
 
     private upsertAsset(asset: Asset) {
-        const stmt = db.prepare(`
-      INSERT INTO assets (id, path, rootPath, type, status, createdAt, updatedAt, metadata, thumbnailPath)
-      VALUES (@id, @path, @rootPath, @type, @status, @createdAt, @updatedAt, @metadata, @thumbnailPath)
-      ON CONFLICT(id) DO UPDATE SET
-        rootPath = excluded.rootPath,
-        path = excluded.path,
-        updatedAt = excluded.updatedAt,
-        metadata = excluded.metadata,
-        status = excluded.status,
-        thumbnailPath = excluded.thumbnailPath
-    `);
+        const existing = db.prepare('SELECT id FROM assets WHERE id = ?').get(asset.id);
 
-        stmt.run({
-            ...asset,
-            rootPath: this.rootPath,
-            metadata: JSON.stringify(asset.metadata)
-        });
+        if (existing) {
+            db.prepare(`
+                UPDATE assets 
+                SET path = @path, 
+                    rootPath = @rootPath,
+                    type = @type,
+                    updatedAt = @updatedAt, 
+                    status = @status, 
+                    metadata = @metadata,
+                    thumbnailPath = @thumbnailPath
+                WHERE id = @id
+            `).run({
+                ...asset,
+                metadata: JSON.stringify(asset.metadata)
+            });
+        } else {
+            try {
+                db.prepare(`
+                    INSERT INTO assets (id, path, rootPath, type, createdAt, updatedAt, status, metadata, thumbnailPath)
+                    VALUES (@id, @path, @rootPath, @type, @createdAt, @updatedAt, @status, @metadata, @thumbnailPath)
+                `).run({
+                    ...asset,
+                    metadata: JSON.stringify(asset.metadata)
+                });
+            } catch (error: any) {
+                // Handle race condition where (rootPath, path) already exists
+                if (error.code === 'SQLITE_CONSTRAINT' && error.message.includes('assets.rootPath, assets.path')) {
+                    // Fetch the conflicting record to get its ID
+                    const conflict = db.prepare('SELECT id FROM assets WHERE rootPath = ? AND path = ?').get(asset.rootPath, asset.path) as any;
+
+                    if (conflict) {
+                        try {
+                            // Update the conflicting record with the new ID and metadata
+                            db.prepare(`
+                                UPDATE assets 
+                                SET id = @newId,
+                                    updatedAt = @updatedAt, 
+                                    status = @status, 
+                                    metadata = @metadata,
+                                    thumbnailPath = @thumbnailPath,
+                                    type = @type
+                                WHERE id = @oldId
+                            `).run({
+                                newId: asset.id,
+                                oldId: conflict.id,
+                                updatedAt: asset.updatedAt,
+                                status: asset.status,
+                                metadata: JSON.stringify(asset.metadata),
+                                thumbnailPath: asset.thumbnailPath,
+                                type: asset.type
+                            });
+                        } catch (updateError) {
+                            console.error(`[IndexerService] Failed to resolve conflict for ${asset.path}:`, updateError);
+                        }
+                    }
+                } else {
+                    throw error;
+                }
+            }
+        }
     }
 
     // Folder Colors
