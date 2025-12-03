@@ -30,7 +30,7 @@ export const TagListSection: React.FC<TagListSectionProps> = ({ isOpen, onToggle
             }
         >
             {tags.length === 0 ? (
-                <div className="px-4 py-2 text-xs text-muted-foreground italic">No tags found</div>
+                <div className="px-4 py-2 text-xs text-muted-foreground">No tags found</div>
             ) : (
                 tags.map(tag => {
                     const count = assets.filter(a => a.tags?.some(t => t.id === tag.id)).length;

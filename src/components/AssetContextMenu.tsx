@@ -91,26 +91,32 @@ export const AssetContextMenu: React.FC<AssetContextMenuProps> = ({ asset, child
                                 <Plus className="mr-2 h-4 w-4" /> Create New Tag...
                             </ContextMenuItem>
                             <ContextMenuSeparator />
-                            {tags.map(tag => {
-                                const hasTag = asset.tags?.some(t => t.id === tag.id);
-                                return (
-                                    <ContextMenuItem
-                                        key={tag.id}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            if (hasTag) {
-                                                removeTagFromAsset(asset.id, tag.id);
-                                            } else {
-                                                addTagToAsset(asset.id, tag.id);
-                                            }
-                                        }}
-                                    >
-                                        <Tag className="w-4 h-4 mr-2" style={{ color: tag.color }} />
-                                        {tag.name}
-                                        {hasTag && <span className="ml-auto text-xs">✓</span>}
-                                    </ContextMenuItem>
-                                );
-                            })}
+                            {tags.length === 0 ? (
+                                <ContextMenuItem disabled className="text-muted-foreground italic">
+                                    No Tags
+                                </ContextMenuItem>
+                            ) : (
+                                tags.map(tag => {
+                                    const hasTag = asset.tags?.some(t => t.id === tag.id);
+                                    return (
+                                        <ContextMenuItem
+                                            key={tag.id}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (hasTag) {
+                                                    removeTagFromAsset(asset.id, tag.id);
+                                                } else {
+                                                    addTagToAsset(asset.id, tag.id);
+                                                }
+                                            }}
+                                        >
+                                            <Tag className="w-4 h-4 mr-2" style={{ color: tag.color }} />
+                                            {tag.name}
+                                            {hasTag && <span className="ml-auto text-xs">✓</span>}
+                                        </ContextMenuItem>
+                                    );
+                                })
+                            )}
                         </ContextMenuSubContent>
                     </ContextMenuSub>
 
@@ -181,14 +187,20 @@ export const AssetContextMenu: React.FC<AssetContextMenuProps> = ({ asset, child
                             Scratch Pad
                         </ContextMenuSubTrigger>
                         <ContextMenuSubContent className="w-48">
-                            {useStore.getState().scratchPads.map(pad => (
-                                <ContextMenuItem
-                                    key={pad.id}
-                                    onClick={() => useStore.getState().addToScratchPad(pad.id, [asset.id])}
-                                >
-                                    {pad.name}
+                            {useStore.getState().scratchPads.length === 0 ? (
+                                <ContextMenuItem disabled className="text-muted-foreground italic">
+                                    No Scratch Pads
                                 </ContextMenuItem>
-                            ))}
+                            ) : (
+                                useStore.getState().scratchPads.map(pad => (
+                                    <ContextMenuItem
+                                        key={pad.id}
+                                        onClick={() => useStore.getState().addToScratchPad(pad.id, [asset.id])}
+                                    >
+                                        {pad.name}
+                                    </ContextMenuItem>
+                                ))
+                            )}
                             <ContextMenuSeparator />
                             <ContextMenuItem onClick={(e) => {
                                 e.stopPropagation();

@@ -71,7 +71,7 @@ export function StatusMultiSelect({
                         )}
                     >
                         {selectedStatuses.length === 0 ? (
-                            "All Statuses"
+                            "Status"
                         ) : selectedStatuses.length === 1 ? (
                             <div className="flex items-center gap-1.5">
                                 <div className={cn(

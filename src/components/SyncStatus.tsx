@@ -20,11 +20,11 @@ export const SyncStatus: React.FC = () => {
 
         // Only poll when actively syncing, and at a slower rate
         if (isSyncing) {
-            const interval = setInterval(fetchSyncStats, 5000); // Poll every 5 seconds when syncing
+            const interval = setInterval(fetchSyncStats, 10000); // Poll every 10 seconds when syncing
             return () => clearInterval(interval);
         } else {
             // When idle, poll much less frequently to catch new changes
-            const interval = setInterval(fetchSyncStats, 20000); // Poll every 20 seconds when idle
+            const interval = setInterval(fetchSyncStats, 30000); // Poll every 30 seconds when idle
             return () => clearInterval(interval);
         }
     }, [fetchSyncStats, isSyncing]);

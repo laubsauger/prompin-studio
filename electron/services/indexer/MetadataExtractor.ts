@@ -12,7 +12,10 @@ export class MetadataExtractor {
             return new Promise((resolve) => {
                 ffmpeg.ffprobe(filePath, (err: any, data: any) => {
                     if (err) {
-                        console.error('ffprobe error:', err);
+                        // Suppress verbose logging for expected errors on non-video files or partial downloads
+                        if (!err.message?.includes('moov atom not found') && !err.message?.includes('Invalid data found')) {
+                            console.warn(`[MetadataExtractor] Warning probing ${path.basename(filePath)}:`, err.message);
+                        }
                         resolve(metadata);
                         return;
                     }

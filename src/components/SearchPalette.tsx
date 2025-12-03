@@ -123,99 +123,8 @@ export function SearchPalette() {
                             <CommandList className="max-h-[500px]">
                                 <CommandEmpty>No results found.</CommandEmpty>
 
-                                {/* Selection Actions */}
-                                {selectedIds.size > 0 && (
-                                    <CommandGroup heading={`Selection Actions (${selectedIds.size} selected)`}>
-                                        <CommandItem onSelect={() => {
-                                            setIsCreateScratchPadDialogOpen(true);
-                                            setOpen(false);
-                                        }}>
-                                            <StickyNote className="mr-2 h-4 w-4" />
-                                            <span>Create Scratch Pad from Selection</span>
-                                        </CommandItem>
-                                        <CommandItem onSelect={() => {
-                                            setIsCreateTagDialogOpen(true);
-                                            setOpen(false);
-                                        }}>
-                                            <Tag className="mr-2 h-4 w-4" />
-                                            <span>Add Tag to Selection...</span>
-                                        </CommandItem>
-                                        <CommandItem onSelect={() => {
-                                            Array.from(selectedIds).forEach(id => updateAssetStatus(id, 'approved'));
-                                            setOpen(false);
-                                        }}>
-                                            <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
-                                            <span>Mark as Approved</span>
-                                        </CommandItem>
-                                        <CommandItem onSelect={() => {
-                                            Array.from(selectedIds).forEach(id => updateAssetStatus(id, 'review_requested'));
-                                            setOpen(false);
-                                        }}>
-                                            <AlertCircle className="mr-2 h-4 w-4 text-yellow-500" />
-                                            <span>Mark as Review Requested</span>
-                                        </CommandItem>
-                                        <CommandItem onSelect={() => {
-                                            clearSelection();
-                                            setOpen(false);
-                                        }}>
-                                            <X className="mr-2 h-4 w-4" />
-                                            <span>Clear Selection</span>
-                                        </CommandItem>
-                                    </CommandGroup>
-                                )}
-
-                                {selectedIds.size > 0 && <CommandSeparator />}
-
-                                {/* Search Results */}
-                                {assets.length > 0 && (
-                                    <CommandGroup heading={`Results (${assets.length})`}>
-                                        {assets.slice(0, 50).map(asset => (
-                                            <CommandItem
-                                                key={asset.id}
-                                                value={asset.id}
-                                                onSelect={() => {
-                                                    setViewingAssetId(asset.id);
-                                                    setOpen(false);
-                                                }}
-                                                className="flex items-center gap-3"
-                                            >
-                                                <div className="w-8 h-8 shrink-0 rounded overflow-hidden bg-muted flex items-center justify-center">
-                                                    {asset.type === 'image' ? (
-                                                        <img
-                                                            src={`thumbnail://${asset.thumbnailPath}`}
-                                                            alt=""
-                                                            className="w-full h-full object-cover"
-                                                            loading="lazy"
-                                                        />
-                                                    ) : (
-                                                        <div className="text-[8px] text-muted-foreground">Video</div>
-                                                    )}
-                                                </div>
-                                                <div className="flex flex-col overflow-hidden flex-1">
-                                                    <span className="truncate text-sm font-medium">{asset.path.split('/').pop()}</span>
-                                                    <div className="flex items-center gap-2 text-xs text-muted-foreground truncate">
-                                                        <span className="truncate max-w-[200px]">{asset.path}</span>
-                                                        {asset.metadata.prompt && (
-                                                            <>
-                                                                <span className="shrink-0 opacity-50">•</span>
-                                                                <span className="truncate italic opacity-70">"{asset.metadata.prompt}"</span>
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                {asset.metadata.platform && (
-                                                    <div className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground shrink-0">
-                                                        {asset.metadata.platform}
-                                                    </div>
-                                                )}
-                                            </CommandItem>
-                                        ))}
-                                    </CommandGroup>
-                                )}
-
-                                <CommandSeparator />
-
-                                <CommandGroup heading="Global Actions">
+                                {/* Global Actions - Fixed section at top */}
+                                <CommandGroup heading="Tools">
                                     <CommandItem onSelect={() => {
                                         triggerResync();
                                         setOpen(false);
@@ -257,6 +166,116 @@ export function SearchPalette() {
                                         <span>Clear Filters & Search</span>
                                     </CommandItem>
                                 </CommandGroup>
+
+                                {/* Selection Actions */}
+                                {selectedIds.size > 0 && (
+                                    <>
+                                        <CommandSeparator />
+                                        <CommandGroup heading={`Selection Actions (${selectedIds.size} selected)`}>
+                                            <CommandItem onSelect={() => {
+                                                setIsCreateScratchPadDialogOpen(true);
+                                                setOpen(false);
+                                            }}>
+                                                <StickyNote className="mr-2 h-4 w-4" />
+                                                <span>Create Scratch Pad from Selection</span>
+                                        </CommandItem>
+                                        <CommandItem onSelect={() => {
+                                            setIsCreateTagDialogOpen(true);
+                                            setOpen(false);
+                                        }}>
+                                            <Tag className="mr-2 h-4 w-4" />
+                                            <span>Add Tag to Selection...</span>
+                                        </CommandItem>
+                                        <CommandItem onSelect={() => {
+                                            Array.from(selectedIds).forEach(id => updateAssetStatus(id, 'approved'));
+                                            setOpen(false);
+                                        }}>
+                                            <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
+                                            <span>Mark as Approved</span>
+                                        </CommandItem>
+                                        <CommandItem onSelect={() => {
+                                            Array.from(selectedIds).forEach(id => updateAssetStatus(id, 'review_requested'));
+                                            setOpen(false);
+                                        }}>
+                                            <AlertCircle className="mr-2 h-4 w-4 text-yellow-500" />
+                                            <span>Mark as Review Requested</span>
+                                        </CommandItem>
+                                        <CommandItem onSelect={() => {
+                                            clearSelection();
+                                            setOpen(false);
+                                        }}>
+                                            <X className="mr-2 h-4 w-4" />
+                                            <span>Clear Selection</span>
+                                        </CommandItem>
+                                    </CommandGroup>
+                                    </>
+                                )}
+
+                                {/* Search Results */}
+                                {assets.length > 0 && (
+                                    <>
+                                        <CommandSeparator />
+                                        <CommandGroup heading={`Results (${assets.length})`}>
+                                            {assets.slice(0, 50).map(asset => {
+                                                const isNew = asset.status === 'unsorted' && asset.createdAt > useStore.getState().lastInboxViewTime;
+                                                return (
+                                                    <CommandItem
+                                                        key={asset.id}
+                                                        value={asset.id}
+                                                        onSelect={() => {
+                                                            setViewingAssetId(asset.id);
+                                                            setOpen(false);
+                                                        }}
+                                                        className="flex items-center gap-3"
+                                                    >
+                                                        <div className="w-8 h-8 shrink-0 rounded overflow-hidden bg-muted flex items-center justify-center relative">
+                                                            {/* New indicator dot */}
+                                                            {isNew && (
+                                                                <div className="absolute -top-1 -left-1 z-10">
+                                                                    <div className="w-2 h-2 bg-green-500 rounded-full border border-background" />
+                                                                </div>
+                                                            )}
+                                                    {asset.type === 'image' ? (
+                                                        <img
+                                                            src={asset.thumbnailPath ? `thumbnail://${asset.thumbnailPath}` : `media://${asset.path}`}
+                                                            alt=""
+                                                            className="w-full h-full object-cover"
+                                                            loading="lazy"
+                                                        />
+                                                    ) : asset.thumbnailPath ? (
+                                                        <img
+                                                            src={`thumbnail://${asset.thumbnailPath}`}
+                                                            alt=""
+                                                            className="w-full h-full object-cover"
+                                                            loading="lazy"
+                                                        />
+                                                    ) : (
+                                                        <div className="text-[8px] text-muted-foreground">Video</div>
+                                                    )}
+                                                </div>
+                                                <div className="flex flex-col overflow-hidden flex-1">
+                                                    <span className="truncate text-sm font-medium">{asset.path.split('/').pop()}</span>
+                                                    <div className="flex items-center gap-2 text-xs text-muted-foreground truncate">
+                                                        <span className="truncate max-w-[200px]">{asset.path}</span>
+                                                        {asset.metadata.prompt && (
+                                                            <>
+                                                                <span className="shrink-0 opacity-50">•</span>
+                                                                <span className="truncate italic opacity-70">"{asset.metadata.prompt}"</span>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                {asset.metadata.platform && (
+                                                    <div className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground shrink-0">
+                                                        {asset.metadata.platform}
+                                                    </div>
+                                                )}
+                                            </CommandItem>
+                                                );
+                                            })}
+                                        </CommandGroup>
+                                    </>
+                                )}
                             </CommandList>
                         </Command>
                     </div>

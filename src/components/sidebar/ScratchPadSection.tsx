@@ -74,7 +74,7 @@ export const ScratchPadSection: React.FC<ScratchPadSectionProps> = ({ isOpen, on
                 </div>
             ))}
             {scratchPads.length === 0 && (
-                <div className="px-4 py-2 text-xs text-muted-foreground italic">
+                <div className="px-4 py-2 text-xs text-muted-foreground">
                     No scratch pads
                 </div>
             )}

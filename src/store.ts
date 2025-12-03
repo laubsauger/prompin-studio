@@ -637,11 +637,7 @@ export const useStore = create<AppState>((set, get) => ({
                 }
                 return { selectedIds: newSelected, lastSelectedId: id };
             } else {
-                // If clicking the only selected item, deselect it
-                if (state.selectedIds.size === 1 && state.selectedIds.has(id)) {
-                    return { selectedIds: new Set(), lastSelectedId: null };
-                }
-                // Otherwise select only this item
+                // Exclusive selection: always select just this item
                 return { selectedIds: new Set([id]), lastSelectedId: id };
             }
         });

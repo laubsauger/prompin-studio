@@ -140,7 +140,7 @@ export const FolderTreeSection: React.FC<FolderTreeSectionProps> = ({ isOpen, on
                 onToggle={onToggle}
             >
                 {Object.values(folderTree.children).length === 0 ? (
-                    <div className="px-4 py-2 text-xs text-muted-foreground italic">No folders found</div>
+                    <div className="px-4 py-2 text-xs text-muted-foreground">No folders found</div>
                 ) : (
                     Object.values(folderTree.children)
                         .sort((a, b) => a.name.localeCompare(b.name))

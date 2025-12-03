@@ -58,7 +58,7 @@ export const ActiveViewsSection: React.FC<ActiveViewsSectionProps> = ({ isOpen, 
                 </div>
             ))}
             {activeViews.length === 0 && (
-                <div className="px-4 py-2 text-xs text-muted-foreground italic">
+                <div className="px-4 py-2 text-xs text-muted-foreground">
                     No active views
                 </div>
             )}

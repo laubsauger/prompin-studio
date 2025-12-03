@@ -39,7 +39,8 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
             // Cmd/Ctrl+click for multi-select
             toggleSelection(asset.id, true);
         } else {
-            // Regular click opens preview
+            // Regular click: Select exclusively AND open preview
+            toggleSelection(asset.id, false);
             setViewingAssetId(asset.id);
         }
     };
@@ -119,230 +120,237 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
 
     return (
         <AssetContextMenu asset={asset}>
-            <Card
-                className={cn(
-                    "group relative overflow-hidden transition-all duration-200 hover:shadow-md border-border/50 bg-card/50",
-                    isSelected && "ring-2 ring-primary border-primary shadow-lg bg-accent/10"
-                )}
-                onClick={handleClick}
-                onMouseEnter={() => setIsHoveringCard(true)}
-                onMouseLeave={() => {
-                    setIsHoveringCard(false);
-                    // Pause video when leaving card if it was only playing due to hover/scrub interaction?
-                    // For now, let's leave explicit play/pause behavior alone, but maybe pause if it was just scrubbing?
-                    // Actually, if we stop rendering the video on mouse leave (unless isPlaying), it will stop anyway.
-                }}
-            >
-                <div className={cn("relative bg-muted/20 bg-black", aspectRatioClass)}>
-                    {asset.type === 'video' ? (
-                        <>
-                            {/* Show thumbnail when not playing AND not scrubbing */}
-                            {(!isPlaying && !isHoveringScrubber) && (
-                                !asset.thumbnailPath ? (
-                                    <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
-                                        <Film className="w-8 h-8 opacity-50" />
-                                    </div>
-                                ) : (
-                                    <img
-                                        src={thumbnailSrc}
-                                        alt={asset.path}
-                                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                                        loading="lazy"
-                                    />
-                                )
-                            )}
-
-                            {/* Native Video Element - Only render if playing or hovering card (for warmup) */}
-                            {(isPlaying || isHoveringCard) && (
-                                <video
-                                    ref={videoRef}
-                                    src={`media://${asset.path}`}
-                                    className={cn(
-                                        "absolute inset-0 z-20 w-full h-full object-contain bg-black transition-opacity duration-200",
-                                        (!isPlaying && !isHoveringScrubber) ? "opacity-0 pointer-events-none" : "opacity-100"
-                                    )}
-                                    preload="metadata"
-                                    playsInline
-                                    muted={!isPlaying} // Mute when just previewing/scrubbing? Or maybe always unmute if user explicitly plays?
-                                    // Let's keep it simple: if isPlaying is true, we want sound. If scrubbing, maybe we want sound too?
-                                    // Usually scrubbing previews are muted.
-                                    // But handlePlayPauseClick toggles isPlaying.
-                                    // So if !isPlaying (scrubbing), it should probably be muted.
-                                    loop
-                                    onPlay={() => setIsPlaying(true)}
-                                    onPause={() => setIsPlaying(false)}
-                                    onEnded={() => setIsPlaying(false)}
-                                    onClick={(e) => e.stopPropagation()}
-                                    onDoubleClick={(e) => e.stopPropagation()}
-                                />
-                            )}
-
-                            {/* Scrubber Bar */}
-                            <div
-                                ref={scrubberRef}
-                                className="absolute bottom-0 left-0 right-0 h-6 z-40 cursor-ew-resize flex items-end group/scrubber scrubber-bar px-1"
-                                onClick={handleSeek}
-                                onMouseEnter={() => setIsHoveringScrubber(true)}
-                                onMouseLeave={() => setIsHoveringScrubber(false)}
-                                onMouseMove={handleScrub}
-                            >
-                                <div className="w-full h-1 bg-white/20 group-hover/scrubber:bg-white/30 group-hover/scrubber:h-1.5 transition-all rounded-full overflow-hidden backdrop-blur-sm relative">
-                                    {/* Progress indicator could go here */}
-                                </div>
-                            </div>
-                        </>
-                    ) : (
-                        /* Image handling */
-                        <img
-                            src={thumbnailSrc}
-                            alt={asset.path}
-                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                            loading="lazy"
-                        />
-                    )}
-
-                    {/* Inline Play/Pause Button - Always visible for videos, unless scrubbing */}
-                    {asset.type === 'video' && !isHoveringScrubber && (
-                        <div
-                            className="absolute bottom-2 left-2 z-30 transition-opacity"
-                            onClick={(e) => e.stopPropagation()}
-                            onDoubleClick={(e) => e.stopPropagation()}
-                        >
-                            <button
-                                onClick={handlePlayPauseClick}
-                                className="rounded-full p-2 bg-black/50 text-white hover:bg-primary hover:text-primary-foreground backdrop-blur-sm transition-colors"
-                            >
-                                {isPlaying ? (
-                                    <Pause className="h-3 w-3 fill-current" />
-                                ) : (
-                                    <Play className="h-3 w-3 fill-current" />
-                                )}
-                            </button>
+            <div className="relative">
+                {/* New Indicator for Inbox - Outside overflow container */}
+                {asset.status === 'unsorted' && asset.createdAt > useStore.getState().lastInboxViewTime && (
+                    <div className="absolute -top-0.5 -left-0.5 z-20">
+                        <div className="relative">
+                            {/* Subtle pulsing glow effect */}
+                            <div className="absolute inset-0 w-2.5 h-2.5 bg-green-500/30 rounded-full animate-ping" />
+                            {/* Stable dot with solid border */}
+                            <div className="relative w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-background shadow-md ring-1 ring-green-500/20" />
                         </div>
-                    )}
-
-                    {/* Magnifier for Images */}
-                    {asset.type === 'image' && (
-                        <div className="absolute bottom-2 left-2 z-30 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    useStore.getState().setViewingAssetId(asset.id);
-                                }}
-                                className="rounded-full p-2 bg-black/50 text-white hover:bg-primary hover:text-primary-foreground backdrop-blur-sm transition-colors"
-                            >
-                                <ZoomIn className="h-3 w-3" />
-                            </button>
-                        </div>
-                    )}
-
-                    {/* Status badge - top left overlay, only show in detailed view */}
-                    {viewDisplay === 'detailed' && (
-                        <div className="absolute top-2 left-2 z-10">
-                            <Badge
-                                variant="outline"
-                                className={cn(
-                                    "text-[9px] h-4 px-1 shadow-sm backdrop-blur-sm font-medium",
-                                    getBadgeColors(colorName)
-                                )}
-                            >
-                                {statusConfig.label}
-                            </Badge>
-                        </div>
-                    )}
-
-                    {viewDisplay === 'detailed' && (
-                        <div className={cn(
-                            "absolute right-2 top-2 z-10 flex gap-2 overlay-controls transition-opacity duration-200",
-                            isHoveringScrubber ? "opacity-0" : "opacity-100"
-                        )}>
-                            {/* Lineage indicator - shows if asset has input images */}
-                            {asset.metadata.inputs && asset.metadata.inputs.length > 0 && (
-                                <div
-                                    className="rounded-full p-1.5 bg-black/40 text-white/90 backdrop-blur-md"
-                                    title={`Has ${asset.metadata.inputs.length} input asset${asset.metadata.inputs.length > 1 ? 's' : ''}`}
-                                >
-                                    <GitBranch className="h-3.5 w-3.5" />
-                                </div>
-                            )}
-
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    e.preventDefault();
-                                    toggleLike(asset.id);
-                                }}
-                                className={cn(
-                                    "rounded-full p-1.5 backdrop-blur-md transition-colors",
-                                    asset.metadata.liked
-                                        ? "bg-black/40 text-red-500 hover:bg-black/60"
-                                        : "bg-black/40 text-white/70 hover:bg-black/60 hover:text-white"
-                                )}
-                            >
-                                <Heart className={cn("h-3.5 w-3.5", asset.metadata.liked && "fill-current")} />
-                            </button>
-                        </div>
-                    )}
-
-                    {isSelected && (
-                        <div className="absolute inset-0 z-0 bg-primary/10 pointer-events-none" />
-                    )}
-
-                    {/* New Indicator for Inbox */}
-                    {asset.status === 'unsorted' && asset.createdAt > useStore.getState().lastInboxViewTime && (
-                        <div className="absolute top-2 left-2 z-20">
-                            <div className="w-2.5 h-2.5 bg-green-500 rounded-full border border-white shadow-sm ring-1 ring-black/10" />
-                        </div>
-                    )}
-                </div>
-
-                {/* Tags section - only show in detailed view */}
-                {viewDisplay === 'detailed' && (
-                    <div className="border-t border-border/50 bg-card/80 backdrop-blur-sm h-7 relative overflow-hidden group/tags">
-                        <div className="flex items-center gap-1 px-2 h-full">
-                            {/* Tags Display with stacking */}
-                            {asset.tags && asset.tags.length > 0 ? (
-                                <>
-                                    {asset.tags.slice(0, 3).map((tag, index) => (
-                                        <div
-                                            key={tag.id}
-                                            className={cn(
-                                                "flex items-center px-1.5 py-0.5 rounded-sm bg-accent/50 text-[10px] text-muted-foreground gap-1 shrink-0",
-                                                index > 0 && "-ml-2"
-                                            )}
-                                            style={{ zIndex: asset.tags!.length - index }}
-                                        >
-                                            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: tag.color || 'currentColor' }} />
-                                            <span className="max-w-[60px] truncate">{tag.name}</span>
-                                        </div>
-                                    ))}
-                                    {asset.tags.length > 3 && (
-                                        <div className="flex items-center px-1.5 py-0.5 rounded-sm bg-accent/70 text-[10px] text-muted-foreground -ml-2">
-                                            +{asset.tags.length - 3}
-                                        </div>
-                                    )}
-                                </>
-                            ) : (
-                                <div className="text-[10px] text-muted-foreground/40">No tags</div>
-                            )}
-                        </div>
-
-                        {/* Hover tooltip showing all tags */}
-                        {asset.tags && asset.tags.length > 0 && (
-                            <div className="absolute inset-x-0 top-full mt-1 bg-popover/95 backdrop-blur-md border border-border rounded-md p-2 opacity-0 pointer-events-none group-hover/tags:opacity-100 group-hover/tags:pointer-events-auto transition-opacity z-50 shadow-lg">
-                                <div className="flex flex-wrap gap-1">
-                                    {asset.tags.map(tag => (
-                                        <div key={tag.id} className="flex items-center px-2 py-1 rounded-sm bg-accent text-[11px] text-foreground gap-1.5">
-                                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: tag.color || 'currentColor' }} />
-                                            {tag.name}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
                     </div>
                 )}
-            </Card>
+
+                <Card
+                    className={cn(
+                        "group relative overflow-hidden transition-all duration-200 hover:shadow-md border-border/50 bg-card/50",
+                        isSelected && "ring-2 ring-primary border-primary shadow-lg bg-accent/10"
+                    )}
+                    onClick={handleClick}
+                    onMouseEnter={() => setIsHoveringCard(true)}
+                    onMouseLeave={() => {
+                        setIsHoveringCard(false);
+                        // Pause video when leaving card if it was only playing due to hover/scrub interaction?
+                        // For now, let's leave explicit play/pause behavior alone, but maybe pause if it was just scrubbing?
+                        // Actually, if we stop rendering the video on mouse leave (unless isPlaying), it will stop anyway.
+                    }}
+                >
+                    <div className={cn("relative bg-muted/20", aspectRatioClass)}>
+                        {asset.type === 'video' ? (
+                            <>
+                                {/* Show thumbnail when not playing AND not scrubbing */}
+                                {(!isPlaying && !isHoveringScrubber) && (
+                                    !asset.thumbnailPath ? (
+                                        <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+                                            <Film className="w-8 h-8 opacity-50" />
+                                        </div>
+                                    ) : (
+                                        <img
+                                            src={thumbnailSrc}
+                                            alt={asset.path}
+                                            className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                            loading="lazy"
+                                        />
+                                    )
+                                )}
+
+                                {/* Native Video Element - Only render if playing or hovering card (for warmup) */}
+                                {(isPlaying || isHoveringCard) && (
+                                    <video
+                                        ref={videoRef}
+                                        src={`media://${asset.path}`}
+                                        className={cn(
+                                            "absolute inset-0 z-20 w-full h-full object-contain bg-black transition-opacity duration-200",
+                                            (!isPlaying && !isHoveringScrubber) ? "opacity-0 pointer-events-none" : "opacity-100"
+                                        )}
+                                        preload="metadata"
+                                        playsInline
+                                        muted={!isPlaying} // Mute when just previewing/scrubbing? Or maybe always unmute if user explicitly plays?
+                                        // Let's keep it simple: if isPlaying is true, we want sound. If scrubbing, maybe we want sound too?
+                                        // Usually scrubbing previews are muted.
+                                        // But handlePlayPauseClick toggles isPlaying.
+                                        // So if !isPlaying (scrubbing), it should probably be muted.
+                                        loop
+                                        onPlay={() => setIsPlaying(true)}
+                                        onPause={() => setIsPlaying(false)}
+                                        onEnded={() => setIsPlaying(false)}
+                                        onClick={(e) => e.stopPropagation()}
+                                        onDoubleClick={(e) => e.stopPropagation()}
+                                    />
+                                )}
+
+                                {/* Scrubber Bar */}
+                                <div
+                                    ref={scrubberRef}
+                                    className="absolute bottom-0 left-0 right-0 h-6 z-40 cursor-ew-resize flex items-end group/scrubber scrubber-bar px-1"
+                                    onClick={handleSeek}
+                                    onMouseEnter={() => setIsHoveringScrubber(true)}
+                                    onMouseLeave={() => setIsHoveringScrubber(false)}
+                                    onMouseMove={handleScrub}
+                                >
+                                    <div className="w-full h-1 bg-white/20 group-hover/scrubber:bg-white/30 group-hover/scrubber:h-1.5 transition-all rounded-full overflow-hidden backdrop-blur-sm relative">
+                                        {/* Progress indicator could go here */}
+                                    </div>
+                                </div>
+                            </>
+                        ) : (
+                            /* Image handling */
+                            <img
+                                src={thumbnailSrc}
+                                alt={asset.path}
+                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                loading="lazy"
+                            />
+                        )}
+
+                        {/* Inline Play/Pause Button - Always visible for videos, unless scrubbing */}
+                        {asset.type === 'video' && !isHoveringScrubber && (
+                            <div
+                                className="absolute bottom-2 left-2 z-30 transition-opacity"
+                                onClick={(e) => e.stopPropagation()}
+                                onDoubleClick={(e) => e.stopPropagation()}
+                            >
+                                <button
+                                    onClick={handlePlayPauseClick}
+                                    className="rounded-full p-2 bg-black/50 text-white hover:bg-primary hover:text-primary-foreground backdrop-blur-sm transition-colors"
+                                >
+                                    {isPlaying ? (
+                                        <Pause className="h-3 w-3 fill-current" />
+                                    ) : (
+                                        <Play className="h-3 w-3 fill-current" />
+                                    )}
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Magnifier for Images */}
+                        {asset.type === 'image' && (
+                            <div className="absolute bottom-2 left-2 z-30 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        useStore.getState().setViewingAssetId(asset.id);
+                                    }}
+                                    className="rounded-full p-2 bg-black/50 text-white hover:bg-primary hover:text-primary-foreground backdrop-blur-sm transition-colors"
+                                >
+                                    <ZoomIn className="h-3 w-3" />
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Status badge - top left overlay, only show in detailed view */}
+                        {viewDisplay === 'detailed' && (
+                            <div className="absolute top-2 left-2 z-10">
+                                <Badge
+                                    variant="outline"
+                                    className={cn(
+                                        "text-[9px] h-4 px-1 shadow-sm backdrop-blur-sm font-medium",
+                                        getBadgeColors(colorName)
+                                    )}
+                                >
+                                    {statusConfig.label}
+                                </Badge>
+                            </div>
+                        )}
+
+                        {viewDisplay === 'detailed' && (
+                            <div className={cn(
+                                "absolute right-2 top-2 z-10 flex gap-2 overlay-controls transition-opacity duration-200",
+                                isHoveringScrubber ? "opacity-0" : "opacity-100"
+                            )}>
+                                {/* Lineage indicator - shows if asset has input images */}
+                                {asset.metadata.inputs && asset.metadata.inputs.length > 0 && (
+                                    <div
+                                        className="rounded-full p-1.5 bg-black/40 text-white/90 backdrop-blur-md"
+                                        title={`Has ${asset.metadata.inputs.length} input asset${asset.metadata.inputs.length > 1 ? 's' : ''}`}
+                                    >
+                                        <GitBranch className="h-3.5 w-3.5" />
+                                    </div>
+                                )}
+
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        e.preventDefault();
+                                        toggleLike(asset.id);
+                                    }}
+                                    className={cn(
+                                        "rounded-full p-1.5 backdrop-blur-md transition-colors",
+                                        asset.metadata.liked
+                                            ? "bg-black/40 text-red-500 hover:bg-black/60"
+                                            : "bg-black/40 text-white/70 hover:bg-black/60 hover:text-white"
+                                    )}
+                                >
+                                    <Heart className={cn("h-3.5 w-3.5", asset.metadata.liked && "fill-current")} />
+                                </button>
+                            </div>
+                        )}
+
+                        {isSelected && (
+                            <div className="absolute inset-0 z-0 bg-primary/10 pointer-events-none" />
+                        )}
+                    </div>
+
+                    {/* Tags section - only show in detailed view */}
+                    {viewDisplay === 'detailed' && (
+                        <div className="border-t border-border/50 bg-card/80 backdrop-blur-sm h-7 relative overflow-hidden group/tags">
+                            <div className="flex items-center gap-1 px-2 h-full">
+                                {/* Tags Display with stacking */}
+                                {asset.tags && asset.tags.length > 0 ? (
+                                    <>
+                                        {asset.tags.slice(0, 3).map((tag, index) => (
+                                            <div
+                                                key={tag.id}
+                                                className={cn(
+                                                    "flex items-center px-1.5 py-0.5 rounded-sm bg-accent/50 text-[10px] text-muted-foreground gap-1 shrink-0",
+                                                    index > 0 && "-ml-2"
+                                                )}
+                                                style={{ zIndex: asset.tags!.length - index }}
+                                            >
+                                                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: tag.color || 'currentColor' }} />
+                                                <span className="max-w-[60px] truncate">{tag.name}</span>
+                                            </div>
+                                        ))}
+                                        {asset.tags.length > 3 && (
+                                            <div className="flex items-center px-1.5 py-0.5 rounded-sm bg-accent/70 text-[10px] text-muted-foreground -ml-2">
+                                                +{asset.tags.length - 3}
+                                            </div>
+                                        )}
+                                    </>
+                                ) : (
+                                    <div className="text-[10px] text-muted-foreground/40">No tags</div>
+                                )}
+                            </div>
+
+                            {/* Hover tooltip showing all tags */}
+                            {asset.tags && asset.tags.length > 0 && (
+                                <div className="absolute inset-x-0 top-full mt-1 bg-popover/95 backdrop-blur-md border border-border rounded-md p-2 opacity-0 pointer-events-none group-hover/tags:opacity-100 group-hover/tags:pointer-events-auto transition-opacity z-50 shadow-lg">
+                                    <div className="flex flex-wrap gap-1">
+                                        {asset.tags.map(tag => (
+                                            <div key={tag.id} className="flex items-center px-2 py-1 rounded-sm bg-accent text-[11px] text-foreground gap-1.5">
+                                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: tag.color || 'currentColor' }} />
+                                                {tag.name}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </Card>
+            </div>
         </AssetContextMenu >
     );
 });

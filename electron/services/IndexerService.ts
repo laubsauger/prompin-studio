@@ -21,6 +21,21 @@ if (ffmpegPath) {
     ffmpeg.setFfmpegPath((ffmpegPath as unknown as string).replace('app.asar', 'app.asar.unpacked'));
 }
 
+// Configure custom logger for ffmpeg to suppress verbose errors
+const ffmpegLogger = {
+    debug: () => { },
+    info: () => { },
+    warn: () => { },
+    error: (message: string) => {
+        if (message.includes('moov atom not found') || message.includes('Invalid data found')) {
+            return;
+        }
+        console.error('[FFmpeg]', message);
+    }
+};
+// @ts-ignore
+ffmpeg.setLogger(ffmpegLogger);
+
 export class IndexerService {
     private rootPath: string = '';
     private thumbnailCachePath: string;
@@ -76,7 +91,7 @@ export class IndexerService {
         }
 
         await this.watcher.stop();
-        this.watcher.start(this.rootPath);
+        // Watcher will be started after scan completes to avoid race conditions
 
         this.resetStats();
         this.stats.status = 'scanning';
@@ -106,11 +121,19 @@ export class IndexerService {
 
         // Re-home assets (handle moves/renames of root)
         this.assetManager.rehomeAssets(this.rootPath);
+
+        // Start watcher AFTER initial scan to avoid double counting
+        console.log('[IndexerService] Starting watcher...');
+        this.watcher.start(this.rootPath);
     }
 
     private setupWatcher() {
         this.watcher.on('add', (path: string) => {
-            this.stats.totalFiles++;
+            // Only increment if we are not in the initial scanning phase,
+            // because preScan already counted the total files.
+            if (this.stats.status !== 'scanning') {
+                this.stats.totalFiles++;
+            }
             this.handleFileAdd(path);
         });
         this.watcher.on('addDir', () => {

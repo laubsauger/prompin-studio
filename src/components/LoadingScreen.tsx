@@ -1,6 +1,5 @@
 import React from 'react';
-import { Loader2, Image, Film, Folder, FileQuestion } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { Loader2 } from 'lucide-react';
 
 interface LoadingScreenProps {
     message?: string;
@@ -23,7 +22,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
     imageCount,
     videoCount,
     folderCount,
-    otherCount
+    // otherCount - unused
 }) => {
     const hasFileCounts = totalFiles !== undefined || imageCount !== undefined ||
         videoCount !== undefined || folderCount !== undefined;
@@ -42,20 +41,22 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
                         </div>
                     </div>
 
-                    <div className="space-y-1.5 max-w-full">
-                        <div className="flex items-center justify-center gap-3">
-                            <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                    <div className="space-y-4 max-w-full">
+                        <div className="flex items-center justify-center">
                             <h2 className="text-2xl font-semibold tracking-tight">{message}</h2>
                         </div>
                         {(details || subDetails) && (
-                            <div className="text-sm text-muted-foreground space-y-0.5">
+                            <div className="text-sm text-muted-foreground space-y-2 flex flex-col items-center">
                                 {details && (
                                     <p className="truncate max-w-[400px] mx-auto opacity-70" title={details}>
                                         {details}
                                     </p>
                                 )}
                                 {subDetails && (
-                                    <p className="font-medium text-foreground/80">{subDetails}</p>
+                                    <div className="flex items-center gap-2">
+                                        <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                                        <p className="font-medium text-foreground/80">{subDetails}</p>
+                                    </div>
                                 )}
                             </div>
                         )}

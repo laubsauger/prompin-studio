@@ -30,7 +30,7 @@ describe('FilterBar', () => {
     it('renders correctly', () => {
         render(<FilterBar thumbnailSize={150} onThumbnailSizeChange={vi.fn()} />);
         expect(screen.getAllByRole('combobox').length).toBeGreaterThan(0);
-        expect(screen.getByText('All Statuses')).toBeInTheDocument();
+        expect(screen.getByText('Status')).toBeInTheDocument();
     });
 
     it('calls setFilter on change', () => {

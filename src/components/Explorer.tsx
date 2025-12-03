@@ -156,7 +156,7 @@ export const Explorer: React.FC = () => {
                 />
             </div>
 
-            <div className="flex-1 p-2 relative">
+            <div className="flex-1 p-2 pr-0.5 relative">
                 {filteredAssets.length === 0 ? (
                     <div className="flex h-full items-center justify-center text-muted-foreground">
                         No assets found

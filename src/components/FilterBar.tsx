@@ -88,10 +88,10 @@ export const FilterBarUI: React.FC<FilterBarUIProps> = ({
             <div className="flex items-center gap-1">
                 <Select
                     value={filterConfig.type || 'all'}
-                    onChange={(e) => onFilterConfigChange({ type: e.target.value as any })}
+                    onChange={(e) => onFilterConfigChange({ type: e.target.value as 'all' | 'image' | 'video' })}
                     className="w-[100px] h-8 text-xs"
                 >
-                    <option value="all">All Types</option>
+                    <option value="all">Types</option>
                     <option value="image">Images</option>
                     <option value="video">Videos</option>
                 </Select>
@@ -112,7 +112,7 @@ export const FilterBarUI: React.FC<FilterBarUIProps> = ({
                 <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
                 <Select
                     value={sortConfig.key}
-                    onChange={(e) => onSortConfigChange(e.target.value as any, sortConfig.direction)}
+                    onChange={(e) => onSortConfigChange(e.target.value as 'createdAt' | 'updatedAt' | 'path', sortConfig.direction)}
                     className="w-[130px] h-8 text-xs"
                 >
                     <option value="createdAt">Date Created</option>

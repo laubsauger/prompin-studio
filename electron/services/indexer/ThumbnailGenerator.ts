@@ -33,7 +33,9 @@ export class ThumbnailGenerator {
                 })
                 .on('end', () => resolve(thumbnailFilename))
                 .on('error', (err: any) => {
-                    console.error('Thumbnail generation failed:', err);
+                    if (!err.message?.includes('moov atom not found') && !err.message?.includes('Invalid data found')) {
+                        console.warn(`[ThumbnailGenerator] Warning generating thumbnail for ${path.basename(filePath)}:`, err.message);
+                    }
                     resolve(undefined);
                 });
         });

@@ -62,7 +62,7 @@ export function TagsMultiSelect({
                         <div className="flex items-center gap-1.5">
                             <Tag className="h-3 w-3" />
                             {selectedTagIds.length === 0 ? (
-                                "All Tags"
+                                "Tags"
                             ) : selectedTagIds.length === 1 ? (
                                 <div className="flex items-center gap-1.5">
                                     <div
