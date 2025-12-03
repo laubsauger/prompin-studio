@@ -114,6 +114,13 @@ export const AssetContextMenu: React.FC<AssetContextMenuProps> = ({ asset, child
                         </ContextMenuSubContent>
                     </ContextMenuSub>
 
+                    <ContextMenuItem onClick={(e) => {
+                        e.stopPropagation();
+                        setIsMetadataEditorOpen(true);
+                    }}>
+                        <FileText className="mr-2 h-4 w-4" /> Edit Metadata...
+                    </ContextMenuItem>
+
                     <ContextMenuItem onClick={async (e) => {
                         e.stopPropagation();
                         const ipc = (window as any).ipcRenderer;
@@ -147,6 +154,8 @@ export const AssetContextMenu: React.FC<AssetContextMenuProps> = ({ asset, child
                         <GitFork className="mr-2 h-4 w-4 rotate-180" /> Show Derived Assets
                     </ContextMenuItem>
 
+                    <ContextMenuSeparator />
+
                     <ContextMenuSub>
                         <ContextMenuSubTrigger>
                             <StickyNote className="mr-2 h-4 w-4" />
@@ -171,20 +180,16 @@ export const AssetContextMenu: React.FC<AssetContextMenuProps> = ({ asset, child
                             </ContextMenuItem>
                         </ContextMenuSubContent>
                     </ContextMenuSub>
-
-                    <ContextMenuItem onClick={(e) => {
-                        e.stopPropagation();
-                        setIsMetadataEditorOpen(true);
-                    }}>
-                        <FileText className="mr-2 h-4 w-4" /> Edit Metadata...
-                    </ContextMenuItem>
                 </ContextMenuContent>
             </ContextMenu>
 
             <CreateTagDialog
                 isOpen={isCreateTagDialogOpen}
                 onClose={() => setIsCreateTagDialogOpen(false)}
-                onCreateTag={createTag}
+                onCreateTag={async (name, color) => {
+                    const newTag = await createTag(name, color);
+                    await addTagToAsset(asset.id, newTag.id);
+                }}
             />
 
             <CreateScratchPadDialog

@@ -648,6 +648,49 @@ export class IndexerService {
         return assets;
     }
 
+    public getAsset(id: string): Asset | undefined {
+        const assets = this.getAssets();
+        return assets.find(a => a.id === id);
+    }
+
+    public getLineage(assetId: string): Asset[] {
+        console.log(`[IndexerService] getLineage called for assetId: ${assetId}`);
+        const assets = this.getAssets(); // Get all assets (unfiltered)
+        const lineage = new Set<string>();
+        const queue = [assetId];
+        const processed = new Set<string>();
+
+        while (queue.length > 0) {
+            const currentId = queue.shift()!;
+            if (processed.has(currentId)) continue;
+            processed.add(currentId);
+
+            const asset = assets.find(a => a.id === currentId);
+            if (!asset) continue;
+
+            lineage.add(asset.id);
+
+            // Add inputs (ancestors)
+            if (asset.metadata.inputs) {
+                for (const inputId of asset.metadata.inputs) {
+                    if (!processed.has(inputId)) {
+                        queue.push(inputId);
+                    }
+                }
+            }
+
+            // Add outputs (descendants)
+            const outputs = assets.filter(a => a.metadata.inputs?.includes(asset.id));
+            for (const output of outputs) {
+                if (!processed.has(output.id)) {
+                    queue.push(output.id);
+                }
+            }
+        }
+
+        return assets.filter(a => lineage.has(a.id));
+    }
+
     public updateAssetStatus(id: string, status: Asset['status']) {
         console.log(`[IndexerService] updateAssetStatus: ${id} -> ${status}`);
         const stmt = db.prepare('UPDATE assets SET status = @status, updatedAt = @updatedAt WHERE id = @id');
@@ -783,21 +826,10 @@ export class IndexerService {
 
     // Tag Management
     public getTags() {
-        // Return tags used in current rootPath
-        // We also include tags that are NOT used by any asset to allow for newly created tags to be visible?
-        // No, the user specifically complained about "seeing old tags".
-        // So we strictly filter by usage in the current rootPath.
-        // If a user creates a tag, they usually assign it immediately.
-        // If they want to reuse a tag from another project, they might need to recreate it or we need a "global tags" mode.
-        // For now, addressing the user's specific complaint:
-        const stmt = db.prepare(`
-            SELECT DISTINCT t.* FROM tags t
-            JOIN asset_tags at ON t.id = at.tagId
-            JOIN assets a ON at.assetId = a.id
-            WHERE a.rootPath = ?
-            ORDER BY t.name ASC
-        `);
-        return stmt.all(this.rootPath);
+        // Return all tags to ensure newly created ones are visible
+        // The previous implementation filtered by usage in rootPath, which hid unused tags.
+        const stmt = db.prepare('SELECT * FROM tags ORDER BY name ASC');
+        return stmt.all();
     }
 
     public createTag(name: string, color?: string) {

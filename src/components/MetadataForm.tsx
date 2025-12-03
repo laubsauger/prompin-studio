@@ -6,12 +6,13 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Badge } from './ui/badge';
-import { X, Plus, Check, ChevronsUpDown } from 'lucide-react';
+import { Plus, Check, ChevronsUpDown, X } from 'lucide-react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { cn } from '../lib/utils';
 import { AssetPickerDialog } from './AssetPickerDialog';
 import { CreateTagDialog } from './CreateTagDialog';
+import { InputAssetThumbnail } from './InputAssetThumbnail';
 
 export const STORAGE_KEYS = {
     AUTHOR: 'gs_last_author',
@@ -28,6 +29,7 @@ interface MetadataFormProps {
     showLineage?: boolean;
     tags?: string[]; // Selected tag IDs
     onTagsChange?: (tags: string[]) => void; // Callback for tag selection changes
+    currentUser?: { username: string; fullName: string } | null;
 }
 
 export const MetadataForm: React.FC<MetadataFormProps> = ({
@@ -36,7 +38,8 @@ export const MetadataForm: React.FC<MetadataFormProps> = ({
     asset,
     showLineage = true,
     tags: propTags,
-    onTagsChange
+    onTagsChange,
+    currentUser
 }) => {
     const assets = useStore(state => state.assets);
     const allTags = useStore(state => state.tags);
@@ -57,25 +60,27 @@ export const MetadataForm: React.FC<MetadataFormProps> = ({
     // Get unique authors from existing assets
     const authors = useMemo(() => {
         const unique = new Set<string>();
-        // Add current user/default
-        unique.add('me');
+        // Add current user if available
+        if (currentUser) {
+            unique.add(currentUser.username);
+        }
         assets.forEach(a => {
             if (a.metadata.authorId) unique.add(a.metadata.authorId);
         });
         return Array.from(unique).sort();
-    }, [assets]);
+    }, [assets, currentUser]);
 
     // Initialize with persisted values if empty, ONLY on mount
     useEffect(() => {
         setMetadata(prev => ({
             ...prev,
-            authorId: prev.authorId || localStorage.getItem(STORAGE_KEYS.AUTHOR) || 'me',
+            authorId: prev.authorId || localStorage.getItem(STORAGE_KEYS.AUTHOR) || currentUser?.username || '',
             project: prev.project || localStorage.getItem(STORAGE_KEYS.PROJECT) || '',
             scene: prev.scene || localStorage.getItem(STORAGE_KEYS.SCENE) || '',
             shot: prev.shot || localStorage.getItem(STORAGE_KEYS.SHOT) || '',
             model: prev.model || localStorage.getItem(STORAGE_KEYS.MODEL) || '',
         }));
-    }, []);
+    }, [currentUser]);
 
     // Propagate changes to parent
     useEffect(() => {
@@ -154,114 +159,30 @@ export const MetadataForm: React.FC<MetadataFormProps> = ({
     // We need to expose tags to the parent if it's ingestion
     // Let's add `onTagsChange` to props.
 
+    // Get display name for author
+    const getAuthorDisplay = (authorId: string) => {
+        if (currentUser && authorId === currentUser.username) {
+            return `${currentUser.username} (me)`;
+        }
+        return authorId;
+    };
+
     return (
         <div className="space-y-6">
-            {showLineage && (
-                <div className="space-y-2 pb-4 border-b">
-                    <Label>Input Assets (Lineage)</Label>
-                    <div className="flex flex-wrap gap-2 mb-2">
-                        {metadata.inputs?.map(input => (
-                            <Badge key={input} variant="outline" className="flex items-center gap-1">
-                                <span className="truncate max-w-[100px]">{input.substring(0, 8)}...</span>
-                                <button onClick={() => removeInput(input)} className="hover:text-destructive">
-                                    <X className="h-3 w-3" />
-                                </button>
-                            </Badge>
-                        ))}
-                    </div>
-                    <Button
-                        type="button"
-                        onClick={() => setIsAssetPickerOpen(true)}
-                        variant="outline"
-                        size="sm"
-                        className="w-full"
-                    >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Input Assets...
-                    </Button>
-                </div>
-            )}
-
-            {/* Core Metadata */}
-            <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2 flex flex-col">
-                    <Label>Author</Label>
-                    <Popover open={openAuthor} onOpenChange={setOpenAuthor}>
-                        <PopoverTrigger asChild>
-                            <Button
-                                variant="outline"
-                                role="combobox"
-                                aria-expanded={openAuthor}
-                                className="justify-between"
-                            >
-                                {metadata.authorId === 'me' ? 'Me' : (metadata.authorId || "Select author...")}
-                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[200px] p-0">
-                            <Command>
-                                <CommandInput placeholder="Search author..." />
-                                <CommandList>
-                                    <CommandEmpty>No author found.</CommandEmpty>
-                                    <CommandGroup>
-                                        {authors.map((author) => (
-                                            <CommandItem
-                                                key={author}
-                                                value={author}
-                                                onSelect={(currentValue) => {
-                                                    handleInputChange('authorId', currentValue);
-                                                    setOpenAuthor(false);
-                                                }}
-                                            >
-                                                <Check
-                                                    className={cn(
-                                                        "mr-2 h-4 w-4",
-                                                        metadata.authorId === author ? "opacity-100" : "opacity-0"
-                                                    )}
-                                                />
-                                                {author === 'me' ? 'Me' : author}
-                                            </CommandItem>
-                                        ))}
-                                    </CommandGroup>
-                                </CommandList>
-                            </Command>
-                        </PopoverContent>
-                    </Popover>
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="project">Project</Label>
-                    <Input
-                        id="project"
-                        value={metadata.project || ''}
-                        onChange={(e) => handleInputChange('project', e.target.value)}
-                        placeholder="Project Name"
-                    />
-                </div>
+            {/* Prompt at the top - most prominent */}
+            <div className="space-y-2">
+                <Label htmlFor="prompt">Prompt</Label>
+                <Textarea
+                    id="prompt"
+                    value={metadata.prompt || ''}
+                    onChange={(e) => handleInputChange('prompt', e.target.value)}
+                    placeholder="Generation prompt..."
+                    className="min-h-[120px] font-mono text-sm"
+                />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                    <Label htmlFor="scene">Scene</Label>
-                    <Input
-                        id="scene"
-                        value={metadata.scene || ''}
-                        onChange={(e) => handleInputChange('scene', e.target.value)}
-                        placeholder="Scene Name"
-                    />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="shot">Shot</Label>
-                    <Input
-                        id="shot"
-                        value={metadata.shot || ''}
-                        onChange={(e) => handleInputChange('shot', e.target.value)}
-                        placeholder="Shot Name"
-                    />
-                </div>
-            </div>
-
-            {/* AI / Generation Info */}
-            <div className="space-y-4 pt-4 border-t">
+            {/* Generation Details */}
+            <div className="space-y-4">
                 <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">Generation Details</h4>
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -283,121 +204,215 @@ export const MetadataForm: React.FC<MetadataFormProps> = ({
                         />
                     </div>
                 </div>
-
-                <div className="space-y-2">
-                    <Label htmlFor="prompt">Prompt</Label>
-                    <Textarea
-                        id="prompt"
-                        value={metadata.prompt || ''}
-                        onChange={(e) => handleInputChange('prompt', e.target.value)}
-                        placeholder="Generation prompt..."
-                        className="min-h-[100px] font-mono text-sm"
-                    />
-                </div>
             </div>
 
-            {/* Tags & Inputs */}
+            {/* Core Metadata */}
             <div className="space-y-4 pt-4 border-t">
-                <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">Organization</h4>
-
-                <div className="space-y-2 flex flex-col">
-                    <Label>Tags</Label>
-                    <Popover open={openTags} onOpenChange={setOpenTags}>
-                        <PopoverTrigger asChild>
-                            <Button
-                                variant="outline"
-                                role="combobox"
-                                aria-expanded={openTags}
-                                className="justify-between"
-                            >
-                                {selectedTagIds.length > 0
-                                    ? `${selectedTagIds.length} tags selected`
-                                    : "Select tags..."}
-                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[300px] p-0">
-                            <Command>
-                                <CommandInput placeholder="Search tags..." />
-                                <CommandList>
-                                    <CommandEmpty>No tag found.</CommandEmpty>
-                                    <CommandGroup>
-                                        {allTags.map((tag) => {
-                                            const isSelected = selectedTagIds.includes(tag.id);
-                                            return (
+                <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">Project Details</h4>
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2 flex flex-col">
+                        <Label>Author</Label>
+                        <Popover open={openAuthor} onOpenChange={setOpenAuthor}>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    aria-expanded={openAuthor}
+                                    className="justify-between"
+                                >
+                                    {metadata.authorId ? getAuthorDisplay(metadata.authorId) : "Select author..."}
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[200px] p-0">
+                                <Command>
+                                    <CommandInput placeholder="Search author..." />
+                                    <CommandList>
+                                        <CommandEmpty>No author found.</CommandEmpty>
+                                        <CommandGroup>
+                                            {authors.map((author) => (
                                                 <CommandItem
-                                                    key={tag.id}
-                                                    value={tag.name}
-                                                    onSelect={() => toggleTag(tag.id)}
+                                                    key={author}
+                                                    value={author}
+                                                    onSelect={(currentValue) => {
+                                                        handleInputChange('authorId', currentValue);
+                                                        setOpenAuthor(false);
+                                                    }}
                                                 >
-                                                    <div
+                                                    <Check
                                                         className={cn(
-                                                            "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
-                                                            isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"
+                                                            "mr-2 h-4 w-4",
+                                                            metadata.authorId === author ? "opacity-100" : "opacity-0"
                                                         )}
-                                                    >
-                                                        <Check className={cn("h-4 w-4")} />
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: tag.color }} />
-                                                        {tag.name}
-                                                    </div>
+                                                    />
+                                                    {getAuthorDisplay(author)}
                                                 </CommandItem>
-                                            );
-                                        })}
-                                    </CommandGroup>
-                                    <CommandGroup>
-                                        <CommandItem
-                                            onSelect={() => {
-                                                console.log('[MetadataForm] Create new tag selected');
-                                                // Keep the tags popover open while creating a new tag
-                                                // setOpenTags(false); // removed to prevent closing
-                                                setIsCreateTagOpen(true);
-                                            }}
-                                            className="cursor-pointer border-t mt-2 pt-2"
-                                        >
-                                            <Plus className="mr-2 h-4 w-4" />
-                                            Create new tag...
-                                        </CommandItem>
-                                    </CommandGroup>
-                                </CommandList>
-                            </Command>
-                        </PopoverContent>
-                    </Popover>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                        {allTags.filter(t => selectedTagIds.includes(t.id)).map(tag => (
-                            <Badge key={tag.id} variant="secondary" className="gap-1" style={{ borderColor: tag.color }}>
-                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: tag.color }} />
-                                {tag.name}
-                                <button onClick={() => toggleTag(tag.id)} className="ml-1 hover:text-destructive">
-                                    <X className="h-3 w-3" />
-                                </button>
-                            </Badge>
-                        ))}
+                                            ))}
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="project">Project</Label>
+                        <Input
+                            id="project"
+                            value={metadata.project || ''}
+                            onChange={(e) => handleInputChange('project', e.target.value)}
+                            placeholder="Project Name"
+                        />
                     </div>
                 </div>
 
-                <CreateTagDialog
-                    isOpen={isCreateTagOpen}
-                    onClose={() => {
-                        console.log('[MetadataForm] Closing CreateTagDialog');
-                        setIsCreateTagOpen(false);
-                    }}
-                    onCreateTag={async (name, color) => {
-                        console.log('[MetadataForm] Creating tag:', name, color);
-                        try {
-                            const newTag = await createTag(name, color);
-                            console.log('[MetadataForm] Tag created:', newTag);
-                            // Auto-select the new tag
-                            toggleTag(newTag.id);
-                        } catch (err) {
-                            console.error('[MetadataForm] Failed to create tag:', err);
-                        }
-                    }}
-                />
-
-
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="scene">Scene</Label>
+                        <Input
+                            id="scene"
+                            value={metadata.scene || ''}
+                            onChange={(e) => handleInputChange('scene', e.target.value)}
+                            placeholder="Scene Name"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="shot">Shot</Label>
+                        <Input
+                            id="shot"
+                            value={metadata.shot || ''}
+                            onChange={(e) => handleInputChange('shot', e.target.value)}
+                            placeholder="Shot Name"
+                        />
+                    </div>
+                </div>
             </div>
+
+            {/* Only show lineage if requested (not in MetadataEditor since it's in left column) */}
+            {showLineage && (
+                <div className="space-y-3 pt-4 border-t">
+                    <Label>Input Assets (Lineage)</Label>
+                    <div className="flex flex-wrap gap-3">
+                        {metadata.inputs?.map(input => (
+                            <InputAssetThumbnail
+                                key={input}
+                                assetId={input}
+                                onRemove={() => removeInput(input)}
+                            />
+                        ))}
+                        <button
+                            type="button"
+                            onClick={() => setIsAssetPickerOpen(true)}
+                            className="w-24 h-24 rounded-lg border-2 border-dashed border-muted-foreground/25 hover:border-muted-foreground/50 bg-muted/30 hover:bg-muted/50 flex flex-col items-center justify-center gap-1 transition-all"
+                        >
+                            <Plus className="h-5 w-5 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground">Add Input</span>
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Only show Tags section if showLineage is true (for non-MetadataEditor uses) */}
+            {showLineage && (
+                <div className="space-y-4 pt-4 border-t">
+                    <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">Organization</h4>
+
+                    <div className="space-y-2 flex flex-col">
+                        <Label>Tags</Label>
+                        <Popover open={openTags} onOpenChange={setOpenTags}>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    aria-expanded={openTags}
+                                    className="justify-between"
+                                >
+                                    {selectedTagIds.length > 0
+                                        ? `${selectedTagIds.length} tags selected`
+                                        : "Select tags..."}
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[300px] p-0">
+                                <Command>
+                                    <CommandInput placeholder="Search tags..." />
+                                    <CommandList>
+                                        <CommandEmpty>No tag found.</CommandEmpty>
+                                        <CommandGroup>
+                                            {allTags.map((tag) => {
+                                                const isSelected = selectedTagIds.includes(tag.id);
+                                                return (
+                                                    <CommandItem
+                                                        key={tag.id}
+                                                        value={tag.name}
+                                                        onSelect={() => toggleTag(tag.id)}
+                                                    >
+                                                        <div
+                                                            className={cn(
+                                                                "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                                                                isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"
+                                                            )}
+                                                        >
+                                                            <Check className={cn("h-4 w-4")} />
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: tag.color }} />
+                                                            {tag.name}
+                                                        </div>
+                                                    </CommandItem>
+                                                );
+                                            })}
+                                        </CommandGroup>
+                                        <CommandGroup>
+                                            <CommandItem
+                                                onSelect={() => {
+                                                    console.log('[MetadataForm] Create new tag selected');
+                                                    // Keep the tags popover open while creating a new tag
+                                                    // setOpenTags(false); // removed to prevent closing
+                                                    setIsCreateTagOpen(true);
+                                                }}
+                                                className="cursor-pointer border-t mt-2 pt-2"
+                                            >
+                                                <Plus className="mr-2 h-4 w-4" />
+                                                Create new tag...
+                                            </CommandItem>
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                            {allTags.filter(t => selectedTagIds.includes(t.id)).map(tag => (
+                                <Badge key={tag.id} variant="secondary" className="gap-1" style={{ borderColor: tag.color }}>
+                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: tag.color }} />
+                                    {tag.name}
+                                    <button onClick={() => toggleTag(tag.id)} className="ml-1 hover:text-destructive">
+                                        <X className="h-3 w-3" />
+                                    </button>
+                                </Badge>
+                            ))}
+                        </div>
+                    </div>
+
+                    <CreateTagDialog
+                        isOpen={isCreateTagOpen}
+                        onClose={() => {
+                            console.log('[MetadataForm] Closing CreateTagDialog');
+                            setIsCreateTagOpen(false);
+                        }}
+                        onCreateTag={async (name, color) => {
+                            console.log('[MetadataForm] Creating tag:', name, color);
+                            try {
+                                const newTag = await createTag(name, color);
+                                console.log('[MetadataForm] Tag created:', newTag);
+                                // Auto-select the new tag
+                                toggleTag(newTag.id);
+                            } catch (err) {
+                                console.error('[MetadataForm] Failed to create tag:', err);
+                            }
+                        }}
+                    />
+                </div>
+            )}
 
             <AssetPickerDialog
                 isOpen={isAssetPickerOpen}

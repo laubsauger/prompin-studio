@@ -5,7 +5,7 @@ import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { ASSET_STATUSES } from '../config/constants';
 import { cn } from '../lib/utils';
-import { Film, Heart, Play, Pause, ZoomIn } from 'lucide-react';
+import { Film, Heart, Play, Pause, ZoomIn, GitBranch } from 'lucide-react';
 import { MediaPlayer, MediaProvider, type MediaPlayerInstance } from '@vidstack/react';
 import '@vidstack/react/player/styles/base.css';
 import { MinimalVideoLayout } from './MinimalVideoLayout';
@@ -173,6 +173,16 @@ export const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
                     )}
 
                     <div className="absolute right-2 top-2 z-10 flex gap-2 overlay-controls">
+                        {/* Lineage indicator - shows if asset has input images */}
+                        {asset.metadata.inputs && asset.metadata.inputs.length > 0 && (
+                            <div
+                                className="rounded-full p-1.5 bg-black/40 text-white/90 backdrop-blur-md"
+                                title={`Has ${asset.metadata.inputs.length} input asset${asset.metadata.inputs.length > 1 ? 's' : ''}`}
+                            >
+                                <GitBranch className="h-3.5 w-3.5" />
+                            </div>
+                        )}
+
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();

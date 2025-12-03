@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { useStore } from '../store';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { X, Heart, Tag, FolderOpen, Info, ChevronDown, ChevronUp, Edit } from 'lucide-react';
+import { X, Heart, Tag, FolderOpen, Info, ChevronDown, ChevronUp, Edit, ChevronLeft, ChevronRight } from 'lucide-react';
 import { MediaPlayer, MediaProvider } from '@vidstack/react';
 import { DefaultVideoLayout, defaultLayoutIcons } from '@vidstack/react/player/layouts/default';
 import '@vidstack/react/player/styles/default/theme.css';
@@ -28,15 +28,53 @@ export const MediaViewer: React.FC = () => {
 
     const asset = assets.find(a => a.id === viewingAssetId);
 
+    // Get current asset index and navigation info
+    const { currentIndex, hasNext, hasPrevious } = useMemo(() => {
+        const index = assets.findIndex(a => a.id === viewingAssetId);
+        return {
+            currentIndex: index,
+            hasNext: index < assets.length - 1,
+            hasPrevious: index > 0
+        };
+    }, [assets, viewingAssetId]);
+
+    // Navigation functions
+    const navigateToNext = () => {
+        if (hasNext && currentIndex !== -1) {
+            setViewingAssetId(assets[currentIndex + 1].id);
+        }
+    };
+
+    const navigateToPrevious = () => {
+        if (hasPrevious && currentIndex !== -1) {
+            setViewingAssetId(assets[currentIndex - 1].id);
+        }
+    };
+
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                setViewingAssetId(null);
+            // Prevent navigation if user is typing in an input
+            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+                return;
+            }
+
+            switch (e.key) {
+                case 'Escape':
+                    setViewingAssetId(null);
+                    break;
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    navigateToPrevious();
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    navigateToNext();
+                    break;
             }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [setViewingAssetId]);
+    }, [setViewingAssetId, currentIndex, hasNext, hasPrevious]);
 
     if (!asset) return null;
 
@@ -184,6 +222,31 @@ export const MediaViewer: React.FC = () => {
                             >
                                 <Edit className="h-4 w-4 mr-1" />
                                 Edit
+                            </Button>
+                        </div>
+
+                        {/* Navigation buttons */}
+                        <div className="flex items-center gap-1 border-l pl-2 ml-2">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={navigateToPrevious}
+                                disabled={!hasPrevious}
+                                title="Previous (←)"
+                            >
+                                <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <span className="text-xs text-muted-foreground px-1">
+                                {currentIndex + 1} / {assets.length}
+                            </span>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={navigateToNext}
+                                disabled={!hasNext}
+                                title="Next (→)"
+                            >
+                                <ChevronRight className="h-4 w-4" />
                             </Button>
                         </div>
 

@@ -30,7 +30,9 @@ export function AdvancedFilters() {
             platform: undefined,
             model: undefined,
             dateFrom: undefined,
-            dateTo: undefined
+            dateTo: undefined,
+            relatedToAssetId: undefined,
+            scratchPadId: undefined
         };
         setFilterConfig(clearedConfig);
         searchAssets(undefined, clearedConfig);

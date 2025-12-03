@@ -128,6 +128,7 @@ interface AppState {
     setRootPath: () => Promise<string | null>;
     loadFolderColors: () => Promise<void>;
     initStore: () => Promise<void>;
+    rootPath: string | null;
     refreshAssets: () => Promise<void>;
 }
 
@@ -136,6 +137,7 @@ export const useStore = create<AppState>((set, get) => ({
     assets: [],
     syncStats: null,
     filter: 'all',
+    rootPath: null,
     selectedIds: new Set(),
     lastSelectedId: null,
     viewingAssetId: null,
@@ -265,6 +267,23 @@ export const useStore = create<AppState>((set, get) => ({
         await getIpcRenderer().invoke('set-folder-color', path, color);
     },
 
+    loadFolderColors: async () => {
+        const folderColors = await getIpcRenderer().invoke('get-folder-colors');
+        set({ folderColors });
+    },
+
+    refreshAssets: async () => {
+        // Silent reload without full-screen loading
+        try {
+            const assets = await getIpcRenderer().invoke('get-assets');
+            set({ assets });
+            // Also load folders to ensure structure is up to date
+            get().loadFolders();
+        } catch (error) {
+            console.error('Failed to refresh assets:', error);
+        }
+    },
+
     // Tag Actions
     loadTags: async () => {
         console.log('[Store] Loading tags...');
@@ -298,7 +317,45 @@ export const useStore = create<AppState>((set, get) => ({
         get().refreshAssets();
     },
 
+
+
+    // ... existing state ...
+
+    setRootPath: async () => {
+        const path = await getIpcRenderer().invoke('open-directory-dialog');
+        if (path) {
+            await getIpcRenderer().invoke('set-root-path', path);
+            localStorage.setItem('rootPath', path);
+            set({
+                rootPath: path,
+                currentPath: null,
+                assets: [],
+                tags: [],
+                folders: [],
+                folderColors: {}
+            });
+            // Reload assets after setting path
+            get().loadAssets();
+            get().loadFolderColors();
+            get().loadTags();
+            get().loadFolders();
+        }
+        return path;
+    },
+
     initStore: async () => {
+        // Load persisted root path first
+        try {
+            const storedRootPath = localStorage.getItem('rootPath');
+            if (storedRootPath) {
+                console.log('[Store] Restoring root path:', storedRootPath);
+                await getIpcRenderer().invoke('set-root-path', storedRootPath);
+                set({ rootPath: storedRootPath });
+            }
+        } catch (e) {
+            console.error('Failed to load rootPath', e);
+        }
+
         // Load persisted filter config
         try {
             const storedFilter = localStorage.getItem('filterConfig');
@@ -324,43 +381,6 @@ export const useStore = create<AppState>((set, get) => ({
         await get().loadTags();
         await get().loadFolderColors();
         await get().loadFolders();
-    },
-
-    refreshAssets: async () => {
-        // Silent reload without full-screen loading
-        try {
-            const assets = await getIpcRenderer().invoke('get-assets');
-            set({ assets });
-            // Also load folders to ensure structure is up to date
-            get().loadFolders();
-        } catch (error) {
-            console.error('Failed to refresh assets:', error);
-        }
-    },
-
-    loadFolderColors: async () => {
-        const folderColors = await getIpcRenderer().invoke('get-folder-colors');
-        set({ folderColors });
-    },
-
-    setRootPath: async () => {
-        const path = await getIpcRenderer().invoke('open-directory-dialog');
-        if (path) {
-            await getIpcRenderer().invoke('set-root-path', path);
-            set({
-                currentPath: null,
-                assets: [],
-                tags: [],
-                folders: [],
-                folderColors: {}
-            });
-            // Reload assets after setting path
-            get().loadAssets();
-            get().loadFolderColors();
-            get().loadTags();
-            get().loadFolders();
-        }
-        return path;
     },
 
     toggleLike: async (id) => {

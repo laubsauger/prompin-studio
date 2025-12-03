@@ -2,7 +2,7 @@ import React from 'react';
 import { useStore } from '../store';
 import { Select } from './ui/select';
 import { STATUS_OPTIONS } from '../config/constants';
-import { Filter, Heart, ArrowUpDown, LayoutGrid, List, ArrowUp, ArrowDown } from 'lucide-react';
+import { Filter, Heart, ArrowUpDown, LayoutGrid, List, ArrowUp, ArrowDown, X, RotateCcw } from 'lucide-react';
 import { Button } from './ui/button';
 import { cn } from '../lib/utils';
 import { Slider } from './ui/slider';
@@ -34,22 +34,37 @@ export const FilterBarUI: React.FC<FilterBarUIProps> = ({
     viewMode,
     onViewModeChange
 }) => {
+    // Check if any filters are active
+    const hasActiveFilters = filterConfig.likedOnly ||
+                           (filterConfig.type && filterConfig.type !== 'all') ||
+                           filter !== 'all';
+
+    const clearAllFilters = () => {
+        onFilterConfigChange({ likedOnly: false, type: 'all', tagId: null, status: 'all' });
+        onFilterChange('all');
+    };
+
     return (
         <div className="flex items-center gap-2 w-full">
-            <div className="flex items-center gap-2 border-r border-border pr-2 mr-2">
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onFilterConfigChange({ likedOnly: !filterConfig.likedOnly })}
-                    className={cn(
-                        "h-8 w-8 p-0",
-                        filterConfig.likedOnly && "text-red-500 hover:text-red-600"
-                    )}
-                    title="Show Liked Only"
-                >
-                    <Heart className={cn("h-4 w-4", filterConfig.likedOnly && "fill-current")} />
-                </Button>
+            {/* Like button - separate from type filters */}
+            <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onFilterConfigChange({ likedOnly: !filterConfig.likedOnly })}
+                className={cn(
+                    "h-8 w-8 p-0",
+                    filterConfig.likedOnly && "text-red-500 hover:text-red-600"
+                )}
+                title="Show Liked Only"
+            >
+                <Heart className={cn("h-4 w-4", filterConfig.likedOnly && "fill-current")} />
+            </Button>
 
+            {/* Separator between like and type filters */}
+            <div className="w-px h-6 bg-border" />
+
+            {/* Type filters with clear button */}
+            <div className="flex items-center gap-1">
                 <Select
                     value={filterConfig.type || 'all'}
                     onChange={(e) => onFilterConfigChange({ type: e.target.value as any })}
@@ -59,6 +74,17 @@ export const FilterBarUI: React.FC<FilterBarUIProps> = ({
                     <option value="image">Images</option>
                     <option value="video">Videos</option>
                 </Select>
+                {filterConfig.type && filterConfig.type !== 'all' && (
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onFilterConfigChange({ type: 'all' })}
+                        className="h-8 w-6 p-0"
+                        title="Clear type filter"
+                    >
+                        <X className="h-3 w-3" />
+                    </Button>
+                )}
             </div>
 
             <div className="flex items-center gap-2 border-r border-border pr-2 mr-2">
@@ -87,7 +113,8 @@ export const FilterBarUI: React.FC<FilterBarUIProps> = ({
                 </Button>
             </div>
 
-            <div className="flex items-center gap-2 border-r border-border pr-2 mr-2">
+            {/* Status filter with clear button */}
+            <div className="flex items-center gap-1 border-r border-border pr-2 mr-2">
                 <Filter className="h-4 w-4 text-muted-foreground" />
                 <Select
                     value={filter}
@@ -101,10 +128,35 @@ export const FilterBarUI: React.FC<FilterBarUIProps> = ({
                         </option>
                     ))}
                 </Select>
+                {filter !== 'all' && (
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onFilterChange('all')}
+                        className="h-8 w-6 p-0"
+                        title="Clear status filter"
+                    >
+                        <X className="h-3 w-3" />
+                    </Button>
+                )}
             </div>
 
             {/* Advanced Filters */}
             <AdvancedFilters />
+
+            {/* Clear All Filters button - shown when any filter is active */}
+            {hasActiveFilters && (
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearAllFilters}
+                    className="h-8 gap-1.5 text-muted-foreground hover:text-foreground"
+                    title="Clear all filters"
+                >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    <span className="text-xs">Clear All</span>
+                </Button>
+            )}
 
             {/* View Mode Switcher & Thumbnail Size */}
             <div className="flex items-center gap-2 ml-auto">

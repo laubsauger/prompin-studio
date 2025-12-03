@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, Menu, shell, dialog, protocol, net } from 
 import path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { indexerService } from './services/IndexerService.js';
+import os from 'os';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -288,6 +289,10 @@ ipcMain.handle('search-assets', async (event, searchQuery, filters) => {
   return indexerService.searchAssets(searchQuery, filters);
 });
 
+ipcMain.handle('get-lineage', async (event, assetId) => {
+  return indexerService.getLineage(assetId);
+});
+
 ipcMain.handle('update-asset-status', async (event, id, status) => {
   return indexerService.updateAssetStatus(id, status);
 });
@@ -312,6 +317,14 @@ ipcMain.handle('update-metadata', async (event, assetId, key, value) => {
 
 ipcMain.handle('update-asset-metadata', async (event, assetId, metadata) => {
   return indexerService.updateAssetMetadata(assetId, metadata);
+});
+
+ipcMain.handle('delete-tag', async (event, tagId) => {
+  return indexerService.deleteTag(tagId);
+});
+
+ipcMain.handle('get-asset', async (event, assetId) => {
+  return indexerService.getAsset(assetId);
 });
 
 ipcMain.handle('regenerate-thumbnails', async () => {
@@ -357,6 +370,17 @@ ipcMain.handle('ingest-file', async (event, sourcePath, metadata) => {
 
 ipcMain.handle('get-asset-tags', async (event, assetId) => {
   return indexerService.getAssetTags(assetId);
+});
+
+ipcMain.handle('get-current-user', async () => {
+  const userInfo = os.userInfo();
+  // Try to get full name from gecos field (on Unix-like systems)
+  // Otherwise fall back to username
+  const fullName = userInfo.username;
+  return {
+    username: userInfo.username,
+    fullName: fullName
+  };
 });
 
 ipcMain.handle('reveal-in-finder', async (event, relativePath) => {

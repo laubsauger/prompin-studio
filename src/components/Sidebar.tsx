@@ -361,24 +361,42 @@ export const Sidebar: React.FC = () => {
                             tags.map(tag => {
                                 const count = assets.filter(a => a.tags?.some(t => t.id === tag.id)).length;
                                 return (
-                                    <Button
+                                    <div
                                         key={tag.id}
-                                        variant="ghost"
-                                        size="sm"
                                         className={cn(
-                                            "w-full justify-start gap-2 h-7 px-4",
-                                            filterConfig.tagId === tag.id && "bg-accent"
+                                            "flex items-center w-full hover:bg-accent/50 group pr-2",
+                                            filterConfig.tagId === tag.id && "bg-accent text-accent-foreground",
+                                            count === 0 && "opacity-50"
                                         )}
-                                        onClick={() => {
-                                            setFilterConfig({
-                                                tagId: filterConfig.tagId === tag.id ? null : tag.id
-                                            });
-                                        }}
                                     >
-                                        <Tag className="h-3 w-3" style={{ color: tag.color || 'currentColor' }} />
-                                        <span className="flex-1 text-left text-xs">{tag.name}</span>
-                                        <span className="text-[10px] text-muted-foreground opacity-70">{count}</span>
-                                    </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="flex-1 justify-start gap-2 h-7 px-4 hover:bg-transparent"
+                                            onClick={() => {
+                                                setFilterConfig({
+                                                    tagId: filterConfig.tagId === tag.id ? null : tag.id
+                                                });
+                                            }}
+                                        >
+                                            <Tag className="h-3 w-3" style={{ color: tag.color || 'currentColor' }} />
+                                            <span className="flex-1 text-left text-xs">{tag.name}</span>
+                                            <span className="text-[10px] text-muted-foreground opacity-70">{count}</span>
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (confirm(`Delete tag "${tag.name}"?`)) {
+                                                    useStore.getState().deleteTag(tag.id);
+                                                }
+                                            }}
+                                        >
+                                            <Trash2 size={12} className="text-destructive" />
+                                        </Button>
+                                    </div>
                                 );
                             })
                         )}

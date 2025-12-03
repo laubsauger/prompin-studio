@@ -59,7 +59,7 @@ function App() {
     : undefined;
 
   const loadingDetails = syncStats && syncStats.status === 'scanning'
-    ? `Found ${syncStats.totalFiles} files${syncStats.totalFolders ? ` in ${syncStats.totalFolders} folders` : ''}`
+    ? `Found ${syncStats.processedFiles || syncStats.totalFiles || 0} files${syncStats.totalFolders ? ` in ${syncStats.totalFolders} folders` : ''}`
     : undefined;
 
   return (
@@ -81,7 +81,7 @@ function App() {
       {/* Loading Screen */}
       {(isLoading || syncStats?.status === 'scanning') && (
         <LoadingScreen
-          message={loadingMessage || 'Scanning folder...'}
+          message={loadingMessage || `Scanning ${rootFolder}...`}
           progress={loadingProgress}
           details={loadingDetails}
         />
