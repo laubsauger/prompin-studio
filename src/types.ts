@@ -3,6 +3,7 @@ export type AssetStatus = 'unsorted' | 'review_requested' | 'pending' | 'approve
 export interface Asset {
     id: string;
     path: string; // Relative to project root
+    rootPath?: string; // Absolute root path (optional for backward compatibility/frontend usage where context is implied)
     type: 'image' | 'video' | 'other';
     status: AssetStatus;
     createdAt: number;

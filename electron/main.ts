@@ -327,6 +327,10 @@ ipcMain.handle('set-folder-color', async (event, path, color) => {
 });
 
 // Tag IPC Handlers
+ipcMain.handle('get-folders', () => {
+  return indexerService.getFolders();
+});
+
 ipcMain.handle('get-tags', async () => {
   return indexerService.getTags();
 });

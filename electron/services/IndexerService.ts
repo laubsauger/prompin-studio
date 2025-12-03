@@ -125,6 +125,61 @@ export class IndexerService {
                 this.stats.lastSync = Date.now();
                 console.log('Initial scan complete. Total files:', this.stats.totalFiles, 'Total folders:', this.stats.totalFolders);
             });
+
+        // Immediately re-home existing assets to the new root path
+        this.rehomeAssets(rootPath);
+    }
+
+    private rehomeAssets(newRootPath: string) {
+        console.log(`[IndexerService] Re-homing assets to ${newRootPath}...`);
+        try {
+            // Fetch all assets to check if they belong to the new root
+            // We select id, rootPath, path to calculate absolute path
+            const allAssets = db.prepare('SELECT id, rootPath, path FROM assets').all() as { id: string; rootPath: string; path: string }[];
+
+            const updates: { id: string; rootPath: string; path: string }[] = [];
+
+            for (const asset of allAssets) {
+                // Calculate absolute path based on stored rootPath and relative path
+                const absolutePath = path.join(asset.rootPath, asset.path);
+
+                // Check if this absolute path is within the new root path
+                // We use startsWith but need to be careful about partial matches (e.g. /test vs /test2)
+                // Adding a separator ensures we match directory boundaries
+                const isWithin = absolutePath === newRootPath ||
+                    absolutePath.startsWith(newRootPath + path.sep);
+
+                if (isWithin) {
+                    // Calculate new relative path
+                    const newRelativePath = path.relative(newRootPath, absolutePath);
+
+                    // Only update if the rootPath or path has effectively changed
+                    if (asset.rootPath !== newRootPath || asset.path !== newRelativePath) {
+                        updates.push({
+                            id: asset.id,
+                            rootPath: newRootPath,
+                            path: newRelativePath
+                        });
+                    }
+                }
+            }
+
+            if (updates.length > 0) {
+                console.log(`[IndexerService] Found ${updates.length} assets to re-home.`);
+                const stmt = db.prepare('UPDATE assets SET rootPath = @rootPath, path = @path WHERE id = @id');
+                const updateTransaction = db.transaction((assetsToUpdate) => {
+                    for (const update of assetsToUpdate) {
+                        stmt.run(update);
+                    }
+                });
+                updateTransaction(updates);
+                console.log(`[IndexerService] Re-homing complete.`);
+            } else {
+                console.log(`[IndexerService] No assets needed re-homing.`);
+            }
+        } catch (error) {
+            console.error('[IndexerService] Failed to re-home assets:', error);
+        }
     }
 
     public async resync() {
@@ -261,35 +316,42 @@ export class IndexerService {
             const mediaType = this.getMediaType(filePath);
 
             // Check if file hasn't changed
-            const existing = db.prepare('SELECT updatedAt, thumbnailPath FROM assets WHERE id = ?').get(id) as any;
+            const existing = db.prepare('SELECT updatedAt, thumbnailPath, rootPath FROM assets WHERE id = ?').get(id) as any;
 
             if (existing) {
-                // Check if modified time is effectively the same (allow 1s difference for FS/DB precision)
-                const timeDiff = Math.abs(existing.updatedAt - stats.mtimeMs);
-                if (timeDiff < 1000) {
-                    // Check if thumbnail exists if it should
-                    let skip = true;
-                    if (mediaType === 'video') {
-                        if (existing.thumbnailPath) {
-                            const thumbPath = path.join(this.thumbnailCachePath, existing.thumbnailPath);
-                            try {
-                                const thumbStats = await fs.stat(thumbPath);
-                                if (thumbStats.size === 0) skip = false;
-                            } catch {
+                // If rootPath has changed (e.g. user opened a subfolder of a previously indexed folder),
+                // we MUST update the asset to reflect the new rootPath.
+                if (existing.rootPath !== this.rootPath) {
+                    // Proceed to upsert (don't skip)
+                    console.log(`[IndexerService] Updating rootPath for ${relativePath} from ${existing.rootPath} to ${this.rootPath}`);
+                } else {
+                    // Check if modified time is effectively the same (allow 1s difference for FS/DB precision)
+                    const timeDiff = Math.abs(existing.updatedAt - stats.mtimeMs);
+                    if (timeDiff < 1000) {
+                        // Check if thumbnail exists if it should
+                        let skip = true;
+                        if (mediaType === 'video') {
+                            if (existing.thumbnailPath) {
+                                const thumbPath = path.join(this.thumbnailCachePath, existing.thumbnailPath);
+                                try {
+                                    const thumbStats = await fs.stat(thumbPath);
+                                    if (thumbStats.size === 0) skip = false;
+                                } catch {
+                                    skip = false;
+                                }
+                            } else {
                                 skip = false;
                             }
-                        } else {
-                            skip = false;
                         }
-                    }
 
-                    if (skip) {
-                        // Update stats and return
-                        if (mediaType === 'image') this.stats.filesByType!.images++;
-                        else if (mediaType === 'video') this.stats.filesByType!.videos++;
-                        else this.stats.filesByType!.other++;
-                        this.stats.processedFiles++;
-                        return;
+                        if (skip) {
+                            // Update stats and return
+                            if (mediaType === 'image') this.stats.filesByType!.images++;
+                            else if (mediaType === 'video') this.stats.filesByType!.videos++;
+                            else this.stats.filesByType!.other++;
+                            this.stats.processedFiles++;
+                            return;
+                        }
                     }
                 }
             }
@@ -363,12 +425,14 @@ export class IndexerService {
     }
 
     public getAssets(): Asset[] {
+        console.log(`[IndexerService] getAssets called for rootPath: '${this.rootPath}'`);
         // Only return assets for the current root path
         const stmt = db.prepare('SELECT * FROM assets WHERE rootPath = ? ORDER BY createdAt DESC');
         const assets = stmt.all(this.rootPath).map((row: any) => ({
             ...row,
             metadata: JSON.parse(row.metadata)
         }));
+        console.log(`[IndexerService] getAssets found ${assets.length} assets`);
 
         // Fetch tags for all assets
         // Optimization: Fetch all asset_tags at once instead of N+1 queries
@@ -638,16 +702,73 @@ export class IndexerService {
         }
     }
 
+    public getFolders(): string[] {
+        // Return all unique directory paths from assets
+        // We can also scan the filesystem, but DB is faster.
+        // However, empty folders might not be in assets table if they have no media.
+        // But the user said "structure needs to always be visible".
+        // If we rely on assets, we miss empty folders.
+        // But `IndexerService` tracks folders via `addDir`.
+        // We don't store folders in DB unless they have color/metadata.
+        // We can use `find` or `glob` to get all folders?
+        // Or just rely on assets for now?
+        // The previous implementation relied on assets.
+        // "We never want to fully hide folders ever when we filter and search" implies folders that *contain* assets (or did before filtering).
+        // So getting all unique paths from `assets` table (unfiltered) is probably enough for "structure of the project".
+        // If a folder is truly empty (no files at all), it wouldn't show up before either.
+
+        const stmt = db.prepare('SELECT DISTINCT path FROM assets WHERE rootPath = ?');
+        const paths = stmt.all(this.rootPath) as { path: string }[];
+        const folders = new Set<string>();
+
+        paths.forEach(p => {
+            const dir = path.dirname(p.path);
+            if (dir !== '.') {
+                // Add all parent directories
+                let current = dir;
+                while (current !== '.' && current !== '') {
+                    folders.add(current);
+                    current = path.dirname(current);
+                }
+            }
+        });
+
+        return Array.from(folders).sort();
+    }
+
     // Tag Management
     public getTags() {
-        return db.prepare('SELECT * FROM tags ORDER BY name ASC').all();
+        // Return tags used in current rootPath
+        // We also include tags that are NOT used by any asset to allow for newly created tags to be visible?
+        // No, the user specifically complained about "seeing old tags".
+        // So we strictly filter by usage in the current rootPath.
+        // If a user creates a tag, they usually assign it immediately.
+        // If they want to reuse a tag from another project, they might need to recreate it or we need a "global tags" mode.
+        // For now, addressing the user's specific complaint:
+        const stmt = db.prepare(`
+            SELECT DISTINCT t.* FROM tags t
+            JOIN asset_tags at ON t.id = at.tagId
+            JOIN assets a ON at.assetId = a.id
+            WHERE a.rootPath = ?
+            ORDER BY t.name ASC
+        `);
+        return stmt.all(this.rootPath);
     }
 
     public createTag(name: string, color?: string) {
-        const id = uuidv4();
-        const stmt = db.prepare('INSERT INTO tags (id, name, color) VALUES (@id, @name, @color)');
-        stmt.run({ id, name, color: color || null });
-        return { id, name, color };
+        try {
+            const id = uuidv4();
+            const stmt = db.prepare('INSERT INTO tags (id, name, color) VALUES (@id, @name, @color)');
+            stmt.run({ id, name, color: color || null });
+            return { id, name, color };
+        } catch (err: any) {
+            if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+                // Return existing tag
+                const existing = db.prepare('SELECT * FROM tags WHERE name = ?').get(name) as any;
+                if (existing) return existing;
+            }
+            throw err;
+        }
     }
 
     public deleteTag(id: string) {

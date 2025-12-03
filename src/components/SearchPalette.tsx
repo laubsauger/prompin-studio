@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, Loader2 } from 'lucide-react';
+import { Search, Loader2, RefreshCw, Inbox, Star, X } from 'lucide-react';
 import { useStore } from '../store';
 import { debounce } from '../utils/debounce';
 import { cn } from '../lib/utils';
@@ -13,7 +13,15 @@ import {
 } from './ui/command';
 
 export function SearchPalette() {
-    const { searchQuery, setSearchQuery, searchAssets } = useStore();
+    const {
+        searchQuery,
+        setSearchQuery,
+        searchAssets,
+        triggerResync,
+        setCurrentPath,
+        setFilterConfig
+    } = useStore();
+    const assets = useStore(state => state.assets);
     const [open, setOpen] = useState(false);
     const [value, setValue] = useState(searchQuery);
     const [isSearching, setIsSearching] = useState(false);
@@ -86,15 +94,79 @@ export function SearchPalette() {
                         className="fixed left-[50%] top-[20%] z-50 w-full max-w-2xl translate-x-[-50%] p-4"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <Command className="rounded-lg border shadow-md">
+                        <Command className="rounded-lg border shadow-md bg-popover">
                             <CommandInput
                                 placeholder="Search files, metadata, projects..."
                                 value={value}
                                 onValueChange={handleValueChange}
+                                autoFocus
                             />
-                            <CommandList>
+                            <CommandList className="max-h-[500px]">
                                 <CommandEmpty>No results found.</CommandEmpty>
-                                {/* Results will be shown here if we want to add suggestions */}
+                                {value && (
+                                    <CommandGroup heading="Results">
+                                        <CommandItem className="flex items-center justify-between pointer-events-none">
+                                            <span>Found {assets.length} assets</span>
+                                        </CommandItem>
+                                        <div className="grid grid-cols-6 gap-2 p-2">
+                                            {assets.slice(0, 12).map(asset => (
+                                                <div key={asset.id} className="aspect-square rounded overflow-hidden bg-muted relative">
+                                                    {asset.type === 'image' ? (
+                                                        <img
+                                                            src={`media://${asset.rootPath}/${asset.path}`}
+                                                            alt={asset.path}
+                                                            className="w-full h-full object-cover"
+                                                        />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
+                                                            Video
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                        {assets.length > 12 && (
+                                            <div className="p-2 text-xs text-muted-foreground text-center">
+                                                + {assets.length - 12} more
+                                            </div>
+                                        )}
+                                    </CommandGroup>
+                                )}
+                                <CommandGroup heading="Actions">
+                                    <CommandItem onSelect={() => {
+                                        triggerResync();
+                                        setOpen(false);
+                                    }}>
+                                        <RefreshCw className="mr-2 h-4 w-4" />
+                                        <span>Resync Library</span>
+                                    </CommandItem>
+                                    <CommandItem onSelect={() => {
+                                        setCurrentPath(null);
+                                        setFilterConfig({ status: 'unsorted', likedOnly: false });
+                                        useStore.getState().setLastInboxViewTime(Date.now());
+                                        setOpen(false);
+                                    }}>
+                                        <Inbox className="mr-2 h-4 w-4" />
+                                        <span>Go to Inbox</span>
+                                    </CommandItem>
+                                    <CommandItem onSelect={() => {
+                                        setCurrentPath(null);
+                                        setFilterConfig({ likedOnly: true, status: undefined });
+                                        setOpen(false);
+                                    }}>
+                                        <Star className="mr-2 h-4 w-4" />
+                                        <span>Go to Favorites</span>
+                                    </CommandItem>
+                                    <CommandItem onSelect={() => {
+                                        setCurrentPath(null);
+                                        setFilterConfig({ likedOnly: false, status: undefined, type: 'all', tagId: null, scratchPadId: null });
+                                        setSearchQuery('');
+                                        setOpen(false);
+                                    }}>
+                                        <X className="mr-2 h-4 w-4" />
+                                        <span>Clear Filters & Search</span>
+                                    </CommandItem>
+                                </CommandGroup>
                             </CommandList>
                         </Command>
                     </div>

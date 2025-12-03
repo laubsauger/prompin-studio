@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
 
 contextBridge.exposeInMainWorld('ipcRenderer', {
     invoke: (channel: string, ...args: any[]) => ipcRenderer.invoke(channel, ...args),
@@ -9,4 +9,5 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
     off: (channel: string, func: (...args: any[]) => void) => {
         ipcRenderer.removeListener(channel, func as any);
     },
+    getPathForFile: (file: File) => webUtils.getPathForFile(file),
 });

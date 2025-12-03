@@ -198,6 +198,13 @@ export const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
                     {isSelected && (
                         <div className="absolute inset-0 z-0 bg-primary/10 pointer-events-none" />
                     )}
+
+                    {/* New Indicator for Inbox */}
+                    {asset.status === 'unsorted' && asset.createdAt > useStore.getState().lastInboxViewTime && (
+                        <div className="absolute top-2 left-2 z-20">
+                            <div className="w-2.5 h-2.5 bg-green-500 rounded-full border border-white shadow-sm ring-1 ring-black/10" />
+                        </div>
+                    )}
                 </div>
 
                 <div className="p-2 border-t border-border/50 flex flex-col gap-1 bg-card/80 backdrop-blur-sm min-h-[40px] justify-center">

@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { useStore } from '../store';
-import { Folder, FolderOpen, Star, Layers, ChevronDown, ChevronRight, ChevronLeft, Plus, Tag, AlertCircle, CheckCircle, StickyNote, Trash2 } from 'lucide-react';
+import { Folder, FolderOpen, Star, Layers, ChevronDown, ChevronRight, ChevronLeft, Plus, Tag, AlertCircle, CheckCircle, StickyNote, Trash2, Inbox } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Button } from './ui/button';
 import { CreateTagDialog } from './CreateTagDialog';
@@ -52,26 +52,30 @@ export const Sidebar: React.FC = () => {
     const [isStatusOpen, setIsStatusOpen] = useState(true);
     const [isScratchPadsOpen, setIsScratchPadsOpen] = useState(true);
 
+    const folders = useStore(state => state.folders);
     const assets = useStore(state => state.assets);
     const currentPath = useStore(state => state.currentPath);
     const setCurrentPath = useStore(state => state.setCurrentPath);
     const filterConfig = useStore(state => state.filterConfig);
     const setFilterConfig = useStore(state => state.setFilterConfig);
     const tags = useStore(state => state.tags);
+    const scratchPads = useStore(state => state.scratchPads);
+    const createTag = useStore(state => state.createTag);
+    const createScratchPad = useStore(state => state.createScratchPad);
+    const deleteScratchPad = useStore(state => state.deleteScratchPad);
 
-    // Build folder tree from assets
+    // Build folder tree from folders list, but count assets from filtered assets
     const folderTree = useMemo(() => {
         const root: TreeNode = { name: 'Root', path: '', children: {}, count: 0 };
 
-        assets.forEach(asset => {
-            const parts = asset.path.split('/');
-            parts.pop(); // Remove filename
+        // First build structure from all known folders
+        folders.forEach(folderPath => {
+            const parts = folderPath.split('/');
+            // If folderPath is empty or '.', skip
+            if (!folderPath || folderPath === '.') return;
 
             let current = root;
             let currentPath = '';
-
-            // Update root count
-            root.count++;
 
             parts.forEach(part => {
                 currentPath = currentPath ? `${currentPath}/${part}` : part;
@@ -79,12 +83,46 @@ export const Sidebar: React.FC = () => {
                     current.children[part] = { name: part, path: currentPath, children: {}, count: 0 };
                 }
                 current = current.children[part];
-                current.count++;
+            });
+        });
+
+        // Then populate counts from filtered assets
+        assets.forEach(asset => {
+            const parts = asset.path.split('/');
+            parts.pop(); // Remove filename
+
+            let current = root;
+
+            // Update root count
+            root.count++;
+
+            // Traverse and update counts
+            // Note: If a folder exists in assets but not in folders list (shouldn't happen if synced), it will be created here?
+            // Actually, if we are filtering, assets is a subset.
+            // But if we have a new asset that introduced a new folder, and loadFolders hasn't run...
+            // loadAssets calls loadFolders, so it should be fine.
+
+            // We need to be careful: if we only rely on folders list for structure, and assets for counts.
+            // If an asset is in a folder that isn't in folders list yet, we might miss counting it if we don't create the node.
+            // But let's assume folders list is up to date.
+
+            // Actually, let's just traverse and increment counts on existing nodes.
+            // If node doesn't exist, we can create it (fallback).
+
+            // Re-traverse to update counts
+            parts.forEach(part => {
+                if (current.children[part]) {
+                    current = current.children[part];
+                    current.count++;
+                } else {
+                    // Fallback: create if missing (e.g. if folders list is stale)
+                    // But strictly speaking we want to show all folders.
+                }
             });
         });
 
         return root;
-    }, [assets]);
+    }, [folders, assets]);
 
     const toggleExpand = (path: string, e: React.MouseEvent) => {
         e.stopPropagation();
@@ -134,7 +172,8 @@ export const Sidebar: React.FC = () => {
                     <div
                         className={cn(
                             "flex items-center w-full hover:bg-accent/50 group pr-2",
-                            isSelected && "bg-accent text-accent-foreground"
+                            isSelected && "bg-accent text-accent-foreground",
+                            node.count === 0 && "opacity-50" // Grey out empty folders
                         )}
                         style={{ paddingLeft: `${depth * 12 + 8}px` }}
                         onContextMenu={(e) => handleContextMenu(e, node.path)}
@@ -229,10 +268,10 @@ export const Sidebar: React.FC = () => {
                         <Button
                             variant="ghost"
                             size="sm"
-                            className={cn("w-full justify-start gap-2 px-4", currentPath === null && !filterConfig.likedOnly && "bg-accent")}
+                            className={cn("w-full justify-start gap-2 px-4", currentPath === null && !filterConfig.likedOnly && !filterConfig.status && "bg-accent")}
                             onClick={() => {
                                 setCurrentPath(null);
-                                setFilterConfig({ likedOnly: false });
+                                setFilterConfig({ likedOnly: false, status: undefined });
                             }}
                         >
                             <Layers className="h-4 w-4" />
@@ -242,8 +281,29 @@ export const Sidebar: React.FC = () => {
                         <Button
                             variant="ghost"
                             size="sm"
+                            className={cn("w-full justify-start gap-2 px-4", filterConfig.status === 'unsorted' && "bg-accent")}
+                            onClick={() => {
+                                setCurrentPath(null);
+                                setFilterConfig({ status: 'unsorted', likedOnly: false });
+                                useStore.getState().setLastInboxViewTime(Date.now());
+                            }}
+                        >
+                            <div className="relative">
+                                <Inbox className="h-4 w-4" />
+                                {assets.some(a => a.status === 'unsorted' && a.createdAt > useStore.getState().lastInboxViewTime) && (
+                                    <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full border border-card" />
+                                )}
+                            </div>
+                            <span className="flex-1 text-left">Inbox</span>
+                            <span className="text-[10px] text-muted-foreground">
+                                {assets.filter(a => a.status === 'unsorted').length}
+                            </span>
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
                             className={cn("w-full justify-start gap-2 px-4", filterConfig.likedOnly && "bg-accent")}
-                            onClick={() => setFilterConfig({ likedOnly: true })}
+                            onClick={() => setFilterConfig({ likedOnly: true, status: undefined })}
                         >
                             <Star className="h-4 w-4" />
                             <span className="flex-1 text-left">Favorites</span>
@@ -260,7 +320,7 @@ export const Sidebar: React.FC = () => {
                         onToggle={() => setIsFoldersOpen(!isFoldersOpen)}
                     >
                         {Object.values(folderTree.children).length === 0 ? (
-                            <div className="px-4 text-xs text-muted-foreground">No folders found</div>
+                            <div className="px-4 py-2 text-xs text-muted-foreground italic">No folders found</div>
                         ) : (
                             Object.values(folderTree.children)
                                 .sort((a, b) => a.name.localeCompare(b.name))
@@ -280,7 +340,7 @@ export const Sidebar: React.FC = () => {
                         }
                     >
                         {tags.length === 0 ? (
-                            <div className="px-4 text-xs text-muted-foreground">No tags found</div>
+                            <div className="px-4 py-2 text-xs text-muted-foreground italic">No tags found</div>
                         ) : (
                             tags.map(tag => {
                                 const count = assets.filter(a => a.tags?.some(t => t.id === tag.id)).length;
@@ -390,12 +450,12 @@ export const Sidebar: React.FC = () => {
                             </Button>
                         }
                     >
-                        {useStore.getState().scratchPads.map(pad => (
+                        {scratchPads.map(pad => (
                             <div
                                 key={pad.id}
                                 className={cn(
                                     "flex items-center w-full hover:bg-accent/50 group pr-2 cursor-pointer",
-                                    useStore.getState().filterConfig.scratchPadId === pad.id && "bg-accent text-accent-foreground"
+                                    filterConfig.scratchPadId === pad.id && "bg-accent text-accent-foreground"
                                 )}
                             >
                                 <Button
@@ -403,8 +463,8 @@ export const Sidebar: React.FC = () => {
                                     size="sm"
                                     className="flex-1 justify-start gap-2 font-normal h-8 px-4 hover:bg-transparent"
                                     onClick={() => {
-                                        useStore.getState().setFilterConfig({ scratchPadId: pad.id });
-                                        useStore.getState().setCurrentPath(null);
+                                        setFilterConfig({ scratchPadId: pad.id });
+                                        setCurrentPath(null);
                                     }}
                                 >
                                     <StickyNote size={14} className="text-yellow-500" />
@@ -420,7 +480,7 @@ export const Sidebar: React.FC = () => {
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         if (confirm(`Delete scratch pad "${pad.name}"?`)) {
-                                            useStore.getState().deleteScratchPad(pad.id);
+                                            deleteScratchPad(pad.id);
                                         }
                                     }}
                                 >
@@ -428,7 +488,7 @@ export const Sidebar: React.FC = () => {
                                 </Button>
                             </div>
                         ))}
-                        {useStore.getState().scratchPads.length === 0 && (
+                        {scratchPads.length === 0 && (
                             <div className="px-4 py-2 text-xs text-muted-foreground italic">
                                 No scratch pads
                             </div>
@@ -440,12 +500,12 @@ export const Sidebar: React.FC = () => {
             <CreateTagDialog
                 isOpen={isCreateTagDialogOpen}
                 onClose={() => setIsCreateTagDialogOpen(false)}
-                onCreateTag={useStore.getState().createTag}
+                onCreateTag={createTag}
             />
             <CreateScratchPadDialog
                 isOpen={isCreateScratchPadDialogOpen}
                 onClose={() => setIsCreateScratchPadDialogOpen(false)}
-                onCreate={useStore.getState().createScratchPad}
+                onCreate={createScratchPad}
             />
         </div>
     );

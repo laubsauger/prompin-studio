@@ -323,7 +323,9 @@ export const MetadataForm: React.FC<MetadataFormProps> = ({
                                     <CommandGroup>
                                         <CommandItem
                                             onSelect={() => {
-                                                setOpenTags(false);
+                                                console.log('[MetadataForm] Create new tag selected');
+                                                // Keep the tags popover open while creating a new tag
+                                                // setOpenTags(false); // removed to prevent closing
                                                 setIsCreateTagOpen(true);
                                             }}
                                             className="cursor-pointer border-t mt-2 pt-2"
@@ -351,11 +353,20 @@ export const MetadataForm: React.FC<MetadataFormProps> = ({
 
                 <CreateTagDialog
                     isOpen={isCreateTagOpen}
-                    onClose={() => setIsCreateTagOpen(false)}
+                    onClose={() => {
+                        console.log('[MetadataForm] Closing CreateTagDialog');
+                        setIsCreateTagOpen(false);
+                    }}
                     onCreateTag={async (name, color) => {
-                        const newTag = await createTag(name, color);
-                        // Auto-select the new tag
-                        toggleTag(newTag.id);
+                        console.log('[MetadataForm] Creating tag:', name, color);
+                        try {
+                            const newTag = await createTag(name, color);
+                            console.log('[MetadataForm] Tag created:', newTag);
+                            // Auto-select the new tag
+                            toggleTag(newTag.id);
+                        } catch (err) {
+                            console.error('[MetadataForm] Failed to create tag:', err);
+                        }
                     }}
                 />
 

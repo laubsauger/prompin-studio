@@ -64,7 +64,9 @@ interface AppState {
     searchQuery: string;
     folderColors: Record<string, string>;
     tags: { id: string; name: string; color?: string }[];
+    folders: string[];
     scratchPads: { id: string; name: string; assetIds: string[] }[];
+    lastInboxViewTime: number;
 
     // Ingestion State
     ingestion: {
@@ -81,9 +83,11 @@ interface AppState {
     searchAssets: (query?: string, filters?: Partial<AppState['filterConfig']>) => Promise<void>;
     setFolderColor: (path: string, color: string) => void;
     toggleLike: (id: string) => Promise<void>;
+    setLastInboxViewTime: (time: number) => void;
 
     // Tag Actions
     loadTags: () => Promise<void>;
+    loadFolders: () => Promise<void>;
     createTag: (name: string, color?: string) => Promise<{ id: string; name: string; color?: string }>;
     deleteTag: (id: string) => Promise<void>;
     addTagToAsset: (assetId: string, tagId: string) => Promise<void>;
@@ -144,7 +148,9 @@ export const useStore = create<AppState>((set, get) => ({
     searchQuery: '',
     folderColors: {},
     tags: [],
+    folders: [],
     scratchPads: [],
+    lastInboxViewTime: 0, // Should be persisted, but for now 0
 
     ingestion: {
         isOpen: false,
@@ -162,6 +168,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     // New config actions
     setSortConfig: (key, direction) => set({ sortConfig: { key, direction } }),
+    setLastInboxViewTime: (time) => set({ lastInboxViewTime: time }),
     // Scratch Pad Actions
     createScratchPad: (name) => set(state => ({
         scratchPads: [...state.scratchPads, { id: uuidv4(), name, assetIds: [] }]
@@ -243,6 +250,10 @@ export const useStore = create<AppState>((set, get) => ({
         const tags = await getIpcRenderer().invoke('get-tags');
         set({ tags });
     },
+    loadFolders: async () => {
+        const folders = await getIpcRenderer().invoke('get-folders');
+        set({ folders });
+    },
     createTag: async (name, color) => {
         const tag = await getIpcRenderer().invoke('create-tag', name, color);
         get().loadTags();
@@ -273,10 +284,18 @@ export const useStore = create<AppState>((set, get) => ({
         const path = await getIpcRenderer().invoke('open-directory-dialog');
         if (path) {
             await getIpcRenderer().invoke('set-root-path', path);
+            set({
+                currentPath: null,
+                assets: [],
+                tags: [],
+                folders: [],
+                folderColors: {}
+            });
             // Reload assets after setting path
             get().loadAssets();
             get().loadFolderColors();
             get().loadTags();
+            get().loadFolders();
         }
         return path;
     },
@@ -346,6 +365,8 @@ export const useStore = create<AppState>((set, get) => ({
         try {
             const assets = await getIpcRenderer().invoke('get-assets');
             set({ assets, isLoading: false, loadingMessage: '' });
+            // Also load folders to ensure structure is up to date
+            get().loadFolders();
         } catch (error) {
             console.error('Failed to load assets:', error);
             set({ isLoading: false, loadingMessage: '' });
