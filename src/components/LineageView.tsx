@@ -11,7 +11,8 @@ import { cn } from '../lib/utils';
 
 const LineageGraph: React.FC<{ rootAsset: Asset, lineageAssets: Asset[], onLayoutComplete?: (rootPos: { x: number, y: number }) => void }> = ({ rootAsset, lineageAssets, onLayoutComplete }) => {
     const aspectRatio = useStore(state => state.aspectRatio);
-    const DEBUG = true; // Toggle debug visualization
+    const DEBUG = false; // Toggle debug visualization
+    const [forceLayoutUpdateKey, setForceLayoutUpdateKey] = React.useState(0);
 
     // Calculate node positions using dagre
     const { nodePositions, edges, graphWidth, graphHeight, nodeWidth, nodeHeight } = useMemo(() => {
@@ -38,7 +39,7 @@ const LineageGraph: React.FC<{ rootAsset: Asset, lineageAssets: Asset[], onLayou
         if (aspectRatio === 'portrait') imageHeight = 455; // 9/16 of 256
 
         const nodeWidth = 256; // Exact match to card width
-        const nodeHeight = imageHeight + 50; // Reduced buffer to match card footer height
+        const nodeHeight = imageHeight + 42; // Reduced buffer to match card footer height exactly
         // const imageCenterY = imageHeight / 2; // Unused
 
         lineageAssets.forEach(asset => {
@@ -83,7 +84,7 @@ const LineageGraph: React.FC<{ rootAsset: Asset, lineageAssets: Asset[], onLayou
         const graphHeight = g.graph().height || 1000;
 
         return { nodePositions: positions, edges: edgeList, graphWidth, graphHeight, nodeWidth, nodeHeight };
-    }, [rootAsset, lineageAssets, aspectRatio]);
+    }, [rootAsset, lineageAssets, aspectRatio, forceLayoutUpdateKey]); // Added forceLayoutUpdateKey to dependencies
 
     // Notify parent of root position for centering
     React.useEffect(() => {
@@ -94,6 +95,17 @@ const LineageGraph: React.FC<{ rootAsset: Asset, lineageAssets: Asset[], onLayou
             }
         }
     }, [nodePositions, rootAsset.id, onLayoutComplete]);
+
+    // Handle window resize to force layout re-calculation
+    React.useEffect(() => {
+        const handleResize = () => {
+            // Increment state to trigger re-calculation of useMemo
+            setForceLayoutUpdateKey(prev => prev + 1);
+        };
+
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []); // Empty dependency array means this effect runs once on mount and cleans up on unmount
 
     // Padding for the container
     const padding = 100; // Reduced from 1000 to simplify debugging

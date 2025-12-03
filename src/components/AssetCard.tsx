@@ -10,7 +10,7 @@ import { Film, Heart, Play, Pause, ZoomIn, GitBranch } from 'lucide-react';
 
 import { AssetContextMenu } from './AssetContextMenu';
 
-export const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
+export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
     const toggleSelection = useStore(state => state.toggleSelection);
     const selectRange = useStore(state => state.selectRange);
     const toggleLike = useStore(state => state.toggleLike);
@@ -18,6 +18,7 @@ export const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
 
     const isSelected = useStore(state => state.selectedIds.has(asset.id));
     const aspectRatio = useStore(state => state.aspectRatio);
+    const viewDisplay = useStore(state => state.viewDisplay);
     const [isPlaying, setIsPlaying] = useState(false);
     const [isHoveringScrubber, setIsHoveringScrubber] = useState(false);
     const [isHoveringCard, setIsHoveringCard] = useState(false);
@@ -44,6 +45,20 @@ export const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
     };
 
     const statusConfig = ASSET_STATUSES[asset.status] || ASSET_STATUSES.unsorted;
+
+    // Extract color name from bg-color-500 pattern
+    const colorName = statusConfig.color.match(/bg-(\w+)-/)?.[1] || 'gray';
+    const getBadgeColors = (color: string) => {
+        const colorMap: Record<string, string> = {
+            'gray': 'border-gray-400 text-gray-300 bg-gray-900/40',
+            'yellow': 'border-yellow-400 text-yellow-300 bg-yellow-900/40',
+            'orange': 'border-orange-400 text-orange-300 bg-orange-900/40',
+            'green': 'border-green-400 text-green-300 bg-green-900/40',
+            'slate': 'border-slate-400 text-slate-300 bg-slate-900/40',
+            'red': 'border-red-400 text-red-300 bg-red-900/40',
+        };
+        return colorMap[color] || colorMap.gray;
+    };
 
     const thumbnailSrc = asset.type === 'video' && asset.thumbnailPath
         ? `thumbnail://${asset.thumbnailPath}`
@@ -221,36 +236,53 @@ export const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
                         </div>
                     )}
 
-                    <div className={cn(
-                        "absolute right-2 top-2 z-10 flex gap-2 overlay-controls transition-opacity duration-200",
-                        isHoveringScrubber ? "opacity-0" : "opacity-100"
-                    )}>
-                        {/* Lineage indicator - shows if asset has input images */}
-                        {asset.metadata.inputs && asset.metadata.inputs.length > 0 && (
-                            <div
-                                className="rounded-full p-1.5 bg-black/40 text-white/90 backdrop-blur-md"
-                                title={`Has ${asset.metadata.inputs.length} input asset${asset.metadata.inputs.length > 1 ? 's' : ''}`}
+                    {/* Status badge - top left overlay, only show in detailed view */}
+                    {viewDisplay === 'detailed' && (
+                        <div className="absolute top-2 left-2 z-10">
+                            <Badge
+                                variant="outline"
+                                className={cn(
+                                    "text-[9px] h-4 px-1 shadow-sm backdrop-blur-sm font-medium",
+                                    getBadgeColors(colorName)
+                                )}
                             >
-                                <GitBranch className="h-3.5 w-3.5" />
-                            </div>
-                        )}
+                                {statusConfig.label}
+                            </Badge>
+                        </div>
+                    )}
 
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                e.preventDefault();
-                                toggleLike(asset.id);
-                            }}
-                            className={cn(
-                                "rounded-full p-1.5 backdrop-blur-md transition-colors",
-                                asset.metadata.liked
-                                    ? "bg-black/40 text-red-500 hover:bg-black/60"
-                                    : "bg-black/40 text-white/70 hover:bg-black/60 hover:text-white"
+                    {viewDisplay === 'detailed' && (
+                        <div className={cn(
+                            "absolute right-2 top-2 z-10 flex gap-2 overlay-controls transition-opacity duration-200",
+                            isHoveringScrubber ? "opacity-0" : "opacity-100"
+                        )}>
+                            {/* Lineage indicator - shows if asset has input images */}
+                            {asset.metadata.inputs && asset.metadata.inputs.length > 0 && (
+                                <div
+                                    className="rounded-full p-1.5 bg-black/40 text-white/90 backdrop-blur-md"
+                                    title={`Has ${asset.metadata.inputs.length} input asset${asset.metadata.inputs.length > 1 ? 's' : ''}`}
+                                >
+                                    <GitBranch className="h-3.5 w-3.5" />
+                                </div>
                             )}
-                        >
-                            <Heart className={cn("h-3.5 w-3.5", asset.metadata.liked && "fill-current")} />
-                        </button>
-                    </div>
+
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    toggleLike(asset.id);
+                                }}
+                                className={cn(
+                                    "rounded-full p-1.5 backdrop-blur-md transition-colors",
+                                    asset.metadata.liked
+                                        ? "bg-black/40 text-red-500 hover:bg-black/60"
+                                        : "bg-black/40 text-white/70 hover:bg-black/60 hover:text-white"
+                                )}
+                            >
+                                <Heart className={cn("h-3.5 w-3.5", asset.metadata.liked && "fill-current")} />
+                            </button>
+                        </div>
+                    )}
 
                     {isSelected && (
                         <div className="absolute inset-0 z-0 bg-primary/10 pointer-events-none" />
@@ -264,22 +296,55 @@ export const AssetCard: React.FC<{ asset: Asset }> = ({ asset }) => {
                     )}
                 </div>
 
-                <div className="p-2 border-t border-border/50 flex flex-col gap-1 bg-card/80 backdrop-blur-sm min-h-[40px] justify-center">
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant="secondary" className={cn("text-[10px] h-5 px-1.5 shadow-none", statusConfig.color, "text-white border-none shrink-0")}>
-                            {statusConfig.label}
-                        </Badge>
+                {/* Tags section - only show in detailed view */}
+                {viewDisplay === 'detailed' && (
+                    <div className="border-t border-border/50 bg-card/80 backdrop-blur-sm h-7 relative overflow-hidden group/tags">
+                        <div className="flex items-center gap-1 px-2 h-full">
+                            {/* Tags Display with stacking */}
+                            {asset.tags && asset.tags.length > 0 ? (
+                                <>
+                                    {asset.tags.slice(0, 3).map((tag, index) => (
+                                        <div
+                                            key={tag.id}
+                                            className={cn(
+                                                "flex items-center px-1.5 py-0.5 rounded-sm bg-accent/50 text-[10px] text-muted-foreground gap-1 shrink-0",
+                                                index > 0 && "-ml-2"
+                                            )}
+                                            style={{ zIndex: asset.tags!.length - index }}
+                                        >
+                                            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: tag.color || 'currentColor' }} />
+                                            <span className="max-w-[60px] truncate">{tag.name}</span>
+                                        </div>
+                                    ))}
+                                    {asset.tags.length > 3 && (
+                                        <div className="flex items-center px-1.5 py-0.5 rounded-sm bg-accent/70 text-[10px] text-muted-foreground -ml-2">
+                                            +{asset.tags.length - 3}
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                <div className="text-[10px] text-muted-foreground/40">No tags</div>
+                            )}
+                        </div>
 
-                        {/* Tags Display */}
-                        {asset.tags && asset.tags.map(tag => (
-                            <div key={tag.id} className="flex items-center px-1.5 py-0.5 rounded-sm bg-accent/50 text-[10px] text-muted-foreground gap-1">
-                                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: tag.color || 'currentColor' }} />
-                                {tag.name}
+                        {/* Hover tooltip showing all tags */}
+                        {asset.tags && asset.tags.length > 0 && (
+                            <div className="absolute inset-x-0 top-full mt-1 bg-popover/95 backdrop-blur-md border border-border rounded-md p-2 opacity-0 pointer-events-none group-hover/tags:opacity-100 group-hover/tags:pointer-events-auto transition-opacity z-50 shadow-lg">
+                                <div className="flex flex-wrap gap-1">
+                                    {asset.tags.map(tag => (
+                                        <div key={tag.id} className="flex items-center px-2 py-1 rounded-sm bg-accent text-[11px] text-foreground gap-1.5">
+                                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: tag.color || 'currentColor' }} />
+                                            {tag.name}
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
-                        ))}
+                        )}
                     </div>
-                </div>
+                )}
             </Card>
         </AssetContextMenu >
     );
-};
+});
+
+AssetCard.displayName = 'AssetCard';

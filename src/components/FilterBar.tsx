@@ -2,11 +2,12 @@ import React from 'react';
 import { useStore } from '../store';
 import { Select } from './ui/select';
 import { STATUS_OPTIONS } from '../config/constants';
-import { Filter, Heart, ArrowUpDown, LayoutGrid, List, ArrowUp, ArrowDown, X, RotateCcw } from 'lucide-react';
+import { Filter, Heart, ArrowUpDown, LayoutGrid, List, ArrowUp, ArrowDown, X, RotateCcw, Eye, EyeOff } from 'lucide-react';
 import { Button } from './ui/button';
 import { cn } from '../lib/utils';
 import { Slider } from './ui/slider';
 import { AdvancedFilters } from './AdvancedFilters';
+import { StatusMultiSelect } from './StatusMultiSelect';
 import type { AssetStatus } from '../types';
 
 export interface FilterBarUIProps {
@@ -16,12 +17,14 @@ export interface FilterBarUIProps {
     onFilterChange: (filter: AssetStatus | 'all') => void;
     sortConfig: { key: 'createdAt' | 'updatedAt' | 'path'; direction: 'asc' | 'desc' };
     onSortConfigChange: (key: 'createdAt' | 'updatedAt' | 'path', direction: 'asc' | 'desc') => void;
-    filterConfig: { likedOnly: boolean; type: 'all' | 'image' | 'video'; tagId?: string | null; status?: AssetStatus | 'all' };
-    onFilterConfigChange: (config: Partial<{ likedOnly: boolean; type: 'all' | 'image' | 'video'; tagId?: string | null; status?: AssetStatus | 'all' }>) => void;
+    filterConfig: { likedOnly: boolean; type: 'all' | 'image' | 'video'; tagId?: string | null; status?: AssetStatus | 'all'; statuses?: AssetStatus[] };
+    onFilterConfigChange: (config: Partial<{ likedOnly: boolean; type: 'all' | 'image' | 'video'; tagId?: string | null; status?: AssetStatus | 'all'; statuses?: AssetStatus[] }>) => void;
     viewMode: 'grid' | 'list';
     onViewModeChange: (mode: 'grid' | 'list') => void;
     aspectRatio: 'square' | 'video' | 'portrait';
     onAspectRatioChange: (ratio: 'square' | 'video' | 'portrait') => void;
+    viewDisplay: 'clean' | 'detailed';
+    onViewDisplayChange: (display: 'clean' | 'detailed') => void;
 }
 
 export const FilterBarUI: React.FC<FilterBarUIProps> = ({
@@ -36,15 +39,18 @@ export const FilterBarUI: React.FC<FilterBarUIProps> = ({
     viewMode,
     onViewModeChange,
     aspectRatio,
-    onAspectRatioChange
+    onAspectRatioChange,
+    viewDisplay,
+    onViewDisplayChange
 }) => {
     // Check if any filters are active
     const hasActiveFilters = filterConfig.likedOnly ||
         (filterConfig.type && filterConfig.type !== 'all') ||
+        (filterConfig.statuses && filterConfig.statuses.length > 0) ||
         filter !== 'all';
 
     const clearAllFilters = () => {
-        onFilterConfigChange({ likedOnly: false, type: 'all', tagId: null, status: 'all' });
+        onFilterConfigChange({ likedOnly: false, type: 'all', tagId: null, status: 'all', statuses: [] });
         onFilterChange('all');
     };
 
@@ -117,32 +123,13 @@ export const FilterBarUI: React.FC<FilterBarUIProps> = ({
                 </Button>
             </div>
 
-            {/* Status filter with clear button */}
+            {/* Status filter with multi-select */}
             <div className="flex items-center gap-1 border-r border-border pr-2 mr-2">
                 <Filter className="h-4 w-4 text-muted-foreground" />
-                <Select
-                    value={filter}
-                    onChange={(e) => onFilterChange(e.target.value as any)}
-                    className="w-[150px] h-8 text-xs"
-                >
-                    <option value="all">All Statuses</option>
-                    {STATUS_OPTIONS.map(option => (
-                        <option key={option.value} value={option.value}>
-                            {option.label}
-                        </option>
-                    ))}
-                </Select>
-                {filter !== 'all' && (
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onFilterChange('all')}
-                        className="h-8 w-6 p-0"
-                        title="Clear status filter"
-                    >
-                        <X className="h-3 w-3" />
-                    </Button>
-                )}
+                <StatusMultiSelect
+                    selectedStatuses={filterConfig.statuses || []}
+                    onStatusChange={(statuses) => onFilterConfigChange({ statuses })}
+                />
             </div>
 
             {/* Advanced Filters */}
@@ -165,25 +152,49 @@ export const FilterBarUI: React.FC<FilterBarUIProps> = ({
             {/* View Mode Switcher & Thumbnail Size */}
             <div className="flex items-center gap-2 ml-auto">
                 {viewMode === 'grid' && (
-                    <div className="flex items-center gap-2 mr-2">
-                        <Select
-                            value={aspectRatio}
-                            onChange={(e) => onAspectRatioChange(e.target.value as any)}
-                            className="w-[100px] h-8 text-xs"
-                        >
-                            <option value="square">Square</option>
-                            <option value="video">Landscape</option>
-                            <option value="portrait">Portrait</option>
-                        </Select>
-                        <Slider
-                            value={[thumbnailSize]}
-                            onValueChange={(value) => onThumbnailSizeChange(value[0])}
-                            min={150}
-                            max={400}
-                            step={50}
-                            className="w-24"
-                        />
-                    </div>
+                    <>
+                        <div className="flex items-center gap-2 mr-2">
+                            <Select
+                                value={aspectRatio}
+                                onChange={(e) => onAspectRatioChange(e.target.value as any)}
+                                className="w-[100px] h-8 text-xs"
+                            >
+                                <option value="square">Square</option>
+                                <option value="video">Landscape</option>
+                                <option value="portrait">Portrait</option>
+                            </Select>
+                            <Slider
+                                value={[thumbnailSize]}
+                                onValueChange={(value) => onThumbnailSizeChange(value[0])}
+                                min={150}
+                                max={400}
+                                step={50}
+                                className="w-24"
+                            />
+                        </div>
+
+                        {/* Clean/Detailed View Toggle */}
+                        <div className="flex items-center border rounded-md">
+                            <Button
+                                variant={viewDisplay === 'clean' ? 'default' : 'ghost'}
+                                size="sm"
+                                onClick={() => onViewDisplayChange('clean')}
+                                className="h-7 px-2 rounded-r-none"
+                                title="Clean View - Focus on images"
+                            >
+                                <EyeOff className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                                variant={viewDisplay === 'detailed' ? 'default' : 'ghost'}
+                                size="sm"
+                                onClick={() => onViewDisplayChange('detailed')}
+                                className="h-7 px-2 rounded-l-none border-l"
+                                title="Detailed View - Show status and tags"
+                            >
+                                <Eye className="h-3.5 w-3.5" />
+                            </Button>
+                        </div>
+                    </>
                 )}
 
                 <div className="flex items-center border rounded-md">
@@ -227,6 +238,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({ thumbnailSize, onThumbnail
     const setViewMode = useStore(state => state.setViewMode);
     const aspectRatio = useStore(state => state.aspectRatio);
     const setAspectRatio = useStore(state => state.setAspectRatio);
+    const viewDisplay = useStore(state => state.viewDisplay);
+    const setViewDisplay = useStore(state => state.setViewDisplay);
 
     return (
         <FilterBarUI
@@ -242,6 +255,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({ thumbnailSize, onThumbnail
             onViewModeChange={setViewMode}
             aspectRatio={aspectRatio}
             onAspectRatioChange={setAspectRatio}
+            viewDisplay={viewDisplay}
+            onViewDisplayChange={setViewDisplay}
         />
     );
 };

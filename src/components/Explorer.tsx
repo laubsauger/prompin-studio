@@ -13,6 +13,35 @@ import { AssetListItem } from './AssetListItem';
 
 const GAP = 16;
 
+const GridList = React.forwardRef<HTMLDivElement, any>(({ context, ...props }, ref) => (
+    <div
+        {...props}
+        ref={ref}
+        style={{
+            ...props.style,
+            display: 'grid',
+            gridTemplateColumns: `repeat(auto-fill, minmax(${context.thumbnailSize}px, 1fr))`,
+            gap: `${GAP}px`,
+            paddingBottom: '20px'
+        }}
+    />
+));
+
+const GridItem = (props: any) => (
+    <div {...props} style={{ ...props.style, margin: 0 }} />
+);
+
+const ListPlaceholder = (_props: { height: number; context: any }) => (
+    <div
+        style={{
+            height: '100%',
+            backgroundColor: 'hsl(var(--muted))',
+            borderRadius: 'var(--radius)',
+            opacity: 0.5
+        }}
+    />
+);
+
 export const Explorer: React.FC = () => {
     const assets = useStore(state => state.assets);
     const filter = useStore(state => state.filter);
@@ -43,7 +72,7 @@ export const Explorer: React.FC = () => {
         } else {
             loadAssets();
         }
-    }, [loadAssets, searchAssets, searchQuery, filterConfig]);
+    }, [loadAssets, searchAssets, searchQuery, filterConfig, currentPath]);
 
     // Restore scroll position when path changes
     useEffect(() => {
@@ -67,8 +96,11 @@ export const Explorer: React.FC = () => {
             result = result.filter(a => a.path.startsWith(currentPath + '/'));
         }
 
-        // 1. Filter by Status
-        if (filter !== 'all') {
+        // 1. Filter by Status (multi-select with OR logic)
+        if (filterConfig.statuses && filterConfig.statuses.length > 0) {
+            result = result.filter(a => filterConfig.statuses!.includes(a.status));
+        } else if (filter !== 'all') {
+            // Fallback to old single filter for backward compatibility
             result = result.filter(a => a.status === filter);
         }
 
@@ -85,11 +117,6 @@ export const Explorer: React.FC = () => {
         // 4. Filter by Tag
         if (filterConfig.tagId) {
             result = result.filter(a => a.tags?.some(t => t.id === filterConfig.tagId));
-        }
-
-        // 5. Filter by Status (workflow feature)
-        if (filterConfig.status && filterConfig.status !== 'all') {
-            result = result.filter(a => a.status === filterConfig.status);
         }
 
         // 6. Filter by Scratch Pad
@@ -147,24 +174,18 @@ export const Explorer: React.FC = () => {
                         style={{ height: '100%', width: '100%' }}
                         totalCount={filteredAssets.length}
                         rangeChanged={handleRangeChanged}
-                        overscan={200}
+                        overscan={3000}
+                        context={{ thumbnailSize }}
+                        computeItemKey={(index) => filteredAssets[index].id}
+                        scrollSeekConfiguration={{
+                            enter: (velocity) => Math.abs(velocity) > 200,
+                            exit: (velocity) => Math.abs(velocity) < 30,
+                            change: (_, range) => console.log('scroll seek range', range),
+                        }}
                         components={{
-                            List: React.forwardRef((props, ref) => (
-                                <div
-                                    {...props}
-                                    ref={ref}
-                                    style={{
-                                        ...(props as any).style,
-                                        display: 'grid',
-                                        gridTemplateColumns: `repeat(auto-fill, minmax(${thumbnailSize}px, 1fr))`,
-                                        gap: `${GAP}px`,
-                                        paddingBottom: '20px'
-                                    }}
-                                />
-                            )),
-                            Item: (props) => (
-                                <div {...props} style={{ ...props.style, margin: 0 }} />
-                            )
+                            List: GridList,
+                            Item: GridItem,
+                            ScrollSeekPlaceholder: ListPlaceholder
                         }}
                         itemContent={(index) => {
                             const asset = filteredAssets[index];
@@ -184,7 +205,12 @@ export const Explorer: React.FC = () => {
                         style={{ height: '100%', width: '100%' }}
                         totalCount={filteredAssets.length}
                         rangeChanged={handleRangeChanged}
-                        overscan={200}
+                        overscan={3000}
+                        computeItemKey={(index) => filteredAssets[index].id}
+                        scrollSeekConfiguration={{
+                            enter: (velocity) => Math.abs(velocity) > 200,
+                            exit: (velocity) => Math.abs(velocity) < 30,
+                        }}
                         itemContent={(index) => {
                             const asset = filteredAssets[index];
                             return (

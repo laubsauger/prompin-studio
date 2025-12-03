@@ -27,7 +27,15 @@ export const LibrarySection: React.FC<LibrarySectionProps> = ({ isOpen, onToggle
             <Button
                 variant="ghost"
                 size="sm"
-                className={cn("w-full justify-start gap-2 px-4", currentPath === null && !filterConfig.likedOnly && !filterConfig.status && "bg-accent")}
+                className={cn("w-full justify-start gap-2 px-4",
+                    currentPath === null &&
+                    !filterConfig.likedOnly &&
+                    !filterConfig.status &&
+                    !filterConfig.tagId &&
+                    !filterConfig.scratchPadId &&
+                    !filterConfig.relatedToAssetId &&
+                    "bg-accent"
+                )}
                 onClick={() => {
                     setCurrentPath(null);
                     setFilterConfig({

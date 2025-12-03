@@ -37,6 +37,7 @@ export interface FilterConfig {
     tagId?: string | null;
     scratchPadId?: string | null;
     status?: AssetStatus | 'all';
+    statuses?: AssetStatus[];  // New multi-select statuses
     authorId?: string;
     project?: string;
     scene?: string;
@@ -59,6 +60,7 @@ interface AppState {
     currentPath: string | null;
     viewMode: 'grid' | 'list';
     aspectRatio: 'square' | 'video' | 'portrait';
+    viewDisplay: 'clean' | 'detailed';
     isLoading: boolean;
     loadingMessage: string;
 
@@ -120,6 +122,7 @@ interface AppState {
     setCurrentPath: (path: string | null) => void;
     setViewMode: (mode: 'grid' | 'list') => void;
     setAspectRatio: (ratio: 'square' | 'video' | 'portrait') => void;
+    setViewDisplay: (display: 'clean' | 'detailed') => void;
     setLoading: (isLoading: boolean, message?: string) => void;
     loadAssets: () => Promise<void>;
     fetchSyncStats: () => Promise<void>;
@@ -159,7 +162,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     // New config initial state
     sortConfig: { key: 'createdAt', direction: 'desc' },
-    filterConfig: { likedOnly: false, type: 'all' },
+    filterConfig: { likedOnly: false, type: 'all', statuses: [] },
     searchQuery: '',
     folderColors: {},
     tags: [],
@@ -184,6 +187,10 @@ export const useStore = create<AppState>((set, get) => ({
     // Aspect Ratio
     aspectRatio: 'square',
     setAspectRatio: (ratio: 'square' | 'video' | 'portrait') => set({ aspectRatio: ratio }),
+
+    // View Display
+    viewDisplay: 'detailed',
+    setViewDisplay: (display: 'clean' | 'detailed') => set({ viewDisplay: display }),
 
     // New config actions
     setSortConfig: (key, direction) => set({ sortConfig: { key, direction } }),
@@ -377,8 +384,7 @@ export const useStore = create<AppState>((set, get) => ({
     setRootPath: async () => {
         const path = await getIpcRenderer().invoke('open-directory-dialog');
         if (path) {
-            await getIpcRenderer().invoke('set-root-path', path);
-            localStorage.setItem('rootPath', path);
+            // Clear assets immediately to prevent UI from requesting old assets against new root
             set({
                 rootPath: path,
                 currentPath: null,
@@ -387,6 +393,10 @@ export const useStore = create<AppState>((set, get) => ({
                 folders: [],
                 folderColors: {}
             });
+
+            await getIpcRenderer().invoke('set-root-path', path);
+            localStorage.setItem('rootPath', path);
+
             // Reload assets after setting path
             get().loadAssets();
             get().loadFolderColors();
@@ -497,7 +507,10 @@ export const useStore = create<AppState>((set, get) => ({
     },
 
     loadAssets: async () => {
-        set({ isLoading: true, loadingMessage: 'Loading assets...' });
+        // Only show loading state if we don't have assets yet (initial load)
+        if (get().assets.length === 0) {
+            set({ isLoading: true, loadingMessage: 'Loading assets...' });
+        }
         try {
             const assets = await getIpcRenderer().invoke('get-assets');
             set({ assets, isLoading: false, loadingMessage: '' });

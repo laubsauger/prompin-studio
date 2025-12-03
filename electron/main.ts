@@ -165,6 +165,7 @@ protocol.registerSchemesAsPrivileged([
 app.whenReady().then(() => {
   // Register 'media' protocol to serve local files
   // Register 'media' protocol to serve local files
+  // Register 'media' protocol to serve local files
   protocol.handle('media', async (request) => {
     let url = request.url.replace('media://', '');
     // Remove trailing slash if present
@@ -187,29 +188,33 @@ app.whenReady().then(() => {
         filePath = path.join(rootPath, decodedUrl.replace(/^\//, ''));
       }
 
-      const fileUrl = pathToFileURL(filePath).toString();
+      console.log(`[Media Protocol] Requesting file: ${filePath}`);
 
-      console.log(`[Media Protocol] Requesting: ${fileUrl}`);
-      console.log(`[Media Protocol] Headers:`, JSON.stringify(Object.fromEntries(request.headers)));
-
+      // Use fs.readFile instead of net.fetch to bypass potential Electron/Chromium network stack issues with virtual drives
+      const fs = await import('fs/promises');
       try {
-        const response = await net.fetch(fileUrl, {
-          method: request.method,
-          headers: request.headers,
-          bypassCustomProtocolHandlers: true
+        const buffer = await fs.readFile(filePath);
+
+        // Determine mime type (basic)
+        const ext = path.extname(filePath).toLowerCase();
+        let contentType = 'application/octet-stream';
+        if (ext === '.png') contentType = 'image/png';
+        else if (ext === '.jpg' || ext === '.jpeg') contentType = 'image/jpeg';
+        else if (ext === '.webp') contentType = 'image/webp';
+        else if (ext === '.gif') contentType = 'image/gif';
+        else if (ext === '.mp4') contentType = 'video/mp4';
+        else if (ext === '.webm') contentType = 'video/webm';
+
+        return new Response(buffer, {
+          headers: { 'Content-Type': contentType }
         });
-
-        console.log(`[Media Protocol] Response status: ${response.status}`);
-        console.log(`[Media Protocol] Response headers:`, JSON.stringify(Object.fromEntries(response.headers)));
-
-        return response;
       } catch (error) {
-        console.error(`[Media Protocol] Error fetching ${fileUrl}:`, error);
-        throw error;
+        console.error(`[Media Protocol] Error reading file ${filePath}:`, error);
+        return new Response('File not found', { status: 404 });
       }
     } catch (error) {
       console.error('[Media Protocol] Error:', error);
-      return new Response('File not found', { status: 404 });
+      return new Response('Internal Server Error', { status: 500 });
     }
   });
 
@@ -277,6 +282,7 @@ ipcMain.handle('show-confirm-dialog', async (event, options) => {
 
 ipcMain.handle('set-root-path', async (event, path) => {
   console.log('[Main] set-root-path called with:', path);
+  console.log('[Main] DEBUG: forcing update check');
   indexerService.setRootPath(path);
   return true;
 });

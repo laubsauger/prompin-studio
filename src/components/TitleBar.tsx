@@ -11,7 +11,7 @@ import { Logo } from './Logo';
 import { SearchPalette } from './SearchPalette';
 
 export const TitleBar: React.FC = () => {
-    const { setRootPath, syncStats, fetchSyncStats, triggerResync } = useStore();
+    const { setRootPath, syncStats, fetchSyncStats, triggerResync, currentPath } = useStore();
     const { setSettingsOpen, rootFolder } = useSettingsStore();
 
     React.useEffect(() => {
@@ -29,11 +29,17 @@ export const TitleBar: React.FC = () => {
                 <div className="flex items-center gap-2">
                     <Logo className="w-4 h-4" />
                     <span className="text-foreground">Prompin' Studio</span>
+                    <div className="h-4 w-[1px] bg-border mx-2" />
                     {rootFolder && (
-                        <>
-                            <span className="opacity-50">/</span>
-                            <span className="truncate max-w-[200px]">{rootFolder.split('/').pop()}</span>
-                        </>
+                        <div className="flex items-center gap-1 text-xs">
+                            <span className="opacity-70">{rootFolder}</span>
+                            {currentPath && (
+                                <>
+                                    <span className="opacity-50">/</span>
+                                    <span className="text-foreground">{currentPath}</span>
+                                </>
+                            )}
+                        </div>
                     )}
                 </div>
             </div>

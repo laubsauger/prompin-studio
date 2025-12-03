@@ -73,12 +73,21 @@ export class IndexerService {
     }
 
     async setRootPath(rootPath: string) {
-        this.rootPath = rootPath;
+        // Resolve the real path to handle symlinks/shortcuts (crucial for Google Drive)
+        try {
+            this.rootPath = await fs.realpath(rootPath);
+            console.log(`[IndexerService] Resolved root path: ${rootPath} -> ${this.rootPath}`);
+        } catch (error) {
+            console.warn(`[IndexerService] Failed to resolve real path for ${rootPath}, using original. Error:`, error);
+            this.rootPath = rootPath;
+        }
+
         if (this.watcher) {
             await this.watcher.close();
         }
 
-        console.log(`Starting watcher on ${rootPath}`);
+        console.log(`Starting watcher on ${this.rootPath}`);
+
         this.stats.status = 'scanning';
 
         // Reset stats for fresh count
@@ -90,12 +99,26 @@ export class IndexerService {
         this.stats.errors = [];
         this.stats.filesByType = { images: 0, videos: 0, other: 0 };
 
-        this.watcher = watch(rootPath, {
+        // Manual recursive scan to ensure we find files even if chokidar fails on network drives
+        console.log('[IndexerService] Starting manual recursive scan...');
+        this.scanDirectory(this.rootPath).then(() => {
+            console.log('[IndexerService] Manual scan complete.');
+            this.stats.status = 'idle';
+            this.stats.lastSync = Date.now();
+        }).catch(err => {
+            console.error('[IndexerService] Manual scan failed:', err);
+            this.stats.status = 'idle';
+        });
+
+        this.watcher = watch(this.rootPath, {
             ignored: /(^|[\/\\])\../, // ignore dotfiles
             persistent: true,
-            ignoreInitial: false,
+            ignoreInitial: true, // We are doing manual scan, so ignore initial to avoid duplicates/race conditions
             depth: 99,
             followSymlinks: true, // Important for Google Drive and shortcuts
+            usePolling: true, // Force polling for network/virtual drives
+            interval: 2000, // Slower polling to reduce CPU
+            binaryInterval: 2000,
             awaitWriteFinish: {
                 stabilityThreshold: 2000,
                 pollInterval: 100
@@ -104,6 +127,7 @@ export class IndexerService {
 
         this.watcher
             .on('add', (path: string) => {
+                // console.log(`[Watcher] File added: ${path}`);
                 this.stats.totalFiles++;
                 this.handleFileAdd(path);
             })
@@ -121,13 +145,47 @@ export class IndexerService {
                 this.handleFileRemove(path);
             })
             .on('ready', () => {
-                this.stats.status = 'idle';
-                this.stats.lastSync = Date.now();
-                console.log('Initial scan complete. Total files:', this.stats.totalFiles, 'Total folders:', this.stats.totalFolders);
+                console.log('Watcher ready.');
             });
 
         // Immediately re-home existing assets to the new root path
-        this.rehomeAssets(rootPath);
+        this.rehomeAssets(this.rootPath);
+    }
+
+    private async scanDirectory(dirPath: string) {
+        try {
+            const entries = await fs.readdir(dirPath, { withFileTypes: true });
+            for (const entry of entries) {
+                const fullPath = path.join(dirPath, entry.name);
+                if (entry.name.startsWith('.')) continue; // Skip dotfiles
+
+                if (entry.isDirectory()) {
+                    this.stats.totalFolders = (this.stats.totalFolders || 0) + 1;
+                    // console.log(`[Manual Scan] Found folder: ${fullPath}`);
+                    await this.scanDirectory(fullPath);
+                } else if (entry.isFile()) {
+                    this.stats.totalFiles++;
+                    await this.handleFileAdd(fullPath);
+                } else if (entry.isSymbolicLink()) {
+                    // Follow symlinks manually if needed, but be careful of loops
+                    // For now, let's try to resolve it
+                    try {
+                        const realPath = await fs.realpath(fullPath);
+                        const stat = await fs.stat(realPath);
+                        if (stat.isDirectory()) {
+                            await this.scanDirectory(realPath);
+                        } else if (stat.isFile()) {
+                            this.stats.totalFiles++;
+                            await this.handleFileAdd(realPath);
+                        }
+                    } catch (e) {
+                        console.warn(`[Manual Scan] Failed to resolve symlink ${fullPath}:`, e);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error(`[Manual Scan] Error scanning directory ${dirPath}:`, error);
+        }
     }
 
     private rehomeAssets(newRootPath: string) {
@@ -320,7 +378,10 @@ export class IndexerService {
     }
 
     private async handleFileAdd(filePath: string) {
-        if (!this.isMediaFile(filePath)) return;
+        if (!this.isMediaFile(filePath)) {
+            console.log(`[IndexerService] Skipped non-media file: ${filePath}`);
+            return;
+        }
 
         const relativePath = path.relative(this.rootPath, filePath);
 
