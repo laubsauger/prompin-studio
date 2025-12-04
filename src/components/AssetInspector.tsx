@@ -163,7 +163,7 @@ export function AssetInspector() {
             {/* Header with preview */}
             <div className="border-b border-border flex-shrink-0 bg-card z-10">
               {/* Asset Preview - Reusing AssetMediaPreview */}
-              <div className="relative bg-muted/30 aspect-video group">
+              <div className="relative bg-black/90 aspect-video group">
                 <AssetMediaPreview
                   asset={asset}
                   showControls={true}
@@ -213,34 +213,6 @@ export function AssetInspector() {
                   </div>
                 </div>
 
-                {/* Key Metadata Inline Edit */}
-                <div className="grid grid-cols-2 gap-x-4 gap-y-2 mb-3">
-                  <InlineEdit
-                    label="Author"
-                    value={asset.metadata.authorId || ''}
-                    onSave={(val) => handleInlineSave('authorId', val)}
-                    placeholder="Add author"
-                  />
-                  <InlineEdit
-                    label="Project"
-                    value={asset.metadata.project || ''}
-                    onSave={(val) => handleInlineSave('project', val)}
-                    placeholder="Add project"
-                  />
-                  <InlineEdit
-                    label="Scene"
-                    value={asset.metadata.scene || ''}
-                    onSave={(val) => handleInlineSave('scene', val)}
-                    placeholder="Add scene"
-                  />
-                  <InlineEdit
-                    label="Shot"
-                    value={asset.metadata.shot || ''}
-                    onSave={(val) => handleInlineSave('shot', val)}
-                    placeholder="Add shot"
-                  />
-                </div>
-
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
                   {asset.metadata?.fileSize && (
                     <span>{formatFileSize(asset.metadata.fileSize)}</span>
@@ -255,6 +227,42 @@ export function AssetInspector() {
             {/* Scrollable content area */}
             <div className="flex-1 overflow-y-auto min-h-0">
               <div className="py-2 pb-10">
+
+                {/* Details Section */}
+                <SidebarSection
+                  title="Details"
+                  isOpen={isDetailsOpen}
+                  onToggle={() => setIsDetailsOpen(!isDetailsOpen)}
+                >
+                  <div className="px-4 py-2">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                      <InlineEdit
+                        label="Author"
+                        value={asset.metadata.authorId || ''}
+                        onSave={(val) => handleInlineSave('authorId', val)}
+                        placeholder="Add author"
+                      />
+                      <InlineEdit
+                        label="Project"
+                        value={asset.metadata.project || ''}
+                        onSave={(val) => handleInlineSave('project', val)}
+                        placeholder="Add project"
+                      />
+                      <InlineEdit
+                        label="Scene"
+                        value={asset.metadata.scene || ''}
+                        onSave={(val) => handleInlineSave('scene', val)}
+                        placeholder="Add scene"
+                      />
+                      <InlineEdit
+                        label="Shot"
+                        value={asset.metadata.shot || ''}
+                        onSave={(val) => handleInlineSave('shot', val)}
+                        placeholder="Add shot"
+                      />
+                    </div>
+                  </div>
+                </SidebarSection>
 
                 {/* Input Assets (Lineage) */}
                 <SidebarSection

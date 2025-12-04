@@ -1,5 +1,7 @@
-import { app, BrowserWindow, ipcMain, Menu, shell, dialog, protocol, net } from 'electron';
+import electron, { BrowserWindow as BrowserWindowType } from 'electron';
 import path from 'path';
+
+const { app, BrowserWindow, ipcMain, Menu, shell, dialog, protocol, net } = electron;
 import { fileURLToPath, pathToFileURL } from 'url';
 import { indexerService } from './services/IndexerService.js';
 import { searchService } from './services/SearchService.js';
@@ -18,7 +20,7 @@ export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist');
 
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 'public') : RENDERER_DIST;
 
-let win: BrowserWindow | null;
+let win: BrowserWindowType | null;
 
 function createWindow() {
   const isMac = process.platform === 'darwin';

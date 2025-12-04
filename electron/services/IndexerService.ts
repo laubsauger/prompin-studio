@@ -2,8 +2,10 @@ import path from 'path';
 import fs from 'fs/promises';
 import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
-import { app, BrowserWindow } from 'electron';
+import electron, { BrowserWindow as BrowserWindowType } from 'electron';
 import db, { vectorSearchEnabled } from '../db.js';
+
+const { app, BrowserWindow } = electron;
 import { Asset, SyncStats, AssetMetadata } from '../../src/types.js';
 // @ts-ignore
 import ffmpeg from 'fluent-ffmpeg';
@@ -54,7 +56,7 @@ setupFfmpeg();
 export class IndexerService {
     private rootPath: string = '';
     private thumbnailCachePath: string;
-    private mainWindow: BrowserWindow | null = null;
+    private mainWindow: BrowserWindowType | null = null;
 
     private scanner: Scanner;
     private watcher: Watcher;
@@ -142,7 +144,7 @@ export class IndexerService {
 
 
 
-    public setMainWindow(window: BrowserWindow) {
+    public setMainWindow(window: BrowserWindowType) {
         this.mainWindow = window;
     }
 

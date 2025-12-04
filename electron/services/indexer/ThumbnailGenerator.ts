@@ -3,7 +3,9 @@ import ffmpeg from 'fluent-ffmpeg';
 import path from 'path';
 import fs from 'fs/promises';
 import { Asset } from '../../../src/types.js';
-import { app, nativeImage } from 'electron';
+import electron from 'electron';
+
+const { app, nativeImage } = electron;
 
 export interface ThumbnailProgress {
     current: number;

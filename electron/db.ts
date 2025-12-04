@@ -1,7 +1,9 @@
 import Database from 'better-sqlite3';
 import path from 'path';
-import { app } from 'electron';
+import electron from 'electron';
 import * as sqliteVec from 'sqlite-vec';
+
+const { app } = electron;
 
 const dbPath = path.join(app.getPath('userData'), 'prompin-studio.db');
 const db = new Database(dbPath);

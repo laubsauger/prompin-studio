@@ -1,8 +1,10 @@
 
 import { env, RawImage, AutoTokenizer, AutoProcessor, CLIPVisionModelWithProjection, CLIPTextModelWithProjection } from '@xenova/transformers';
-import { app, nativeImage } from 'electron';
+import electron from 'electron';
 import path from 'path';
 import fs from 'fs/promises';
+
+const { app, nativeImage } = electron;
 
 // Configure cache directory for models
 // We use a dedicated directory in userData to ensure persistence and access

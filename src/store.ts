@@ -515,6 +515,9 @@ export const useStore = create<AppState>((set, get) => ({
             console.error('Failed to load lastInboxViewTime', e);
         }
 
+        // Fetch sync stats immediately to show counts on loading screen
+        await get().fetchSyncStats();
+
         // Initial data loads
         await get().loadAssets();
         await get().loadTags();
