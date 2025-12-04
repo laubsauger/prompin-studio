@@ -10,7 +10,7 @@ describe('Scanner', () => {
     let tempDir: string;
 
     beforeEach(async () => {
-        tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gen-studio-scanner-test-'));
+        tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'prompin-studio-scanner-test-'));
         scanner = new Scanner((filePath: string) => {
             const ext = path.extname(filePath).toLowerCase();
             return ['.jpg', '.png', '.txt'].includes(ext); // Allow .txt for testing
@@ -38,7 +38,7 @@ describe('Scanner', () => {
 
     it('should handle symlinks by reporting them as files within the root', async () => {
         // Create a file OUTSIDE the root
-        const outsideDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gen-studio-outside-'));
+        const outsideDir = await fs.mkdtemp(path.join(os.tmpdir(), 'prompin-studio-outside-'));
         const outsideFile = path.join(outsideDir, 'outside.jpg');
         await fs.writeFile(outsideFile, 'outside content');
 

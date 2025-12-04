@@ -49,8 +49,8 @@ export const useSettingsStore = create<SettingsState>()(
             })),
             getScrollPosition: (path) => get().scrollPositions[path] || 0,
             resetSettings: () => {
-                localStorage.removeItem('gen-studio-settings');
-                localStorage.removeItem('gen-studio-storage'); // Clear main store too if needed
+                localStorage.removeItem('prompin-studio-settings');
+                localStorage.removeItem('prompin-studio-storage'); // Clear main store too if needed
                 set({
                     theme: 'system',
                     defaultView: 'grid',
@@ -66,7 +66,7 @@ export const useSettingsStore = create<SettingsState>()(
             },
         }),
         {
-            name: 'gen-studio-settings',
+            name: 'prompin-studio-settings',
         }
     )
 );

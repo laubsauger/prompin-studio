@@ -20,11 +20,17 @@ Prompin Studio is a desktop application built with **Electron**, **React**, and 
 ### 2. Indexer Service (`electron/services/IndexerService.ts`)
 - The "brain" of the backend.
 - **File Watching**: Uses `chokidar` to watch the root directory for file changes.
-- **Database**: Manages a SQLite database (`gen-studio.db`) to store asset metadata, tags, and comments.
 - **Thumbnail Generation**: Generates thumbnails for images and videos using `ffmpeg`.
 - **Search & Filtering**: Executes SQL queries to filter and sort assets.
 
-### 3. Renderer Process (Frontend)
+### 3. Data Storage
+- **SQLite Database**: Stores asset metadata, tags, and embeddings.
+    - Location: `userData/prompin-studio.db`
+    - Extensions: `sqlite-vec` for vector search.
+- **Sync Folder**: Stores event logs for multiplayer.
+    - Location: `ProjectRoot/.prompin-studio/events/`
+
+### 4. Renderer Process (Frontend)
 - **Store (`src/store.ts`)**: Global state management using `zustand`. Handles assets, selection, filters, and UI state. Acts as the bridge between UI components and the backend via IPC.
 - **Components**:
     - `Explorer`: Main grid view of assets.

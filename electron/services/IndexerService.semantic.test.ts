@@ -8,8 +8,16 @@ import os from 'os';
 // Mock electron
 vi.mock('electron', () => ({
     app: {
-        getPath: vi.fn(() => '/tmp/gen-studio-test'),
+        getPath: vi.fn(() => '/tmp/prompin-studio-test'),
     },
+}));
+
+// Mock EmbeddingService
+vi.mock('./indexer/EmbeddingService.js', () => ({
+    embeddingService: {
+        generateEmbedding: vi.fn().mockResolvedValue(new Array(512).fill(0.1)),
+        init: vi.fn().mockResolvedValue(undefined)
+    }
 }));
 
 // Mock the DB module with vector support
@@ -45,10 +53,25 @@ vi.mock('../db', () => {
                 return {
                     all: (params: any) => {
                         // Return mock results
-                        // We can just return a fixed list of matches for testing
+                        // We need to return objects that look like assets (joined)
+                        // The query selects a.*, m.distance
                         return [
-                            { rowid: 1, distance: 0.1 },
-                            { rowid: 2, distance: 0.2 }
+                            {
+                                id: '1',
+                                rowid: 1,
+                                distance: 0.1,
+                                metadata: JSON.stringify({ name: 'Asset 1' }),
+                                type: 'image',
+                                path: 'test.jpg'
+                            },
+                            {
+                                id: '2',
+                                rowid: 2,
+                                distance: 0.2,
+                                metadata: JSON.stringify({ name: 'Asset 2' }),
+                                type: 'image',
+                                path: 'test2.jpg'
+                            }
                         ];
                     }
                 };
@@ -122,7 +145,7 @@ describe('IndexerService Semantic Search', () => {
     let tempDir: string;
 
     beforeEach(async () => {
-        tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gen-studio-test-semantic-'));
+        tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'prompin-studio-test-semantic-'));
         service = new IndexerService();
     });
 
@@ -156,6 +179,27 @@ describe('IndexerService Semantic Search', () => {
         // it might return 0 or 1 depending on rowid matching.
         // Let's just verify it runs without error for now.
         expect(results).toBeDefined();
+
+        // Verify that generateEmbedding was called (likely during indexing, not search)
+        // Wait, searchAssets('test') generates embedding for 'test' query.
+        // But we also want to verify indexing used the image path.
+
+        // Let's import the mocked service to check calls
+        const { embeddingService } = await import('./indexer/EmbeddingService.js');
+        // The first call should be for the file during indexing
+        // The second call is for the search query 'test'
+
+        // Note: indexing happens asynchronously in the background after setRootPath -> scan -> index
+        // We waited 500ms, hopefully enough.
+
+        // Check if any call was with the file path
+        const calls = (embeddingService.generateEmbedding as any).mock.calls;
+        const fileCall = calls.find((args: any[]) => args[0].endsWith('test.jpg'));
+        expect(fileCall).toBeDefined();
+
+        // Check if generateEmbedding was called for the search query 'test'
+        const queryCall = calls.find((args: any[]) => args[0] === 'test');
+        expect(queryCall).toBeDefined();
     });
 
     it('should filter by related asset', async () => {

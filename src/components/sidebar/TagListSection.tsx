@@ -38,29 +38,15 @@ export const TagListSection: React.FC<TagListSectionProps> = ({ isOpen, onToggle
                         <div
                             key={tag.id}
                             className={cn(
-                                "flex items-center w-full hover:bg-accent/50 group pr-2",
+                                "flex items-center w-full hover:bg-accent/50 group",
                                 filterConfig.tagId === tag.id && "bg-accent text-accent-foreground",
                                 count === 0 && "opacity-50"
                             )}
                         >
                             <Button
                                 variant="ghost"
-                                size="sm"
-                                className="flex-1 justify-start gap-2 h-7 px-4 hover:bg-transparent min-w-0"
-                                onClick={() => {
-                                    setFilterConfig({
-                                        tagId: filterConfig.tagId === tag.id ? null : tag.id
-                                    });
-                                }}
-                            >
-                                <Tag className="h-3 w-3 shrink-0" style={{ color: tag.color || 'currentColor' }} />
-                                <span className="flex-1 text-left text-xs truncate min-w-0">{tag.name}</span>
-                                <span className="text-[10px] text-muted-foreground opacity-70 shrink-0">{count}</span>
-                            </Button>
-                            <Button
-                                variant="ghost"
                                 size="icon"
-                                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity ml-1"
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     if (confirm(`Delete tag "${tag.name}"?`)) {
@@ -69,6 +55,20 @@ export const TagListSection: React.FC<TagListSectionProps> = ({ isOpen, onToggle
                                 }}
                             >
                                 <Trash2 size={12} className="text-destructive" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="flex-1 justify-start gap-2 h-7 px-2 hover:bg-transparent min-w-0"
+                                onClick={() => {
+                                    setFilterConfig({
+                                        tagId: filterConfig.tagId === tag.id ? null : tag.id
+                                    });
+                                }}
+                            >
+                                <Tag className="h-3 w-3 shrink-0" style={{ color: tag.color || 'currentColor' }} />
+                                <span className="flex-1 text-left text-xs truncate min-w-0">{tag.name}</span>
+                                <span className="text-[10px] text-muted-foreground opacity-70 shrink-0 pr-2">{count}</span>
                             </Button>
                         </div>
                     );

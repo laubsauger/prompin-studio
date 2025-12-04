@@ -81,14 +81,24 @@ export const LibrarySection: React.FC<LibrarySectionProps> = ({ isOpen, onToggle
             <Button
                 variant="ghost"
                 size="sm"
-                className={cn("w-full justify-start gap-2 px-4", filterConfig.likedOnly && "bg-accent")}
-                onClick={() => setFilterConfig({
-                    likedOnly: true,
-                    status: undefined,
-                    relatedToAssetId: undefined,
-                    tagId: undefined,
-                    scratchPadId: undefined
-                })}
+                className={cn("w-full justify-start gap-2 px-4",
+                    filterConfig.likedOnly &&
+                    currentPath === null &&
+                    !filterConfig.tagId &&
+                    !filterConfig.scratchPadId &&
+                    !filterConfig.status &&
+                    "bg-accent"
+                )}
+                onClick={() => {
+                    setCurrentPath(null);
+                    setFilterConfig({
+                        likedOnly: true,
+                        status: undefined,
+                        relatedToAssetId: undefined,
+                        tagId: undefined,
+                        scratchPadId: undefined
+                    });
+                }}
             >
                 <Star className="h-4 w-4 shrink-0" />
                 <span className="flex-1 text-left truncate min-w-0">Favorites</span>

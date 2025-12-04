@@ -18,7 +18,7 @@ export const TitleBar: React.FC = () => {
 
     useEffect(() => {
         fetchSyncStats();
-        const interval = setInterval(fetchSyncStats, 5000);
+        const interval = setInterval(fetchSyncStats, 1000); // Poll every second for responsive updates
         return () => clearInterval(interval);
     }, [fetchSyncStats]);
 
@@ -29,7 +29,22 @@ export const TitleBar: React.FC = () => {
     }, []);
 
     const isSyncing = syncStats?.status !== 'idle';
-    const progress = syncStats && syncStats.totalFiles > 0 ? (syncStats.processedFiles / syncStats.totalFiles) * 100 : 0;
+    const isIndexing = syncStats?.status === 'indexing';
+    const hasBackgroundTask = !!syncStats?.backgroundTask;
+    const isActive = isSyncing || isIndexing || hasBackgroundTask;
+
+    // Calculate progress based on current activity
+    let progress = 0;
+    if (syncStats) {
+        if (hasBackgroundTask && syncStats.backgroundTask?.progress) {
+            progress = syncStats.backgroundTask.progress;
+        } else if (isIndexing && syncStats.embeddingProgress) {
+            progress = (syncStats.embeddingProgress.current / syncStats.embeddingProgress.total) * 100;
+        } else if (syncStats.totalFiles > 0) {
+            progress = (syncStats.processedFiles / syncStats.totalFiles) * 100;
+        }
+    }
+
     const hasErrors = syncStats?.errors && syncStats.errors.length > 0;
     const hasThumbnailFailures = (syncStats?.thumbnailsFailed || 0) > 0;
     const hasIssues = hasErrors || hasThumbnailFailures;
@@ -70,21 +85,39 @@ export const TitleBar: React.FC = () => {
                         <HoverCardTrigger asChild>
                             <div className="flex items-center gap-3 text-xs text-muted-foreground cursor-help">
                                 <div className="flex items-center gap-2 shrink-0">
-                                    {isSyncing ? (
+                                    {isActive ? (
                                         <Loader2 className="h-3 w-3 animate-spin text-primary" />
                                     ) : hasIssues ? (
                                         <AlertCircle className="h-3 w-3 text-yellow-500" />
                                     ) : (
                                         <CheckCircle2 className="h-3 w-3 text-green-500" />
                                     )}
-                                    <span className="whitespace-nowrap">{isSyncing ? 'Syncing...' : 'Ready'}</span>
+                                    <span className="whitespace-nowrap">
+                                        {hasBackgroundTask && syncStats.backgroundTask ?
+                                            syncStats.backgroundTask.name :
+                                            isIndexing ? 'Indexing...' :
+                                            isSyncing ? 'Syncing...' :
+                                            'Ready'}
+                                    </span>
                                 </div>
                                 {showItemCount && (
                                     <div className="flex items-center gap-2 shrink-0">
-                                        <span className="whitespace-nowrap">{syncStats.processedFiles} / {syncStats.totalFiles}</span>
-                                        {isSyncing && (
+                                        <span className="whitespace-nowrap">
+                                            {isIndexing && syncStats.embeddingProgress ?
+                                                `${syncStats.embeddingProgress.current} / ${syncStats.embeddingProgress.total}` :
+                                                `${syncStats.processedFiles} / ${syncStats.totalFiles}`}
+                                        </span>
+                                        {isActive && (
                                             <div className="w-16 h-1 bg-secondary rounded-full overflow-hidden">
-                                                <div className="h-full bg-primary transition-all duration-300" style={{ width: `${progress}%` }} />
+                                                <div
+                                                    className={cn(
+                                                        "h-full transition-all duration-300",
+                                                        isIndexing ? "bg-purple-500" :
+                                                        hasBackgroundTask ? "bg-blue-500" :
+                                                        "bg-primary"
+                                                    )}
+                                                    style={{ width: `${progress}%` }}
+                                                />
                                             </div>
                                         )}
                                     </div>
@@ -97,10 +130,10 @@ export const TitleBar: React.FC = () => {
                                         e.stopPropagation();
                                         triggerResync();
                                     }}
-                                    disabled={isSyncing}
+                                    disabled={isActive}
                                     title="Resync"
                                 >
-                                    <RefreshCw className={cn("h-3 w-3", isSyncing && "animate-spin")} />
+                                    <RefreshCw className={cn("h-3 w-3", isActive && "animate-spin")} />
                                 </Button>
                             </div>
                         </HoverCardTrigger>

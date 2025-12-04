@@ -1,7 +1,7 @@
 import React from 'react';
 import { useStore, type FilterConfig } from '../store';
 import { SelectWithIcon } from './ui/select-with-icon';
-import { ArrowUpDown, LayoutGrid, List, ArrowUp, ArrowDown, X, RotateCcw, Eye, EyeOff, Square, RectangleHorizontal, RectangleVertical, FileType } from 'lucide-react';
+import { ArrowUpDown, LayoutGrid, List, ArrowUp, ArrowDown, X, RotateCcw, Eye, EyeOff, Square, RectangleHorizontal, RectangleVertical, FileType, Heart } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Button } from './ui/button';
 import { Slider } from './ui/slider';
@@ -91,6 +91,17 @@ export const FilterBarUI: React.FC<FilterBarUIProps> = ({
                     </Button>
                 )}
             </div>
+
+            {/* Liked Only Filter */}
+            <Button
+                variant={filterConfig.likedOnly ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => onFilterConfigChange({ likedOnly: !filterConfig.likedOnly })}
+                className={cn("h-8 w-8 p-0 ml-1", filterConfig.likedOnly && "bg-red-500 hover:bg-red-600 text-white")}
+                title={filterConfig.likedOnly ? "Show all" : "Show liked only"}
+            >
+                <Heart className={cn("h-4 w-4", filterConfig.likedOnly && "fill-current")} />
+            </Button>
 
             {/* Status filter with multi-select */}
             <StatusMultiSelect

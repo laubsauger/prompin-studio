@@ -191,5 +191,22 @@ export class AssetManager {
         }
     }
 
+    public deleteAsset(id: string) {
+        const row = db.prepare('SELECT rowid FROM assets WHERE id = ?').get(id) as { rowid: number | bigint };
+        if (row) {
+            const rowId = BigInt(row.rowid);
+
+            // Delete from FTS and Vector tables using rowid
+            db.prepare('DELETE FROM assets_fts WHERE rowid = ?').run(rowId);
+            db.prepare('DELETE FROM vec_assets WHERE rowid = ?').run(rowId);
+
+            // Delete from tags
+            db.prepare('DELETE FROM asset_tags WHERE assetId = ?').run(id);
+
+            // Delete from main table
+            db.prepare('DELETE FROM assets WHERE id = ?').run(id);
+        }
+    }
+
     // ... searchAssets implementation would go here (omitted for brevity, can be copied from IndexerService if needed or kept in IndexerService for now)
 }

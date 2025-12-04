@@ -3,7 +3,7 @@ import path from 'path';
 import { app } from 'electron';
 import * as sqliteVec from 'sqlite-vec';
 
-const dbPath = path.join(app.getPath('userData'), 'gen-studio.db');
+const dbPath = path.join(app.getPath('userData'), 'prompin-studio.db');
 const db = new Database(dbPath);
 
 // Load sqlite-vec extension
@@ -111,8 +111,9 @@ if (vectorSearchEnabled) {
   try {
     db.exec(`
       -- Vector search virtual table (sqlite-vec)
+      -- CLIP uses 512 dimensions
       CREATE VIRTUAL TABLE IF NOT EXISTS vec_assets USING vec0(
-        embedding float[384]
+        embedding float[512]
       );
 
       -- Create Vec delete trigger
@@ -120,6 +121,34 @@ if (vectorSearchEnabled) {
         DELETE FROM vec_assets WHERE rowid = old.rowid;
       END;
     `);
+
+    // Check if we need to migrate dimensions (e.g. from 384 to 512)
+    // We can't easily check dimensions in sqlite-vec yet, so we'll just try to insert a dummy 512 vector
+    // If it fails, we drop and recreate.
+    // Actually, simpler: if we are switching models, we should probably just clear the vector table
+    // to force re-indexing.
+    // For now, let's assume if the table exists it might be wrong.
+    // A safer way is to check if we can select from it.
+    // Let's just drop and recreate if we suspect a version change, but that's destructive.
+    // Better: Try to insert a dummy row in a transaction and rollback.
+    // If it fails, drop table.
+
+    // For this specific migration (MiniLM 384 -> CLIP 512), we know we need to change it.
+    // We'll use a marker file or just try-catch a check? 
+    // Let's just drop the table if it was created with 384. 
+    // Since we can't inspect schema easily for virtual tables, we'll rely on a "reindex required" flag or just force it for this update.
+    // Let's force drop if we detect the old model's dimension.
+
+    // Actually, let's just DROP TABLE IF EXISTS vec_assets_old; and rename? No, virtual tables are tricky.
+    // Let's just try to query a vector. If we get 384 dims back, we know.
+    // But we can't query if empty.
+
+    // Simplest approach for this task:
+    // We are changing the schema definition above. If the table already exists with 384, 
+    // the CREATE IF NOT EXISTS won't do anything, but subsequent inserts will fail.
+    // So we should explicitly DROP the table if we think it's the old one.
+    // Let's add a migration block specifically for this.
+
   } catch (e) {
     console.error('[DB] Failed to initialize Vector tables:', e);
   }
@@ -138,6 +167,107 @@ try {
   db.exec('CREATE INDEX IF NOT EXISTS idx_assets_rootPath ON assets(rootPath)');
 } catch (e) {
   // Column likely missing, migration will handle it
+}
+
+// Migration for Vector Table Dimension Change (384 -> 512)
+if (vectorSearchEnabled) {
+  try {
+    // We can't easily check the dimension of an existing virtual table.
+    // However, since we are switching models, we MUST invalidate existing embeddings.
+    // The cleanest way is to drop the table and let it be recreated by the initialization logic on next run
+    // OR just do it right here.
+    // Since we already ran the CREATE IF NOT EXISTS above, if the table existed with 384, it's still 384.
+    // We need to detect this.
+
+    // Hack: Try to insert a 512-dim vector into a temp row. If it fails, we know we have the wrong schema.
+    // But we can't easily insert without a rowid match in assets? vec0 doesn't enforce FKs strictly but we need a rowid.
+
+    // Alternative: We just force a drop-and-recreate for this version update.
+    // We can check a "schema_version" table, but we don't have one.
+
+    // Let's just try to drop the table if it exists and we assume it might be old.
+    // But we don't want to drop it every time.
+
+    // Let's check if we can find out the dimension.
+    // sqlite-vec doesn't expose it easily in metadata.
+
+    // Let's use a specific marker or just rely on the fact that we are changing the code.
+    // We will run a one-time migration based on a check.
+
+    // Let's try to run a query that would fail on 384 dims.
+    // Actually, let's just be safe and DROP the table if we can't verify it's 512.
+    // Since we are dev-ing, let's just DROP it to be sure.
+    // In production, we'd want a version flag.
+
+    // For now, I'll add a check:
+    // If we can't insert a 512 vector, drop and recreate.
+
+    /* 
+       NOTE: Since we can't easily detect, and we want to force re-indexing for CLIP,
+       we will DROP the table if it exists. 
+       BUT we need to make sure we don't do this on every startup.
+       
+       Let's use a flag in the `folders` table metadata or a new `settings` table?
+       Or just check if `vec_assets` accepts 512.
+    */
+
+    // Let's try to create a test table with 512.
+    // Actually, let's just run this:
+    // db.exec("DROP TABLE IF EXISTS vec_assets"); 
+    // But only once? 
+
+    // Let's assume the user is okay with a re-index this one time.
+    // I will add a check: select count(*) from vec_assets. If > 0, we might want to check a row.
+    // If 0, we can drop safely.
+
+    // Let's just drop it. It's safer for the model switch.
+    // To prevent loop, we need to know if we already migrated.
+    // Let's check if `assets` table has a specific marker? No.
+
+    // Let's just try to ALTER? sqlite-vec doesn't support ALTER.
+
+    // OK, I will add a try-catch block that attempts to insert a dummy 512 vector (if we have any asset).
+    // If it fails, we drop the table and recreate it.
+
+    const hasAssets = db.prepare("SELECT rowid FROM assets LIMIT 1").get() as { rowid: number };
+    if (hasAssets) {
+      try {
+        // Try to insert a 512-dim zero vector for an existing rowid
+        // This is just a test, we rollback immediately
+        const zeros = new Float32Array(512).fill(0);
+        const stmt = db.prepare("INSERT INTO vec_assets(rowid, embedding) VALUES (?, ?)");
+
+        db.transaction(() => {
+          stmt.run(hasAssets.rowid, zeros);
+          throw new Error("ROLLBACK"); // Force rollback
+        })();
+      } catch (e: any) {
+        if (e.message === "ROLLBACK") {
+          // It worked! Table supports 512.
+        } else {
+          // It failed (likely due to dimension mismatch), so we need to migrate
+          console.log('[DB] Vector table dimension mismatch detected. Recreating for CLIP (512 dims)...');
+          db.exec("DROP TABLE IF EXISTS vec_assets");
+          db.exec(`
+                  CREATE VIRTUAL TABLE IF NOT EXISTS vec_assets USING vec0(
+                    embedding float[512]
+                  );
+                `);
+        }
+      }
+    } else {
+      // No assets, safe to drop and recreate to be sure
+      db.exec("DROP TABLE IF EXISTS vec_assets");
+      db.exec(`
+            CREATE VIRTUAL TABLE IF NOT EXISTS vec_assets USING vec0(
+            embedding float[512]
+            );
+        `);
+    }
+
+  } catch (e) {
+    console.warn('[DB] Vector migration check failed:', e);
+  }
 }
 
 console.log('[DB] Initializing Database...');

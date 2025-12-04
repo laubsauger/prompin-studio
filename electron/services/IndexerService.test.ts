@@ -9,7 +9,7 @@ import db from '../db.js';
 // Mock electron
 vi.mock('electron', () => ({
     app: {
-        getPath: vi.fn(() => '/tmp/gen-studio-test'),
+        getPath: vi.fn(() => '/tmp/prompin-studio-test'),
     },
 }));
 
@@ -60,7 +60,7 @@ describe('IndexerService Integration', () => {
     let tempDir: string;
 
     beforeEach(async () => {
-        tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gen-studio-test-'));
+        tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'prompin-studio-test-'));
         service = new IndexerService();
     });
 

@@ -56,29 +56,33 @@ export const SyncStatus: React.FC = () => {
                     </button>
                 </div>
 
-                {/* Progress Bar (when syncing or indexing) */}
-                {(isSyncing || syncStats.status === 'indexing') && (
+                {/* Progress Bar (when syncing or indexing or background task) */}
+                {(isSyncing || syncStats.status === 'indexing' || syncStats.backgroundTask) && (
                     <div className="space-y-1.5">
                         <div className="flex justify-between text-[10px] text-muted-foreground font-medium">
                             <span>
-                                {syncStats.status === 'indexing' ? 'Processing embeddings...' : 'Processing files...'}
+                                {syncStats.backgroundTask ? syncStats.backgroundTask.name : syncStats.status === 'indexing' ? 'Processing embeddings...' : 'Processing files...'}
                             </span>
                             <span>
-                                {syncStats.status === 'indexing' && syncStats.embeddingProgress
-                                    ? Math.round((syncStats.embeddingProgress.current / syncStats.embeddingProgress.total) * 100)
-                                    : Math.round(progress)}%
+                                {syncStats.backgroundTask
+                                    ? Math.round(syncStats.backgroundTask.progress || 0)
+                                    : syncStats.status === 'indexing' && syncStats.embeddingProgress
+                                        ? Math.round((syncStats.embeddingProgress.current / syncStats.embeddingProgress.total) * 100)
+                                        : Math.round(progress)}%
                             </span>
                         </div>
                         <div className="h-1.5 bg-secondary/50 rounded-full overflow-hidden">
                             <div
                                 className={cn(
                                     "h-full transition-all duration-300 ease-out",
-                                    syncStats.status === 'indexing' ? "bg-purple-500" : "bg-primary"
+                                    syncStats.status === 'indexing' ? "bg-purple-500" : syncStats.backgroundTask ? "bg-blue-500" : "bg-primary"
                                 )}
                                 style={{
-                                    width: `${syncStats.status === 'indexing' && syncStats.embeddingProgress
-                                        ? (syncStats.embeddingProgress.current / syncStats.embeddingProgress.total) * 100
-                                        : progress}%`
+                                    width: `${syncStats.backgroundTask
+                                        ? syncStats.backgroundTask.progress
+                                        : syncStats.status === 'indexing' && syncStats.embeddingProgress
+                                            ? (syncStats.embeddingProgress.current / syncStats.embeddingProgress.total) * 100
+                                            : progress}%`
                                 }}
                             />
                         </div>

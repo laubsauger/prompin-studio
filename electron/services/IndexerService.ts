@@ -16,6 +16,7 @@ import { Watcher } from './indexer/Watcher.js';
 import { MetadataExtractor } from './indexer/MetadataExtractor.js';
 import { ThumbnailGenerator } from './indexer/ThumbnailGenerator.js';
 import { AssetManager } from './indexer/AssetManager.js';
+import { SyncService, SyncEvent } from './SyncService.js';
 import { embeddingService } from './indexer/EmbeddingService.js';
 
 // Helper to setup ffmpeg
@@ -56,6 +57,8 @@ export class IndexerService {
     private metadataExtractor: MetadataExtractor;
     private thumbnailGenerator: ThumbnailGenerator;
     private assetManager: AssetManager;
+    private syncService: SyncService;
+    private isApplyingRemoteUpdate = false;
 
     private stats: SyncStats = {
         totalFiles: 0,
@@ -79,9 +82,67 @@ export class IndexerService {
         this.metadataExtractor = new MetadataExtractor();
         this.thumbnailGenerator = new ThumbnailGenerator(this.thumbnailCachePath);
         this.assetManager = new AssetManager();
+        this.syncService = new SyncService();
 
         this.setupWatcher();
+        this.setupSync();
         this.migrateLegacyThumbnails();
+    }
+
+    private setupSync() {
+        this.syncService.on('event', async (event: SyncEvent) => {
+            console.log('[IndexerService] Received remote event:', event.type);
+            this.isApplyingRemoteUpdate = true;
+            this.stats.status = 'syncing';
+            try {
+                switch (event.type) {
+                    case 'ASSET_UPDATE':
+                        await this.handleRemoteAssetUpdate(event.payload);
+                        break;
+                    case 'TAG_CREATE':
+                        await this.handleRemoteTagCreate(event.payload);
+                        break;
+                    case 'ASSET_TAG_ADD':
+                        await this.handleRemoteAssetTagAdd(event.payload);
+                        break;
+                    case 'ASSET_TAG_REMOVE':
+                        await this.handleRemoteAssetTagRemove(event.payload);
+                        break;
+                }
+            } catch (error) {
+                console.error('[IndexerService] Failed to apply remote event:', error);
+            } finally {
+                this.isApplyingRemoteUpdate = false;
+                this.stats.status = 'idle';
+                this.stats.lastSync = Date.now();
+            }
+        });
+    }
+
+    private async handleRemoteAssetUpdate(payload: { assetId: string; changes: any }) {
+        const { assetId, changes } = payload;
+        if (changes.status) {
+            this.updateAssetStatus(assetId, changes.status);
+        }
+        if (changes.metadata) {
+            const asset = this.assetManager.getAsset(assetId);
+            if (asset) {
+                const newMetadata = { ...asset.metadata, ...changes.metadata };
+                this.updateAssetMetadata(assetId, newMetadata);
+            }
+        }
+    }
+
+    private async handleRemoteTagCreate(payload: { tag: any }) {
+        this.createTag(payload.tag.name, payload.tag.color);
+    }
+
+    private async handleRemoteAssetTagAdd(payload: { assetId: string; tagId: string }) {
+        this.addTagToAsset(payload.assetId, payload.tagId);
+    }
+
+    private async handleRemoteAssetTagRemove(payload: { assetId: string; tagId: string }) {
+        this.removeTagFromAsset(payload.assetId, payload.tagId);
     }
 
     public setMainWindow(window: BrowserWindow) {
@@ -144,11 +205,22 @@ export class IndexerService {
 
         this.stats.status = 'scanning';
 
+        // Initialize Sync Service
+        await this.syncService.initialize(this.rootPath);
+
+        // 3. Process Embeddings (Sync)
+        console.log('[IndexerService] Processing embeddings...');
+        this.scanner.resetStats();
+        await this.scanner.preScan(this.rootPath);
+        const scanStats = this.scanner.getStats();
+        this.stats.totalFiles = scanStats.totalFiles;
+        this.stats.totalFolders = scanStats.totalFolders;
+
         // 1. Fast Pre-Scan
         console.log('[IndexerService] Starting fast pre-scan...');
         this.scanner.resetStats();
         await this.scanner.preScan(this.rootPath);
-        const scanStats = this.scanner.getStats();
+        // const scanStats = this.scanner.getStats(); // Already done above, but keeping for original flow
         this.stats.totalFiles = scanStats.totalFiles;
         this.stats.totalFolders = scanStats.totalFolders;
         this.stats.skippedFiles = scanStats.skippedFiles;
@@ -172,6 +244,9 @@ export class IndexerService {
 
         // Re-home assets (handle moves/renames of root)
         this.assetManager.rehomeAssets(this.rootPath);
+
+        // Initialize Sync Service
+        await this.syncService.initialize(this.rootPath);
 
         // Start watcher AFTER initial scan to avoid double counting
         console.log('[IndexerService] Starting watcher...');
@@ -283,12 +358,24 @@ export class IndexerService {
 
     private async processThumbnails() {
         const assets = this.assetManager.getAssets(this.rootPath);
+        this.stats.backgroundTask = {
+            name: 'Generating Thumbnails',
+            total: assets.length,
+            current: 0,
+            progress: 0
+        };
+
         await this.thumbnailGenerator.processQueue(
             assets,
             this.rootPath,
             (progress: { current: number; total: number }, currentFile: string) => {
                 this.stats.thumbnailProgress = progress;
                 this.stats.currentFile = currentFile;
+                if (this.stats.backgroundTask) {
+                    this.stats.backgroundTask.current = progress.current;
+                    this.stats.backgroundTask.total = progress.total;
+                    this.stats.backgroundTask.progress = (progress.current / progress.total) * 100;
+                }
             },
             (assetId: string, thumbnailPath: string) => {
                 this.assetManager.updateThumbnail(assetId, thumbnailPath);
@@ -302,6 +389,7 @@ export class IndexerService {
         );
         this.stats.currentFile = undefined;
         this.stats.thumbnailProgress = undefined;
+        this.stats.backgroundTask = undefined;
     }
 
     public async processEmbeddings() {
@@ -362,7 +450,14 @@ export class IndexerService {
         }
 
         // Set status to indexing
+        // Set status to indexing
         this.stats.status = 'indexing';
+        this.stats.backgroundTask = {
+            name: 'Generating Embeddings',
+            total: assetsToEmbed.length,
+            current: 0,
+            progress: 0
+        };
 
         console.log(`[IndexerService] Generating embeddings for ${assetsToEmbed.length} assets...`);
         let current = 0;
@@ -372,17 +467,58 @@ export class IndexerService {
             current++;
             this.stats.currentFile = `Embedding: ${asset.path}`;
             this.stats.embeddingProgress = { current, total };
+            if (this.stats.backgroundTask) {
+                this.stats.backgroundTask.current = current;
+                this.stats.backgroundTask.progress = (current / total) * 100;
+            }
 
             try {
-                const textToEmbed = [
-                    path.basename(asset.path),
-                    ...(asset.metadata.tags || []),
-                    asset.metadata.description || '',
-                    asset.metadata.prompt || '', // GenAI metadata
-                    asset.type
-                ].join(' ');
+                // Check if the actual asset file exists
+                const absoluteAssetPath = path.join(this.rootPath, asset.path);
+                try {
+                    await fs.access(absoluteAssetPath);
+                } catch (e: any) {
+                    if (e.code === 'ENOENT') {
+                        console.warn(`[IndexerService] Asset file missing, removing from DB: ${absoluteAssetPath}`);
+                        this.assetManager.deleteAsset(asset.id);
+                        continue;
+                    }
+                    throw e; // Rethrow other errors
+                }
 
-                const embedding = await embeddingService.generateEmbedding(textToEmbed);
+                // Determine input for embedding (Image/Thumbnail or Text)
+                let inputForEmbedding: string;
+
+                if (asset.type === 'image') {
+                    // For images, use the full image path
+                    inputForEmbedding = path.join(this.rootPath, asset.path);
+                } else if (asset.type === 'video' && asset.thumbnailPath) {
+                    // For videos, use the thumbnail path if available
+                    if (path.isAbsolute(asset.thumbnailPath)) {
+                        inputForEmbedding = asset.thumbnailPath;
+                    } else {
+                        // Check if it's in the thumbnail cache first (generated thumbnails)
+                        const cachedThumbnail = path.join(this.thumbnailCachePath, asset.thumbnailPath);
+                        try {
+                            await fs.access(cachedThumbnail);
+                            inputForEmbedding = cachedThumbnail;
+                        } catch {
+                            // Fallback to rootPath (maybe user provided a custom relative path?)
+                            inputForEmbedding = path.join(this.rootPath, asset.thumbnailPath);
+                        }
+                    }
+                } else {
+                    // Fallback to text metadata
+                    inputForEmbedding = [
+                        path.basename(asset.path),
+                        ...(asset.metadata.tags || []),
+                        asset.metadata.description || '',
+                        asset.metadata.prompt || '', // GenAI metadata
+                        asset.type
+                    ].join(' ');
+                }
+
+                const embedding = await embeddingService.generateEmbedding(inputForEmbedding);
 
                 if (embedding) {
                     // Update metadata with embedding
@@ -417,6 +553,7 @@ export class IndexerService {
         console.log('[IndexerService] Embedding generation complete.');
         this.stats.currentFile = undefined;
         this.stats.embeddingProgress = undefined;
+        this.stats.backgroundTask = undefined;
         this.stats.status = 'idle';
     }
 
@@ -469,7 +606,8 @@ export class IndexerService {
             filesByType: { images: 0, videos: 0, other: 0 },
             skippedFiles: 0,
             embeddingsGenerated: 0,
-            embeddingProgress: undefined
+            embeddingProgress: undefined,
+            backgroundTask: undefined
         };
     }
 
@@ -541,34 +679,69 @@ export class IndexerService {
         const params: any = { rootPath: this.rootPath };
         const conditions: string[] = ['a.rootPath = @rootPath'];
 
+        // 1. FTS Search
         if (searchQuery && searchQuery.trim() !== '') {
-            if (filters?.semantic) {
-                // Semantic Search
-                try {
-                    // Generate embedding for query
-                    // Note: This is async, but searchAssets is sync in current signature?
-                    // Wait, searchAssets return type is Asset[]. It should probably be async now.
-                    // But for now, we can't easily make it async without changing the interface everywhere.
-                    // Actually, we can't do async inside this sync method.
-                    // We need to change searchAssets to async or use a separate method.
-                    // Given the constraints, let's assume we only do keyword search here for now,
-                    // and use findSimilar for vector search.
-                    // OR: We can try to do it if we change the signature.
-                    // Let's stick to FTS here for "search" and use a new method for semantic search if needed.
+            // Standard FTS setup
+            sql += ` JOIN assets_fts ON assets_fts.id = a.id`;
+            conditions.push(`assets_fts MATCH @searchQuery`);
+            params.searchQuery = searchQuery.split(' ').map(term => term + '*').join(' ');
+        }
 
-                    // Fallback to FTS
-                    sql += ` JOIN assets_fts ON assets_fts.id = a.id`;
-                    conditions.push(`assets_fts MATCH @searchQuery`);
-                    params.searchQuery = searchQuery.split(' ').map(term => term + '*').join(' ');
-                } catch (e) {
-                    console.error('Semantic search error:', e);
-                }
-            } else {
-                // Standard FTS
-                sql += ` JOIN assets_fts ON assets_fts.id = a.id`;
-                conditions.push(`assets_fts MATCH @searchQuery`);
-                params.searchQuery = searchQuery.split(' ').map(term => term + '*').join(' ');
-            }
+        // Apply filters to FTS query
+        if (filters?.tagIds && filters.tagIds.length > 0) {
+            conditions.push(`EXISTS (SELECT 1 FROM asset_tags at WHERE at.assetId = a.id AND at.tagId IN (${filters.tagIds.map((_: any, i: number) => `@tagId${i}`).join(',')}))`);
+            filters.tagIds.forEach((tagId: string, i: number) => { params[`tagId${i}`] = tagId; });
+        }
+        if (filters?.ids && filters.ids.length > 0) {
+            conditions.push(`a.id IN (${filters.ids.map((_: any, i: number) => `@id${i}`).join(',')})`);
+            filters.ids.forEach((id: string, i: number) => { params[`id${i}`] = id; });
+        }
+        // ... (other filters are applied below in the original code)
+
+        // We need to capture the "base" conditions for the vector query too if we want to filter vector results.
+        // But vector search with complex SQL filters is hard in sqlite-vec (pre-filtering vs post-filtering).
+        // Post-filtering is easier: Get top N vector matches, then filter in JS or join.
+
+        // Let's proceed with running the FTS query first (which includes all filters).
+        // Then, if searchQuery is present and vector enabled, run vector search.
+
+        // Wait, the original code constructs `sql` and `conditions` then runs `db.prepare(sql)`.
+        // I should let the original code run for FTS.
+        // But I need to inject the Vector logic.
+
+        // Let's change the structure:
+        // 1. Build FTS Query (mostly existing code)
+        // 2. Run FTS Query -> `ftsAssets`
+        // 3. If searchQuery, Run Vector Query -> `vectorAssets`
+        // 4. Merge
+
+        // But the existing code applies filters to `sql`.
+        // I'll leave the existing code to build and run the FTS query.
+        // I will just ADD the vector search logic AFTER the FTS query execution, then merge.
+        // But `searchAssets` returns `Promise<Asset[]>`.
+
+        // The existing code executes the query at line 759: `const stmt = db.prepare(sql); let assets = ...`
+
+        // So I should modify the code *around* line 759, or wrap the whole thing.
+        // But I am editing lines 661-689.
+
+        // I will remove the `if (filters?.semantic)` block and just setup FTS here.
+        // Then I will add the Vector Search logic LATER in the function (I'll need another edit for that).
+        // OR I can do it all here if I restructure.
+
+        // Let's just simplify this block to ALWAYS do FTS setup.
+        // And I'll add a TODO or just rely on the fact that I'll edit the execution part next.
+
+        // Actually, if I want to do Hybrid, I need to NOT join assets_fts if I'm doing *only* vector? 
+        // No, Hybrid means both.
+
+        // So this block should just setup FTS.
+        // I will remove the "Semantic Search" try-catch block that was falling back to FTS anyway.
+
+        if (searchQuery && searchQuery.trim() !== '') {
+            sql += ` JOIN assets_fts ON assets_fts.id = a.id`;
+            conditions.push(`assets_fts MATCH @searchQuery`);
+            params.searchQuery = searchQuery.split(' ').map(term => term + '*').join(' ');
         }
 
         if (filters?.tagIds && filters.tagIds.length > 0) {
@@ -644,6 +817,70 @@ export class IndexerService {
             ...row,
             metadata: JSON.parse(row.metadata)
         }));
+
+        // Hybrid Search: If we have a search query and vector search is enabled,
+        // fetch visually similar assets and append them.
+        if (searchQuery && searchQuery.trim() !== '' && vectorSearchEnabled) {
+            try {
+                // 1. Generate embedding for the search query
+                const embedding = await embeddingService.generateEmbedding(searchQuery);
+
+                if (embedding) {
+                    console.log(`[IndexerService] Generated query embedding. Preview: [${embedding.slice(0, 5).join(', ')}...]`);
+
+                    // 2. Query vec_assets for top matches
+                    const vectorLimit = 50;
+                    const vectorStmt = db.prepare(`
+                        WITH matches AS (
+                            SELECT rowid, distance 
+                            FROM vec_assets 
+                            WHERE embedding MATCH ?
+                            ORDER BY distance
+                            LIMIT ?
+                        )
+                        SELECT a.*, m.distance 
+                        FROM matches m
+                        JOIN assets a ON a.rowid = m.rowid
+                        ORDER BY m.distance ASC
+                    `);
+
+                    const vectorResults = vectorStmt.all(JSON.stringify(embedding), vectorLimit).map((row: any) => ({
+                        ...row,
+                        metadata: JSON.parse(row.metadata)
+                    }));
+
+                    console.log(`[IndexerService] Vector search returned ${vectorResults.length} raw matches.`);
+                    if (vectorResults.length > 0) {
+                        console.log(`[IndexerService] Top match: ${vectorResults[0].id} (dist: ${(vectorResults[0] as any).distance})`);
+                    }
+
+                    // 3. Merge results
+                    // Strategy: Keep all FTS results (they are exact matches).
+                    // Append Vector results that are NOT in FTS results.
+                    const existingIds = new Set(assets.map((a: any) => a.id));
+
+                    for (const vecAsset of vectorResults) {
+                        if (!existingIds.has(vecAsset.id)) {
+                            // Apply other filters to vector results if needed?
+                            // For now, we'll just do a basic check for type/status if they are simple.
+                            // Implementing full SQL filter parity in JS is hard.
+                            // Let's just check the most common ones: type, status.
+
+                            let pass = true;
+                            if (filters?.type && vecAsset.type !== filters.type) pass = false;
+                            if (filters?.status && vecAsset.status !== filters.status) pass = false;
+
+                            if (pass) {
+                                assets.push(vecAsset);
+                                existingIds.add(vecAsset.id);
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('[IndexerService] Hybrid search vector query failed:', e);
+            }
+        }
 
         // If semantic search for related assets, sort by distance
         if (filters?.relatedToAssetId && filters.semantic && assets.length > 0 && similarAssetsMap) {
@@ -775,6 +1012,9 @@ export class IndexerService {
             const id = uuidv4();
             const stmt = db.prepare('INSERT INTO tags (id, name, color) VALUES (@id, @name, @color)');
             stmt.run({ id, name, color: color || null });
+            if (!this.isApplyingRemoteUpdate) {
+                this.syncService.publish('TAG_CREATE', { tag: { id, name, color } });
+            }
             return { id, name, color };
         } catch (err: any) {
             if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
@@ -792,10 +1032,16 @@ export class IndexerService {
     public addTagToAsset(assetId: string, tagId: string) {
         const stmt = db.prepare('INSERT OR IGNORE INTO asset_tags (assetId, tagId) VALUES (?, ?)');
         stmt.run(assetId, tagId);
+        if (!this.isApplyingRemoteUpdate) {
+            this.syncService.publish('ASSET_TAG_ADD', { assetId, tagId });
+        }
     }
 
     public removeTagFromAsset(assetId: string, tagId: string) {
         db.prepare('DELETE FROM asset_tags WHERE assetId = ? AND tagId = ?').run(assetId, tagId);
+        if (!this.isApplyingRemoteUpdate) {
+            this.syncService.publish('ASSET_TAG_REMOVE', { assetId, tagId });
+        }
     }
 
     public getAssetTags(assetId: string) {
@@ -849,6 +1095,9 @@ export class IndexerService {
 
     public updateAssetStatus(id: string, status: string) {
         db.prepare('UPDATE assets SET status = ? WHERE id = ?').run(status, id);
+        if (!this.isApplyingRemoteUpdate) {
+            this.syncService.publish('ASSET_UPDATE', { assetId: id, changes: { status } });
+        }
     }
 
     public getLineage(id: string): Asset[] {
@@ -917,6 +1166,12 @@ export class IndexerService {
 
     public updateAssetMetadata(id: string, metadata: any) {
         db.prepare('UPDATE assets SET metadata = ? WHERE id = ?').run(JSON.stringify(metadata), id);
+
+        if (!this.isApplyingRemoteUpdate) {
+            // Filter out embedding to avoid syncing huge blobs
+            const { embedding, ...syncMetadata } = metadata;
+            this.syncService.publish('ASSET_UPDATE', { assetId: id, changes: { metadata: syncMetadata } });
+        }
 
         // Manual FTS Update
         const row = db.prepare('SELECT rowid, path FROM assets WHERE id = ?').get(id) as { rowid: number, path: string };

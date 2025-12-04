@@ -85,4 +85,10 @@ export interface SyncStats {
         total: number;
     };
     embeddingsGenerated?: number;
+    backgroundTask?: {
+        name: string;
+        progress?: number; // 0-100
+        total?: number;
+        current?: number;
+    };
 }
