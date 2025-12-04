@@ -12,7 +12,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
+        os: [macos-latest, windows-latest]
 
     steps:
       - name: Checkout Code
@@ -45,10 +45,3 @@ jobs:
         with:
           name: release-windows
           path: dist/*.exe
-
-      - name: Upload Artifacts (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-linux
-          path: dist/*.AppImage
