@@ -65,7 +65,11 @@
     "zustand": "^5.0.9"
   },
   "optionalDependencies": {
-    "ffmpeg-static": "^5.3.0"
+    "ffmpeg-static": "^5.3.0",
+    "sqlite-vec-darwin-arm64": "^0.1.7-alpha.2",
+    "sqlite-vec-darwin-x64": "^0.1.7-alpha.2",
+    "sqlite-vec-win32-x64": "npm:null@*",
+    "sqlite-vec-windows-arm64": "npm:null@*"
   },
   "overrides": {
     "sharp": "^0.33.5"
