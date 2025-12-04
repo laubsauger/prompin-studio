@@ -660,11 +660,7 @@ export class IndexerService {
         }
 
         if (filters?.relatedToAssetId && filters.semantic && similarAssetsMap) {
-            console.log('[IndexerService] Debug Search: similarAssetsMap size:', similarAssetsMap.size);
-            if (similarAssetsMap.size > 0) {
-                const firstKey = similarAssetsMap.keys().next().value;
-                console.log('[IndexerService] Debug Search: Sample Map Entry:', firstKey, similarAssetsMap.get(firstKey));
-            }
+            // Debug logging removed
         }
 
         if (assets.length > 0) {

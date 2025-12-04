@@ -146,10 +146,7 @@ export const Explorer: React.FC = () => {
         });
 
         if (filterConfig.relatedToAssetId && filterConfig.semantic) {
-            console.log('[Explorer] Semantic Search Results (Top 5):');
-            sorted.slice(0, 5).forEach(a => {
-                console.log(`- ${a.id}: distance=${a.distance}, type=${typeof a.distance}`);
-            });
+            // Debug logging removed
         }
 
         console.log('[Explorer] filteredAssets length:', sorted.length);
