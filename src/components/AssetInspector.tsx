@@ -94,10 +94,11 @@ export function AssetInspector() {
     }
   };
 
-  const handleAddInput = async (selectedAssets: Asset[]) => {
+  const handleAddInput = async (selectedAssets: Asset[] | string[]) => {
     if (asset) {
       const currentInputs = asset.metadata.inputs || [];
-      const newInputs = selectedAssets.map(a => a.id);
+      // Handle both Asset objects and asset ID strings
+      const newInputs = selectedAssets.map(a => typeof a === 'string' ? a : a.id);
       const mergedInputs = Array.from(new Set([...currentInputs, ...newInputs]));
       const newMetadata = { ...asset.metadata, inputs: mergedInputs };
       await updateAssetMetadata(asset.id, newMetadata);
@@ -156,7 +157,8 @@ export function AssetInspector() {
       const data = e.dataTransfer.getData('application/json');
       if (data) {
         const { assetId } = JSON.parse(data);
-        if (assetId && asset) {
+        // Prevent dropping asset onto itself
+        if (assetId && asset && assetId !== asset.id) {
           await handleAddInput([assetId]);
         }
       }

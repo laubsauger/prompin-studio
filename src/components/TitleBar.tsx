@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FolderOpen, Settings, Loader2, RefreshCw, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
+import { FolderOpen, Settings, Loader2, RefreshCw, CheckCircle2, AlertCircle, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useStore } from '../store';
 import { useSettingsStore } from '../store/settings';
@@ -12,9 +12,22 @@ import { SearchPalette } from './SearchPalette';
 import { PathDisplay } from './PathDisplay';
 
 export const TitleBar: React.FC = () => {
-    const { setRootPath, syncStats, fetchSyncStats, triggerResync, currentPath } = useStore();
+    const {
+        setRootPath,
+        syncStats,
+        fetchSyncStats,
+        triggerResync,
+        currentPath,
+        navigateBack,
+        navigateForward,
+        canNavigateBack,
+        canNavigateForward
+    } = useStore();
     const { setSettingsOpen, rootFolder, toggleChat, isChatOpen } = useSettingsStore();
     const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+
+    const canGoBack = canNavigateBack();
+    const canGoForward = canNavigateForward();
 
     useEffect(() => {
         fetchSyncStats();
@@ -27,6 +40,25 @@ export const TitleBar: React.FC = () => {
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, []);
+
+    // Keyboard shortcuts for navigation
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Alt+Left for back
+            if (e.altKey && e.key === 'ArrowLeft' && canGoBack) {
+                e.preventDefault();
+                navigateBack();
+            }
+            // Alt+Right for forward
+            if (e.altKey && e.key === 'ArrowRight' && canGoForward) {
+                e.preventDefault();
+                navigateForward();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [canGoBack, canGoForward, navigateBack, navigateForward]);
 
     const isSyncing = syncStats?.status !== 'idle';
     const isIndexing = syncStats?.status === 'indexing';
@@ -61,6 +93,31 @@ export const TitleBar: React.FC = () => {
                 {showAppTitle && (
                     <span className="text-foreground whitespace-nowrap shrink-0">Prompin' Studio</span>
                 )}
+
+                {/* Navigation Buttons */}
+                <div className="flex items-center gap-0.5 shrink-0 ml-2">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={navigateBack}
+                        disabled={!canGoBack}
+                        title="Go back (Alt+Left)"
+                    >
+                        <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={navigateForward}
+                        disabled={!canGoForward}
+                        title="Go forward (Alt+Right)"
+                    >
+                        <ChevronRight className="h-4 w-4" />
+                    </Button>
+                </div>
+
                 {rootFolder && (
                     <>
                         <div className="h-4 w-[1px] bg-border shrink-0 mx-2" />

@@ -51,6 +51,12 @@ export interface FilterConfig {
     semantic?: boolean;
 }
 
+interface NavigationState {
+    path: string | null;
+    filterConfig: FilterConfig;
+    searchQuery: string;
+}
+
 interface AppState {
     assets: Asset[];
     syncStats: SyncStats | null;
@@ -66,6 +72,10 @@ interface AppState {
     viewDisplay: 'clean' | 'detailed';
     isLoading: boolean;
     loadingMessage: string;
+
+    // Navigation History
+    navigationHistory: NavigationState[];
+    navigationIndex: number;
 
     sortConfig: { key: 'createdAt' | 'updatedAt' | 'path'; direction: 'asc' | 'desc' };
     filterConfig: FilterConfig;
@@ -132,6 +142,13 @@ interface AppState {
     setViewMode: (mode: 'grid' | 'list') => void;
     setAspectRatio: (ratio: 'square' | 'video' | 'portrait') => void;
     setViewDisplay: (display: 'clean' | 'detailed') => void;
+
+    // Navigation History
+    pushNavigationState: () => void;
+    navigateBack: () => void;
+    navigateForward: () => void;
+    canNavigateBack: () => boolean;
+    canNavigateForward: () => boolean;
     setLoading: (isLoading: boolean, message?: string) => void;
     loadAssets: () => Promise<void>;
     fetchSyncStats: () => Promise<void>;
@@ -171,6 +188,10 @@ export const useStore = create<AppState>((set, get) => ({
     isLoading: false,
     loadingMessage: '',
 
+    // Navigation History
+    navigationHistory: [],
+    navigationIndex: -1,
+
     // New config initial state
     sortConfig: { key: 'createdAt', direction: 'desc' },
     filterConfig: { likedOnly: false, type: 'all', statuses: [] },
@@ -193,9 +214,86 @@ export const useStore = create<AppState>((set, get) => ({
     setLineageAssetId: (id) => set({ lineageAssetId: id }),
     setInspectorAsset: (asset) => set({ inspectorAsset: asset }),
     clearInspectorAsset: () => set({ inspectorAsset: null }),
-    setCurrentPath: (path) => set({ currentPath: path }),
+    setCurrentPath: (path) => {
+        const state = get();
+        // Only push to history if it's a meaningful change
+        if (state.currentPath !== path) {
+            get().pushNavigationState();
+            set({ currentPath: path });
+        }
+    },
     setViewMode: (mode) => set({ viewMode: mode }),
     setLoading: (isLoading, message = '') => set({ isLoading, loadingMessage: message }),
+
+    // Navigation History Implementation
+    pushNavigationState: () => {
+        const state = get();
+        const newState: NavigationState = {
+            path: state.currentPath,
+            filterConfig: { ...state.filterConfig },
+            searchQuery: state.searchQuery
+        };
+
+        // If we're not at the end of history, truncate forward history
+        const newHistory = state.navigationHistory.slice(0, state.navigationIndex + 1);
+        newHistory.push(newState);
+
+        // Limit history to 50 items
+        if (newHistory.length > 50) {
+            newHistory.shift();
+        }
+
+        set({
+            navigationHistory: newHistory,
+            navigationIndex: newHistory.length - 1
+        });
+    },
+
+    navigateBack: () => {
+        const state = get();
+        if (state.navigationIndex > 0) {
+            const targetIndex = state.navigationIndex - 1;
+            const targetState = state.navigationHistory[targetIndex];
+
+            set({
+                currentPath: targetState.path,
+                filterConfig: targetState.filterConfig,
+                searchQuery: targetState.searchQuery,
+                navigationIndex: targetIndex
+            });
+
+            // Trigger search/filter update
+            get().searchAssets(targetState.searchQuery, targetState.filterConfig);
+        }
+    },
+
+    navigateForward: () => {
+        const state = get();
+        if (state.navigationIndex < state.navigationHistory.length - 1) {
+            const targetIndex = state.navigationIndex + 1;
+            const targetState = state.navigationHistory[targetIndex];
+
+            set({
+                currentPath: targetState.path,
+                filterConfig: targetState.filterConfig,
+                searchQuery: targetState.searchQuery,
+                navigationIndex: targetIndex
+            });
+
+            // Trigger search/filter update
+            get().searchAssets(targetState.searchQuery, targetState.filterConfig);
+        }
+    },
+
+    canNavigateBack: () => {
+        const state = get();
+        return state.navigationIndex > 0;
+    },
+
+    canNavigateForward: () => {
+        const state = get();
+        return state.navigationIndex < state.navigationHistory.length - 1;
+    },
 
     // Aspect Ratio
     aspectRatio: 'square',
@@ -280,7 +378,15 @@ export const useStore = create<AppState>((set, get) => ({
 
 
     setFilterConfig: (config) => {
-        const newConfig = { ...get().filterConfig, ...config };
+        const state = get();
+        const newConfig = { ...state.filterConfig, ...config };
+
+        // Check if there's a meaningful change
+        const hasChanged = JSON.stringify(state.filterConfig) !== JSON.stringify(newConfig);
+        if (hasChanged) {
+            get().pushNavigationState();
+        }
+
         // Persist to localStorage
         try {
             localStorage.setItem('filterConfig', JSON.stringify(newConfig));

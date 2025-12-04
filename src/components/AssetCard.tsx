@@ -21,6 +21,7 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
     const toggleInspector = useSettingsStore(state => state.toggleInspector);
 
     const isSelected = useStore(state => state.selectedIds.has(asset.id));
+    const isInInspector = useStore(state => state.inspectorAsset?.id === asset.id);
     const aspectRatio = useStore(state => state.aspectRatio);
     const viewDisplay = useStore(state => state.viewDisplay);
     const filterConfig = useStore(state => state.filterConfig);
@@ -50,14 +51,59 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
     const handleDragStart = (e: React.DragEvent) => {
         e.dataTransfer.effectAllowed = 'copy';
         e.dataTransfer.setData('application/json', JSON.stringify({ assetId: asset.id }));
-        // Add a visual feedback
+
+        // Create a custom drag image with fixed size
         if (e.dataTransfer.setDragImage) {
-            const dragImage = e.currentTarget.cloneNode(true) as HTMLElement;
-            dragImage.style.transform = 'scale(0.8)';
-            dragImage.style.opacity = '0.8';
+            const dragImage = document.createElement('div');
+            dragImage.style.position = 'fixed';
+            dragImage.style.top = '-1000px';
+            dragImage.style.left = '-1000px';
+            dragImage.style.width = '150px';
+            dragImage.style.height = '150px';
+            dragImage.style.background = 'rgba(0, 0, 0, 0.8)';
+            dragImage.style.borderRadius = '8px';
+            dragImage.style.display = 'flex';
+            dragImage.style.alignItems = 'center';
+            dragImage.style.justifyContent = 'center';
+            dragImage.style.flexDirection = 'column';
+            dragImage.style.padding = '12px';
+            dragImage.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.5)';
+
+            // Add thumbnail
+            const img = document.createElement('img');
+            img.src = asset.type === 'video' && asset.thumbnailPath
+                ? `thumbnail://${asset.thumbnailPath}`
+                : `media://${asset.path}`;
+            img.style.width = '100%';
+            img.style.height = '100px';
+            img.style.objectFit = 'cover';
+            img.style.borderRadius = '4px';
+            img.style.marginBottom = '8px';
+
+            // Add filename
+            const label = document.createElement('div');
+            label.textContent = asset.path.split('/').pop() || '';
+            label.style.color = 'white';
+            label.style.fontSize = '11px';
+            label.style.textAlign = 'center';
+            label.style.overflow = 'hidden';
+            label.style.textOverflow = 'ellipsis';
+            label.style.whiteSpace = 'nowrap';
+            label.style.width = '100%';
+
+            dragImage.appendChild(img);
+            dragImage.appendChild(label);
             document.body.appendChild(dragImage);
-            e.dataTransfer.setDragImage(dragImage, e.nativeEvent.offsetX, e.nativeEvent.offsetY);
-            setTimeout(() => document.body.removeChild(dragImage), 0);
+
+            // Set the custom drag image
+            e.dataTransfer.setDragImage(dragImage, 75, 75);
+
+            // Clean up after a short delay
+            setTimeout(() => {
+                if (document.body.contains(dragImage)) {
+                    document.body.removeChild(dragImage);
+                }
+            }, 0);
         }
     };
 
@@ -162,7 +208,9 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
                         "group relative overflow-hidden transition-all duration-200 hover:shadow-md border-border/50 bg-card/50",
                         isSelected && "ring-2 ring-primary border-primary shadow-lg bg-accent/10",
                         // Highlight source asset in similarity search
-                        asset.id === filterConfig.relatedToAssetId && !isSelected && "border-2 border-purple-500 shadow-lg"
+                        asset.id === filterConfig.relatedToAssetId && !isSelected && "border-2 border-purple-500 shadow-lg",
+                        // Highlight asset shown in inspector
+                        isInInspector && !isSelected && "border-2 border-orange-500/70 shadow-md"
                     )}
                     draggable
                     onDragStart={handleDragStart}
@@ -176,6 +224,13 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
                     {asset.id === filterConfig.relatedToAssetId && (
                         <div className="absolute top-0 left-1/2 -translate-x-1/2 z-20 bg-purple-500 text-white text-[8px] px-1.5 py-0.5 rounded-b-sm font-medium shadow-sm leading-none">
                             Source
+                        </div>
+                    )}
+
+                    {/* Inspector Label */}
+                    {isInInspector && !isSelected && (
+                        <div className="absolute top-0 right-2 z-20 bg-orange-500/90 text-white text-[8px] px-1.5 py-0.5 rounded-b-sm font-medium shadow-sm leading-none">
+                            Inspecting
                         </div>
                     )}
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Folder, FolderOpen, ChevronDown, ChevronRight } from 'lucide-react';
+import { Folder, FolderOpen, Plus, Minus } from 'lucide-react';
 import { useStore } from '../../store';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
@@ -78,7 +78,7 @@ export const FolderTreeSection: React.FC<FolderTreeSectionProps> = ({ isOpen, on
                             onClick={(e) => hasChildren ? toggleExpand(node.path, e) : undefined}
                         >
                             {hasChildren && (
-                                isExpanded ? <ChevronDown className="h-3 w-3 opacity-50" /> : <ChevronRight className="h-3 w-3 opacity-50" />
+                                isExpanded ? <Minus className="h-3 w-3 opacity-50" /> : <Plus className="h-3 w-3 opacity-50" />
                             )}
                         </Button>
 
