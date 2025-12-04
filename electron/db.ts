@@ -24,6 +24,7 @@ try {
 db.pragma('journal_mode = WAL');
 
 // Initialize tables
+// 1. Core Tables
 db.exec(`
   CREATE TABLE IF NOT EXISTS assets (
     id TEXT PRIMARY KEY,
@@ -64,12 +65,11 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_assets_status ON assets(status);
   CREATE INDEX IF NOT EXISTS idx_assets_created ON assets(createdAt);
   CREATE INDEX IF NOT EXISTS idx_assets_updated ON assets(updatedAt);
+`);
 
+// 2. FTS Setup
+db.exec(`
   -- Full-text search virtual table
-  -- We use a standard FTS table instead of external content (content=assets)
-  -- because external content + concurrent writes causes corruption in this environment.
-  -- We also handle updates manually to avoid triggers.
-  
   DROP TABLE IF EXISTS assets_fts; -- Force recreation to remove content=assets option
   CREATE VIRTUAL TABLE IF NOT EXISTS assets_fts USING fts5(
     id UNINDEXED,
@@ -78,37 +78,51 @@ db.exec(`
     tokenize='porter unicode61'
   );
 
-  -- Cleanup old triggers
+  -- Cleanup old FTS triggers
   DROP TRIGGER IF EXISTS assets_fts_insert;
   DROP TRIGGER IF EXISTS assets_fts_delete;
   DROP TRIGGER IF EXISTS assets_fts_update;
-  
-  DROP TRIGGER IF EXISTS assets_vss_insert;
-  DROP TRIGGER IF EXISTS assets_vss_update;
-  DROP TRIGGER IF EXISTS assets_vss_update_null;
 
-  -- We also keep FTS delete trigger as it is safe
+  -- Create FTS delete trigger
   CREATE TRIGGER IF NOT EXISTS assets_fts_delete AFTER DELETE ON assets BEGIN
     DELETE FROM assets_fts WHERE rowid = old.rowid;
   END;
 `);
 
+// 3. VSS Setup / Cleanup
 if (vectorSearchEnabled) {
-  db.exec(`
-    -- Vector search virtual table
-    -- 384 dimensions for all-MiniLM-L6-v2
-    CREATE VIRTUAL TABLE IF NOT EXISTS vss_assets USING vss0(
-      embedding(384)
-    );
+  try {
+    db.exec(`
+      -- Cleanup old VSS triggers first
+      DROP TRIGGER IF EXISTS assets_vss_insert;
+      DROP TRIGGER IF EXISTS assets_vss_update;
+      DROP TRIGGER IF EXISTS assets_vss_update_null;
 
-    -- We keep VSS delete trigger as it is safe and convenient
-    CREATE TRIGGER IF NOT EXISTS assets_vss_delete AFTER DELETE ON assets BEGIN
-      DELETE FROM vss_assets WHERE rowid = old.rowid;
-    END;
-  `);
+      -- Vector search virtual table
+      CREATE VIRTUAL TABLE IF NOT EXISTS vss_assets USING vss0(
+        embedding(384)
+      );
+
+      -- Create VSS delete trigger
+      CREATE TRIGGER IF NOT EXISTS assets_vss_delete AFTER DELETE ON assets BEGIN
+        DELETE FROM vss_assets WHERE rowid = old.rowid;
+      END;
+    `);
+  } catch (e) {
+    console.error('[DB] Failed to initialize VSS tables:', e);
+  }
 } else {
-  // If VSS is disabled, ensure we don't have leftover triggers that might fail
-  db.exec(`DROP TRIGGER IF EXISTS assets_vss_delete;`);
+  // If VSS is disabled, try to clean up any existing VSS artifacts
+  // We wrap in try-catch because interacting with missing modules might fail
+  try {
+    db.exec(`DROP TRIGGER IF EXISTS assets_vss_delete;`);
+    db.exec(`DROP TRIGGER IF EXISTS assets_vss_insert;`);
+    db.exec(`DROP TRIGGER IF EXISTS assets_vss_update;`);
+    db.exec(`DROP TRIGGER IF EXISTS assets_vss_update_null;`);
+    db.exec(`DROP TABLE IF EXISTS vss_assets;`);
+  } catch (e) {
+    console.warn('[DB] Failed to cleanup VSS tables (expected if module missing):', e);
+  }
 }
 
 // Safely create rootPath index (fails if column missing, which is fine as migration will handle it)
