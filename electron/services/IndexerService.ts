@@ -825,7 +825,7 @@ export class IndexerService {
         }
 
         if (searchQuery && searchQuery.trim() !== '') {
-            sql += ` ORDER BY rank, a.createdAt DESC`;
+            sql += ` ORDER BY assets_fts.rank, a.createdAt DESC`;
         } else {
             sql += ` ORDER BY a.createdAt DESC`;
         }

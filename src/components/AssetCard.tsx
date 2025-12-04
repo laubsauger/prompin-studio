@@ -3,13 +3,13 @@ import { useStore } from '../store';
 import { useSettingsStore } from '../store/settings';
 import type { Asset } from '../types';
 import { Card } from './ui/card';
-import { Badge } from './ui/badge';
-import { ASSET_STATUSES } from '../config/constants';
+
 import { cn } from '../lib/utils';
 import { Film, Heart, Play, Pause, ZoomIn, GitBranch } from 'lucide-react';
 
 
 import { AssetContextMenu } from './AssetContextMenu';
+import { AssetStatusBadge } from './AssetStatusBadge';
 
 export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
     const toggleSelection = useStore(state => state.toggleSelection);
@@ -66,21 +66,7 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
         }
     };
 
-    const statusConfig = ASSET_STATUSES[asset.status] || ASSET_STATUSES.unsorted;
 
-    // Extract color name from bg-color-500 pattern
-    const colorName = statusConfig.color.match(/bg-(\w+)-/)?.[1] || 'gray';
-    const getBadgeColors = (color: string) => {
-        const colorMap: Record<string, string> = {
-            'gray': 'border-gray-400 text-gray-300 bg-gray-900/40',
-            'yellow': 'border-yellow-400 text-yellow-300 bg-yellow-900/40',
-            'orange': 'border-orange-400 text-orange-300 bg-orange-900/40',
-            'green': 'border-green-400 text-green-300 bg-green-900/40',
-            'slate': 'border-slate-400 text-slate-300 bg-slate-900/40',
-            'red': 'border-red-400 text-red-300 bg-red-900/40',
-        };
-        return colorMap[color] || colorMap.gray;
-    };
 
     const thumbnailSrc = asset.thumbnailPath
         ? `thumbnail://${asset.thumbnailPath}`
@@ -322,16 +308,14 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
 
                         {/* Status badge - top left overlay, only show in detailed view */}
                         {viewDisplay === 'detailed' && (
-                            <div className="absolute top-2 left-2 z-10">
-                                <Badge
-                                    variant="outline"
-                                    className={cn(
-                                        "text-[9px] h-4 px-1 shadow-sm backdrop-blur-sm font-medium",
-                                        getBadgeColors(colorName)
-                                    )}
-                                >
-                                    {statusConfig.label}
-                                </Badge>
+                            <div className="absolute top-2 left-2 z-10 flex flex-col gap-1">
+                                <AssetStatusBadge status={asset.status} />
+                                {/* Similarity Score - Only show when in similarity search mode */}
+                                {filterConfig.relatedToAssetId && filterConfig.semantic && (
+                                    <div className="text-[10px] font-bold text-white/90 bg-black/60 px-1.5 py-0.5 rounded-sm backdrop-blur-sm tabular-nums border border-white/10 w-fit">
+                                        {asset.distance !== undefined ? `${Math.round((1 - asset.distance) * 100)}%` : 'N/A'}
+                                    </div>
+                                )}
                             </div>
                         )}
 
@@ -370,13 +354,6 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
 
                         {isSelected && (
                             <div className="absolute inset-0 z-0 bg-primary/10 pointer-events-none" />
-                        )}
-
-                        {/* Similarity Score - Only show when in similarity search mode */}
-                        {filterConfig.relatedToAssetId && filterConfig.semantic && (
-                            <div className="absolute bottom-2 left-2 z-50 text-[10px] font-bold text-white/90 bg-black/60 px-1.5 py-0.5 rounded-sm backdrop-blur-sm pointer-events-none tabular-nums border border-white/10">
-                                {asset.distance !== undefined ? `${Math.round((1 - asset.distance) * 100)}%` : 'N/A'}
-                            </div>
                         )}
                     </div>
 

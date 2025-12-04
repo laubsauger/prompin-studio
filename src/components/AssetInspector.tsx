@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, X, Image as ImageIcon, Video, Info, Clock, Heart, MessageSquare, Folder, Sparkles, FileText, Save, Plus, ExternalLink, Trash2, MoreHorizontal, Check, GitFork, StickyNote } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Info, Clock, MessageSquare, Folder, Sparkles, Save, Plus, MoreHorizontal, X } from 'lucide-react';
 import { useStore } from '../store';
 import { useSettingsStore } from '../store/settings';
 import { formatFileSize, formatRelativeDate } from '../utils/format';
@@ -11,7 +11,6 @@ import { InlineEdit } from './InlineEdit';
 import { InputAssetThumbnail } from './InputAssetThumbnail';
 import { AssetPickerDialog } from './AssetPickerDialog';
 import { CreateTagDialog } from './CreateTagDialog';
-import { StatusSelector } from './StatusSelector';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import {
@@ -21,8 +20,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   DropdownMenuLabel,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
 } from "./ui/dropdown-menu";
 import type { AssetMetadata, Asset } from '../types';
+import { AssetMediaPreview } from './AssetMediaPreview';
+import { AssetMenuActions } from './AssetMenuActions';
+import { CreateScratchPadDialog } from './CreateScratchPadDialog';
 
 export function AssetInspector() {
   const inspectorCollapsed = useSettingsStore(state => state.inspectorCollapsed);
@@ -33,24 +38,11 @@ export function AssetInspector() {
 
   const clearInspectorAsset = useStore(state => state.clearInspectorAsset);
   const updateAssetMetadata = useStore(state => state.updateAssetMetadata);
-  const updateAssetStatus = useStore(state => state.updateAssetStatus);
-  const toggleLike = useStore(state => state.toggleLike);
-  const deleteAsset = useStore(state => state.deleteAsset);
   const allTags = useStore(state => state.tags);
   const addTagToAsset = useStore(state => state.addTagToAsset);
   const removeTagFromAsset = useStore(state => state.removeTagFromAsset);
   const createTag = useStore(state => state.createTag);
-
-  // Tools actions
-  const setLineageAssetId = useStore(state => state.setLineageAssetId);
-  const addActiveView = useStore(state => state.addActiveView);
-  const addToScratchPad = useStore(state => state.addToScratchPad);
-  const scratchPads = useStore(state => state.scratchPads);
   const createScratchPad = useStore(state => state.createScratchPad);
-  const setCurrentPath = useStore(state => state.setCurrentPath);
-  const setFilterConfig = useStore(state => state.setFilterConfig);
-  const setViewMode = useStore(state => state.setViewMode);
-  // const setViewingAssetId = useStore(state => state.setViewingAssetId); // Unused for now
 
   const [isDetailsOpen, setIsDetailsOpen] = useState(true);
   const [isMetadataOpen, setIsMetadataOpen] = useState(true);
@@ -64,6 +56,7 @@ export function AssetInspector() {
   const [isAssetPickerOpen, setIsAssetPickerOpen] = useState(false);
   const [isCreateTagOpen, setIsCreateTagOpen] = useState(false);
   const [isTagPopoverOpen, setIsTagPopoverOpen] = useState(false);
+  const [isCreateScratchPadOpen, setIsCreateScratchPadOpen] = useState(false);
 
   useEffect(() => {
     if (window.ipcRenderer) {
@@ -130,29 +123,6 @@ export function AssetInspector() {
     }
   };
 
-  const handleOpenFile = () => {
-    if (asset && window.ipcRenderer) {
-      window.ipcRenderer.invoke('open-file', asset.path);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (asset && confirm('Are you sure you want to delete this asset?')) {
-      await deleteAsset(asset.id);
-      clearInspectorAsset();
-    }
-  };
-
-  const isVideo = asset?.type === 'video';
-  const isImage = asset?.type === 'image';
-
-  // Use thumbnail protocol for video thumbnails if available, otherwise media protocol
-  const previewSrc = asset ? (
-    isVideo && asset.thumbnailPath
-      ? `thumbnail://${asset.thumbnailPath}`
-      : `media://${asset.path}`
-  ) : '';
-
   return (
     <div
       className={cn(
@@ -192,73 +162,32 @@ export function AssetInspector() {
           <>
             {/* Header with preview */}
             <div className="border-b border-border flex-shrink-0 bg-card z-10">
-              {/* Asset Preview */}
+              {/* Asset Preview - Reusing AssetMediaPreview */}
               <div className="relative bg-muted/30 aspect-video group">
-                <div className="absolute inset-0 flex items-center justify-center p-4 bg-black/50">
-                  {isImage || isVideo ? (
-                    <img
-                      src={previewSrc}
-                      alt={asset.path}
-                      className="max-w-full max-h-full object-contain shadow-sm"
-                      onError={(e) => {
-                        // Fallback if image fails
-                        e.currentTarget.style.display = 'none';
-                        e.currentTarget.parentElement?.classList.add('flex-col');
-                        const icon = document.createElement('div');
-                        icon.innerHTML = '<svg class="h-12 w-12 text-muted-foreground/50" ...></svg>'; // Simplified
-                      }}
-                    />
-                  ) : (
-                    <FileText className="h-16 w-16 text-muted-foreground/50" />
-                  )}
-                  {/* Play icon overlay for videos */}
-                  {isVideo && (
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <div className="bg-black/50 rounded-full p-2 backdrop-blur-sm">
-                        <Video className="h-6 w-6 text-white/90" />
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <AssetMediaPreview
+                  asset={asset}
+                  showControls={true}
+                  showStatus={true}
+                  className="aspect-video"
+                />
 
                 {/* Close button overlay */}
                 <button
                   onClick={clearInspectorAsset}
-                  className="absolute top-2 right-2 p-1.5 bg-background/80 backdrop-blur-sm rounded-md hover:bg-background transition-colors opacity-0 group-hover:opacity-100"
+                  className="absolute top-2 right-2 p-1.5 bg-background/80 backdrop-blur-sm rounded-md hover:bg-background transition-colors opacity-0 group-hover:opacity-100 z-50"
                 >
                   <X className="h-4 w-4" />
                 </button>
-
-                {/* Status Badge Overlay */}
-                <div className="absolute top-2 left-2 z-20">
-                  <StatusSelector
-                    currentStatus={asset.status}
-                    onStatusChange={(status) => updateAssetStatus(asset.id, status)}
-                    compact={true}
-                    overlayStyle={true}
-                  />
-                </div>
-
-                {/* Quick Actions Overlay */}
-                <div className="absolute bottom-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button size="icon" variant="secondary" className="h-7 w-7 bg-background/80 backdrop-blur-sm" onClick={() => toggleLike(asset.id)}>
-                    <Heart className={cn("h-3.5 w-3.5", asset.metadata.liked && "fill-red-500 text-red-500")} />
-                  </Button>
-                  <Button size="icon" variant="secondary" className="h-7 w-7 bg-background/80 backdrop-blur-sm" onClick={handleOpenFile} title="Open in default app">
-                    <ExternalLink className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
               </div>
 
               {/* Asset name and type */}
               <div className="p-4 border-b border-border bg-card">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3 overflow-hidden">
-                    {isVideo ? <Video className="h-5 w-5 text-muted-foreground flex-shrink-0" /> : <ImageIcon className="h-5 w-5 text-muted-foreground flex-shrink-0" />}
                     <span className="text-sm font-medium truncate select-text" title={asset.path.split('/').pop()}>{asset.path.split('/').pop()}</span>
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
-                    {/* Tools Menu */}
+                    {/* Tools Menu - Reusing AssetMenuActions */}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-6 w-6">
@@ -266,60 +195,19 @@ export function AssetInspector() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-56">
-                        <DropdownMenuItem onSelect={() => {
-                          setLineageAssetId(asset.id);
-                        }}>
-                          <GitFork className="mr-2 h-4 w-4" /> View Lineage
-                        </DropdownMenuItem>
-
-                        <DropdownMenuItem onSelect={() => {
-                          const name = `Similar to ${asset.path.split('/').pop()}`;
-                          addActiveView(name, {
-                            relatedToAssetId: asset.id,
-                            semantic: true,
-                            type: 'all',
-                            status: 'all',
-                            likedOnly: false,
-                          });
-                          // Switch to view logic...
-                          const views = useStore.getState().activeViews;
-                          const view = views.find(v => v.name === name);
-                          if (view) {
-                            setCurrentPath(null);
-                            setFilterConfig(view.filterConfig);
-                            setViewMode('grid');
-                          }
-                        }}>
-                          <Sparkles className="mr-2 h-4 w-4 text-purple-400" /> Find Similar
-                        </DropdownMenuItem>
-
-                        <DropdownMenuSeparator />
-
-                        <DropdownMenuLabel>Scratch Pad</DropdownMenuLabel>
-                        {scratchPads.length === 0 ? (
-                          <DropdownMenuItem disabled className="text-muted-foreground italic">
-                            No Scratch Pads
-                          </DropdownMenuItem>
-                        ) : (
-                          scratchPads.map(pad => (
-                            <DropdownMenuItem
-                              key={pad.id}
-                              onSelect={() => addToScratchPad(pad.id, [asset.id])}
-                            >
-                              <StickyNote className="mr-2 h-4 w-4" />
-                              Add to {pad.name}
-                            </DropdownMenuItem>
-                          ))
-                        )}
-                        <DropdownMenuItem onSelect={() => createScratchPad('New Scratch Pad', [asset.id])}>
-                          <Plus className="mr-2 h-4 w-4" /> Create New Pad...
-                        </DropdownMenuItem>
-
-                        <DropdownMenuSeparator />
-
-                        <DropdownMenuItem onSelect={handleDelete} className="text-destructive focus:text-destructive">
-                          <Trash2 className="mr-2 h-4 w-4" /> Delete Asset
-                        </DropdownMenuItem>
+                        <AssetMenuActions
+                          asset={asset}
+                          components={{
+                            Item: DropdownMenuItem,
+                            Separator: DropdownMenuSeparator,
+                            Sub: DropdownMenuSub,
+                            SubTrigger: DropdownMenuSubTrigger,
+                            SubContent: DropdownMenuSubContent,
+                            Label: DropdownMenuLabel
+                          }}
+                          onCreateTag={() => setIsCreateTagOpen(true)}
+                          onCreateScratchPad={() => setIsCreateScratchPadOpen(true)}
+                        />
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -452,7 +340,7 @@ export function AssetInspector() {
                                           isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"
                                         )}
                                       >
-                                        <Check className={cn("h-4 w-4")} />
+                                        {/* Check icon */}
                                       </div>
                                       <div className="flex items-center gap-2">
                                         <div className="w-3 h-3 rounded-full" style={{ backgroundColor: tag.color }} />
@@ -600,9 +488,9 @@ export function AssetInspector() {
                     <div className="px-4 space-y-2 py-2">
                       <div className="flex items-center gap-3 text-xs">
                         {asset.metadata?.liked && (
-                          <div className="flex items-center gap-1.5 px-2 py-1 bg-red-500/10 text-red-600 dark:text-red-400 rounded-md border border-red-500/20">
-                            <Heart className="h-3.5 w-3.5 fill-current" />
-                            <span className="font-medium">Liked</span>
+                          <div className="flex items-center gap-1.5 px-2 py-1 bg-muted rounded-md border border-border/50">
+                            {/* Heart icon handled in AssetMediaPreview, but here we show stats */}
+                            <span>Liked</span>
                           </div>
                         )}
                         {asset.metadata?.comments && asset.metadata.comments.length > 0 && (
@@ -652,6 +540,13 @@ export function AssetInspector() {
                   console.error('Failed to create tag:', err);
                 }
               }}
+            />
+
+            <CreateScratchPadDialog
+              isOpen={isCreateScratchPadOpen}
+              onClose={() => setIsCreateScratchPadOpen(false)}
+              onCreate={createScratchPad}
+              initialAssetIds={[asset.id]}
             />
           </>
         )}

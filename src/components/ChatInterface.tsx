@@ -24,7 +24,7 @@ export const ChatInterface: React.FC = () => {
         {
             id: 'welcome',
             role: 'assistant',
-            content: "Hello! I'm your smart assistant. I can help you find assets or answer questions about your library. (Powered by MiniLM-L6-v2)",
+            content: "Hello! I'm your smart assistant. I can help you find assets or answer questions about your library. (Powered by CLIP)",
             timestamp: Date.now()
         }
     ]);
