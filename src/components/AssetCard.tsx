@@ -22,8 +22,18 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
     const [isPlaying, setIsPlaying] = useState(false);
     const [isHoveringScrubber, setIsHoveringScrubber] = useState(false);
     const [isHoveringCard, setIsHoveringCard] = useState(false);
+    const [duration, setDuration] = useState(asset.metadata.duration || 0);
+    const [currentTime, setCurrentTime] = useState(0);
+    const [hoverProgress, setHoverProgress] = useState<number | null>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
     const scrubberRef = useRef<HTMLDivElement>(null);
+
+    const formatTime = (seconds: number) => {
+        if (!Number.isFinite(seconds)) return "0:00";
+        const m = Math.floor(seconds / 60);
+        const s = Math.floor(seconds % 60);
+        return `${m}:${s.toString().padStart(2, '0')}`;
+    };
 
     const handleClick = (e: React.MouseEvent) => {
         // Prevent click from propagating through overlay buttons
@@ -191,6 +201,8 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
                                         onPlay={() => setIsPlaying(true)}
                                         onPause={() => setIsPlaying(false)}
                                         onEnded={() => setIsPlaying(false)}
+                                        onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+                                        onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
                                         onClick={(e) => e.stopPropagation()}
                                         onDoubleClick={(e) => e.stopPropagation()}
                                     />
@@ -199,16 +211,49 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
                                 {/* Scrubber Bar */}
                                 <div
                                     ref={scrubberRef}
-                                    className="absolute bottom-0 left-0 right-0 h-6 z-40 cursor-ew-resize flex items-end group/scrubber scrubber-bar px-1"
+                                    className="absolute bottom-0 left-0 right-0 h-3 z-40 cursor-ew-resize flex items-end group/scrubber scrubber-bar px-1"
                                     onClick={handleSeek}
                                     onMouseEnter={() => setIsHoveringScrubber(true)}
-                                    onMouseLeave={() => setIsHoveringScrubber(false)}
-                                    onMouseMove={handleScrub}
+                                    onMouseLeave={() => {
+                                        setIsHoveringScrubber(false);
+                                        setHoverProgress(null);
+                                    }}
+                                    onMouseMove={(e) => {
+                                        handleScrub(e);
+                                        // Update hover progress for visual indicator
+                                        if (scrubberRef.current) {
+                                            const rect = scrubberRef.current.getBoundingClientRect();
+                                            const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+                                            setHoverProgress((x / rect.width) * 100);
+                                        }
+                                    }}
                                 >
                                     <div className="w-full h-1 bg-white/20 group-hover/scrubber:bg-white/30 group-hover/scrubber:h-1.5 transition-all rounded-full overflow-hidden backdrop-blur-sm relative">
-                                        {/* Progress indicator could go here */}
+                                        {/* Playback Progress */}
+                                        <div
+                                            className="absolute top-0 left-0 bottom-0 bg-primary/80 transition-all duration-75"
+                                            style={{ width: `${(currentTime / (duration || 1)) * 100}%` }}
+                                        />
+
+                                        {/* Hover Indicator */}
+                                        {hoverProgress !== null && (
+                                            <div
+                                                className="absolute top-0 bottom-0 w-1.5 bg-white shadow-[0_0_4px_rgba(0,0,0,0.5)] z-10"
+                                                style={{ left: `${hoverProgress}%`, transform: 'translateX(-50%)' }}
+                                            />
+                                        )}
                                     </div>
                                 </div>
+
+                                {/* Time Display */}
+                                {asset.type === 'video' && (
+                                    <div className="absolute bottom-2 right-2 z-30 text-[9px] font-medium text-white/90 bg-black/40 px-1.5 py-0.5 rounded-sm backdrop-blur-sm pointer-events-none tabular-nums">
+                                        {(isPlaying || isHoveringCard)
+                                            ? `${formatTime((isHoveringScrubber && hoverProgress !== null) ? ((hoverProgress / 100) * (duration || asset.metadata.duration || 0)) : currentTime)} / ${formatTime(duration || asset.metadata.duration || 0)}`
+                                            : formatTime(duration || asset.metadata.duration || 0)
+                                        }
+                                    </div>
+                                )}
                             </>
                         ) : (
                             /* Image handling */
@@ -223,18 +268,18 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
                         {/* Inline Play/Pause Button - Always visible for videos, unless scrubbing */}
                         {asset.type === 'video' && !isHoveringScrubber && (
                             <div
-                                className="absolute bottom-2 left-2 z-30 transition-opacity"
+                                className="absolute bottom-3.5 left-2 z-50 transition-opacity"
                                 onClick={(e) => e.stopPropagation()}
                                 onDoubleClick={(e) => e.stopPropagation()}
                             >
                                 <button
                                     onClick={handlePlayPauseClick}
-                                    className="rounded-full p-2 bg-black/50 text-white hover:bg-primary hover:text-primary-foreground backdrop-blur-sm transition-colors"
+                                    className="rounded-full p-2.5 bg-black/50 text-white hover:bg-primary hover:text-primary-foreground backdrop-blur-sm transition-colors"
                                 >
                                     {isPlaying ? (
-                                        <Pause className="h-3 w-3 fill-current" />
+                                        <Pause className="h-4 w-4 fill-current" />
                                     ) : (
-                                        <Play className="h-3 w-3 fill-current" />
+                                        <Play className="h-4 w-4 fill-current" />
                                     )}
                                 </button>
                             </div>

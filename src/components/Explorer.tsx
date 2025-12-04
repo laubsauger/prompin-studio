@@ -90,6 +90,8 @@ export const Explorer: React.FC = () => {
         // 1. Filter by Status (multi-select with OR logic)
         if (filterConfig.statuses && filterConfig.statuses.length > 0) {
             result = result.filter(a => filterConfig.statuses!.includes(a.status));
+        } else if (filterConfig.status && filterConfig.status !== 'all') {
+            result = result.filter(a => a.status === filterConfig.status);
         } else if (filter !== 'all') {
             // Fallback to old single filter for backward compatibility
             result = result.filter(a => a.status === filter);

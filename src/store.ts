@@ -388,8 +388,7 @@ export const useStore = create<AppState>((set, get) => ({
     refreshAssets: async () => {
         // Silent reload without full-screen loading
         try {
-            const assets = await getIpcRenderer().invoke('get-assets');
-            set({ assets });
+            await get().searchAssets();
             // Also load folders to ensure structure is up to date
             get().loadFolders();
         } catch (error) {
