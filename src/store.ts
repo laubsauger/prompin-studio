@@ -89,6 +89,7 @@ interface AppState {
     resetFilters: () => void;
     setSearchQuery: (query: string) => void;
     searchAssets: (query?: string, filters?: Partial<AppState['filterConfig']>) => Promise<void>;
+    previewSearch: (query: string) => Promise<Asset[]>;
     setFolderColor: (path: string, color: string) => void;
     toggleLike: (id: string) => Promise<void>;
     setLastInboxViewTime: (time: number) => void;
@@ -350,6 +351,28 @@ export const useStore = create<AppState>((set, get) => ({
             set({ assets: filteredAssets });
         } catch (error) {
             console.error('Failed to search assets:', error);
+        }
+    },
+    previewSearch: async (query) => {
+        try {
+            // Use same filters as main search but don't update state
+            const filterConfig = get().filterConfig;
+            const backendFilters: any = {};
+            if (filterConfig.type && filterConfig.type !== 'all') backendFilters.type = filterConfig.type;
+            if (filterConfig.status && filterConfig.status !== 'all') backendFilters.status = filterConfig.status;
+            // ... (copy other filters if needed, or just search by query for Command K?)
+            // Command K usually searches everything, but maybe respecting filters is good?
+            // Let's respect filters for consistency, or maybe Command K should be global?
+            // The prompt says "search files, metadata, projects..." implying global.
+            // But if I have a filter active, I might expect it to apply.
+            // Let's stick to global search for Command K for now as it's a "quick jump" tool.
+            // Actually, let's keep it simple and just pass the query.
+
+            const assets = await getIpcRenderer().invoke('search-assets', query, {});
+            return assets;
+        } catch (error) {
+            console.error('Failed to preview search:', error);
+            return [];
         }
     },
     setFolderColor: async (path, color) => {

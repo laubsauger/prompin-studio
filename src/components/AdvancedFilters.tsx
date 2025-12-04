@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { SlidersHorizontal, Calendar, Film, Cpu, Sparkles, X } from 'lucide-react';
+import { SlidersHorizontal, Calendar, Film, Cpu, Sparkles, X, Search, Heart, Bookmark, Tag } from 'lucide-react';
 import { useStore } from '../store';
 import { Button } from './ui/button';
 import * as Popover from '@radix-ui/react-popover';
@@ -8,7 +8,7 @@ import { cn } from '../lib/utils';
 
 export function AdvancedFilters() {
     const [isOpen, setIsOpen] = useState(false);
-    const { filterConfig, setFilterConfig, searchAssets, assets, resetFilters } = useStore();
+    const { filterConfig, setFilterConfig, searchAssets, assets, resetFilters, searchQuery, setSearchQuery, scratchPads, tags } = useStore();
 
     const handleFilterChange = (key: string, value: any) => {
         const newConfig = { ...filterConfig, [key]: value };
@@ -18,9 +18,11 @@ export function AdvancedFilters() {
 
     const clearFilters = () => {
         resetFilters();
+        setSearchQuery('');
     };
 
-    const activeFilterCount = Object.entries(filterConfig).filter(([key, value]) => {
+    // Count active filters including searchQuery
+    let activeFilterCount = Object.entries(filterConfig).filter(([key, value]) => {
         // Skip default/empty values
         if (key === 'type' && value === 'all') return false;
         if (key === 'status' && value === 'all') return false;
@@ -32,6 +34,11 @@ export function AdvancedFilters() {
         if (value === null || value === undefined || value === '') return false;
         return true;
     }).length;
+
+    // Add searchQuery to count if it exists
+    if (searchQuery && searchQuery.trim() !== '') {
+        activeFilterCount++;
+    }
 
     return (
         <Popover.Root open={isOpen} onOpenChange={setIsOpen}>
@@ -71,6 +78,103 @@ export function AdvancedFilters() {
                                 Clear All
                             </Button>
                         </div>
+
+                        {/* Active Search Query */}
+                        {searchQuery && searchQuery.trim() !== '' && (
+                            <div className="p-2 rounded bg-blue-500/10 border border-blue-500/20 space-y-1.5">
+                                <div className="text-[11px] font-medium text-blue-500 flex items-center gap-1.5">
+                                    <Search className="h-3 w-3" />
+                                    Active Search
+                                </div>
+                                <div className="flex items-center justify-between gap-2">
+                                    <span className="text-xs truncate flex-1" title={searchQuery}>
+                                        "{searchQuery}"
+                                    </span>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-5 w-5 shrink-0 hover:bg-blue-500/20"
+                                        onClick={() => {
+                                            setSearchQuery('');
+                                            searchAssets('', filterConfig);
+                                        }}
+                                        title="Clear Search"
+                                    >
+                                        <X className="h-3 w-3" />
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Liked Only Filter */}
+                        {filterConfig.likedOnly && (
+                            <div className="p-2 rounded bg-pink-500/10 border border-pink-500/20 space-y-1.5">
+                                <div className="text-[11px] font-medium text-pink-500 flex items-center gap-1.5">
+                                    <Heart className="h-3 w-3" />
+                                    Liked Only
+                                </div>
+                                <div className="flex items-center justify-between gap-2">
+                                    <span className="text-xs">Showing only liked assets</span>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-5 w-5 shrink-0 hover:bg-pink-500/20"
+                                        onClick={() => handleFilterChange('likedOnly', false)}
+                                        title="Clear Liked Filter"
+                                    >
+                                        <X className="h-3 w-3" />
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Scratch Pad Filter */}
+                        {filterConfig.scratchPadId && (
+                            <div className="p-2 rounded bg-amber-500/10 border border-amber-500/20 space-y-1.5">
+                                <div className="text-[11px] font-medium text-amber-500 flex items-center gap-1.5">
+                                    <Bookmark className="h-3 w-3" />
+                                    Scratch Pad
+                                </div>
+                                <div className="flex items-center justify-between gap-2">
+                                    <span className="text-xs truncate flex-1">
+                                        {scratchPads.find(p => p.id === filterConfig.scratchPadId)?.name || 'Unknown Scratch Pad'}
+                                    </span>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-5 w-5 shrink-0 hover:bg-amber-500/20"
+                                        onClick={() => handleFilterChange('scratchPadId', null)}
+                                        title="Clear Scratch Pad Filter"
+                                    >
+                                        <X className="h-3 w-3" />
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Legacy Single Tag Filter */}
+                        {filterConfig.tagId && (
+                            <div className="p-2 rounded bg-green-500/10 border border-green-500/20 space-y-1.5">
+                                <div className="text-[11px] font-medium text-green-500 flex items-center gap-1.5">
+                                    <Tag className="h-3 w-3" />
+                                    Tag Filter
+                                </div>
+                                <div className="flex items-center justify-between gap-2">
+                                    <span className="text-xs truncate flex-1">
+                                        {tags.find(t => t.id === filterConfig.tagId)?.name || 'Unknown Tag'}
+                                    </span>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-5 w-5 shrink-0 hover:bg-green-500/20"
+                                        onClick={() => handleFilterChange('tagId', null)}
+                                        title="Clear Tag Filter"
+                                    >
+                                        <X className="h-3 w-3" />
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Active Context (Similarity/Lineage) */}
                         {filterConfig.relatedToAssetId && (

@@ -1,10 +1,41 @@
 import * as React from "react"
 import { type DialogProps } from "@radix-ui/react-dialog"
-import { MagnifyingGlassIcon } from "@radix-ui/react-icons"
+import { MagnifyingGlassIcon, Cross2Icon } from "@radix-ui/react-icons"
 import { Command as CommandPrimitive } from "cmdk"
 
 import { cn } from "../../lib/utils"
 import { Dialog, DialogContent } from "./dialog"
+
+const CommandInput = React.forwardRef<
+  React.ElementRef<typeof CommandPrimitive.Input>,
+  React.ComponentPropsWithoutRef<typeof CommandPrimitive.Input> & {
+    onClear?: () => void
+  }
+>(({ className, onClear, ...props }, ref) => (
+  <div className="flex items-center border-b px-3" cmdk-input-wrapper="">
+    <MagnifyingGlassIcon className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+    <CommandPrimitive.Input
+      ref={ref}
+      className={cn(
+        "flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",
+        className
+      )}
+      {...props}
+    />
+    {props.value && onClear && (
+      <button
+        onClick={onClear}
+        className="ml-2 p-1 rounded-sm hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+        type="button"
+        tabIndex={-1}
+      >
+        <Cross2Icon className="h-4 w-4" />
+      </button>
+    )}
+  </div>
+))
+
+CommandInput.displayName = CommandPrimitive.Input.displayName
 
 const Command = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive>,
@@ -21,7 +52,7 @@ const Command = React.forwardRef<
 ))
 Command.displayName = CommandPrimitive.displayName
 
-interface CommandDialogProps extends DialogProps {}
+interface CommandDialogProps extends DialogProps { }
 
 const CommandDialog = ({ children, ...props }: CommandDialogProps) => {
   return (
@@ -34,25 +65,6 @@ const CommandDialog = ({ children, ...props }: CommandDialogProps) => {
     </Dialog>
   )
 }
-
-const CommandInput = React.forwardRef<
-  React.ElementRef<typeof CommandPrimitive.Input>,
-  React.ComponentPropsWithoutRef<typeof CommandPrimitive.Input>
->(({ className, ...props }, ref) => (
-  <div className="flex items-center border-b px-3" cmdk-input-wrapper="">
-    <MagnifyingGlassIcon className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-    <CommandPrimitive.Input
-      ref={ref}
-      className={cn(
-        "flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",
-        className
-      )}
-      {...props}
-    />
-  </div>
-))
-
-CommandInput.displayName = CommandPrimitive.Input.displayName
 
 const CommandList = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.List>,

@@ -7,8 +7,9 @@ import db from '../db.js';
 import { Asset, SyncStats, AssetMetadata } from '../../src/types.js';
 // @ts-ignore
 import ffmpeg from 'fluent-ffmpeg';
-// @ts-ignore
-import ffmpegPath from 'ffmpeg-static';
+
+// Dynamic ffmpeg loading handled in constructor/init
+// import ffmpegPath from 'ffmpeg-static';
 
 import { Scanner } from './indexer/Scanner.js';
 import { Watcher } from './indexer/Watcher.js';
@@ -17,15 +18,31 @@ import { ThumbnailGenerator } from './indexer/ThumbnailGenerator.js';
 import { AssetManager } from './indexer/AssetManager.js';
 import { embeddingService } from './indexer/EmbeddingService.js';
 
-// Configure ffmpeg path
-if (ffmpegPath) {
-    // Use path.sep for cross-platform compatibility
-    const unpackedPath = (ffmpegPath as unknown as string).replace(
-        path.join('app.asar'),
-        path.join('app.asar.unpacked')
-    );
-    ffmpeg.setFfmpegPath(unpackedPath);
-}
+// Helper to setup ffmpeg
+const setupFfmpeg = async () => {
+    try {
+        // Try to load ffmpeg-static
+        // We use a dynamic import to avoid build-time errors if it's missing
+        // @ts-ignore
+        const ffmpegStatic = (await import('ffmpeg-static')).default;
+
+        if (ffmpegStatic) {
+            // Use path.sep for cross-platform compatibility
+            const unpackedPath = (ffmpegStatic as unknown as string).replace(
+                path.join('app.asar'),
+                path.join('app.asar.unpacked')
+            );
+            ffmpeg.setFfmpegPath(unpackedPath);
+            console.log('[IndexerService] Using ffmpeg-static at:', unpackedPath);
+        }
+    } catch (error) {
+        console.warn('[IndexerService] ffmpeg-static not found. Falling back to system ffmpeg.');
+        // fluent-ffmpeg will automatically look for 'ffmpeg' in PATH
+    }
+};
+
+// Initialize ffmpeg immediately
+setupFfmpeg();
 
 
 

@@ -20,6 +20,7 @@ export function SearchPalette() {
         searchQuery,
         setSearchQuery,
         searchAssets,
+        previewSearch,
         triggerResync,
         setCurrentPath,
         setFilterConfig,
@@ -29,7 +30,8 @@ export function SearchPalette() {
         clearSelection,
         setViewingAssetId
     } = useStore();
-    const assets = useStore(state => state.assets);
+    // const assets = useStore(state => state.assets); // Don't use global assets
+    const [assets, setAssets] = useState<any[]>([]); // Local assets state
     const [open, setOpen] = useState(false);
     const [value, setValue] = useState(searchQuery);
     const [isSearching, setIsSearching] = useState(false);
@@ -39,17 +41,31 @@ export function SearchPalette() {
     // Debounced search function
     const debouncedSearch = useCallback(
         debounce(async (query: string) => {
+            if (!query.trim()) {
+                setAssets([]);
+                setIsSearching(false);
+                return;
+            }
             setIsSearching(true);
-            setSearchQuery(query);
-            await searchAssets(query);
+            // Use previewSearch instead of searchAssets to avoid updating global state
+            const results = await previewSearch(query);
+            setAssets(results);
             setIsSearching(false);
         }, 300),
         []
     );
 
     useEffect(() => {
-        setValue(searchQuery);
-    }, [searchQuery]);
+        // Sync local value with global search query when opening
+        if (open) {
+            setValue(searchQuery);
+            if (searchQuery) {
+                debouncedSearch(searchQuery);
+            } else {
+                setAssets([]);
+            }
+        }
+    }, [open, searchQuery]);
 
     const handleValueChange = (value: string) => {
         setValue(value);
@@ -118,6 +134,7 @@ export function SearchPalette() {
                                 placeholder="Search files, metadata, projects..."
                                 value={value}
                                 onValueChange={handleValueChange}
+                                onClear={() => handleValueChange('')}
                                 autoFocus
                             />
                             <CommandList className="max-h-[500px]">
@@ -125,6 +142,16 @@ export function SearchPalette() {
 
                                 {/* Global Actions - Fixed section at top */}
                                 <CommandGroup heading="Tools">
+                                    {value && (
+                                        <CommandItem onSelect={() => {
+                                            setSearchQuery(value);
+                                            searchAssets(value);
+                                            setOpen(false);
+                                        }}>
+                                            <Search className="mr-2 h-4 w-4" />
+                                            <span>Search for "{value}"</span>
+                                        </CommandItem>
+                                    )}
                                     <CommandItem onSelect={() => {
                                         triggerResync();
                                         setOpen(false);
@@ -178,36 +205,36 @@ export function SearchPalette() {
                                             }}>
                                                 <StickyNote className="mr-2 h-4 w-4" />
                                                 <span>Create Scratch Pad from Selection</span>
-                                        </CommandItem>
-                                        <CommandItem onSelect={() => {
-                                            setIsCreateTagDialogOpen(true);
-                                            setOpen(false);
-                                        }}>
-                                            <Tag className="mr-2 h-4 w-4" />
-                                            <span>Add Tag to Selection...</span>
-                                        </CommandItem>
-                                        <CommandItem onSelect={() => {
-                                            Array.from(selectedIds).forEach(id => updateAssetStatus(id, 'approved'));
-                                            setOpen(false);
-                                        }}>
-                                            <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
-                                            <span>Mark as Approved</span>
-                                        </CommandItem>
-                                        <CommandItem onSelect={() => {
-                                            Array.from(selectedIds).forEach(id => updateAssetStatus(id, 'review_requested'));
-                                            setOpen(false);
-                                        }}>
-                                            <AlertCircle className="mr-2 h-4 w-4 text-yellow-500" />
-                                            <span>Mark as Review Requested</span>
-                                        </CommandItem>
-                                        <CommandItem onSelect={() => {
-                                            clearSelection();
-                                            setOpen(false);
-                                        }}>
-                                            <X className="mr-2 h-4 w-4" />
-                                            <span>Clear Selection</span>
-                                        </CommandItem>
-                                    </CommandGroup>
+                                            </CommandItem>
+                                            <CommandItem onSelect={() => {
+                                                setIsCreateTagDialogOpen(true);
+                                                setOpen(false);
+                                            }}>
+                                                <Tag className="mr-2 h-4 w-4" />
+                                                <span>Add Tag to Selection...</span>
+                                            </CommandItem>
+                                            <CommandItem onSelect={() => {
+                                                Array.from(selectedIds).forEach(id => updateAssetStatus(id, 'approved'));
+                                                setOpen(false);
+                                            }}>
+                                                <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
+                                                <span>Mark as Approved</span>
+                                            </CommandItem>
+                                            <CommandItem onSelect={() => {
+                                                Array.from(selectedIds).forEach(id => updateAssetStatus(id, 'review_requested'));
+                                                setOpen(false);
+                                            }}>
+                                                <AlertCircle className="mr-2 h-4 w-4 text-yellow-500" />
+                                                <span>Mark as Review Requested</span>
+                                            </CommandItem>
+                                            <CommandItem onSelect={() => {
+                                                clearSelection();
+                                                setOpen(false);
+                                            }}>
+                                                <X className="mr-2 h-4 w-4" />
+                                                <span>Clear Selection</span>
+                                            </CommandItem>
+                                        </CommandGroup>
                                     </>
                                 )}
 
@@ -235,42 +262,42 @@ export function SearchPalette() {
                                                                     <div className="w-2 h-2 bg-green-500 rounded-full border border-background" />
                                                                 </div>
                                                             )}
-                                                    {asset.type === 'image' ? (
-                                                        <img
-                                                            src={asset.thumbnailPath ? `thumbnail://${asset.thumbnailPath}` : `media://${asset.path}`}
-                                                            alt=""
-                                                            className="w-full h-full object-cover"
-                                                            loading="lazy"
-                                                        />
-                                                    ) : asset.thumbnailPath ? (
-                                                        <img
-                                                            src={`thumbnail://${asset.thumbnailPath}`}
-                                                            alt=""
-                                                            className="w-full h-full object-cover"
-                                                            loading="lazy"
-                                                        />
-                                                    ) : (
-                                                        <div className="text-[8px] text-muted-foreground">Video</div>
-                                                    )}
-                                                </div>
-                                                <div className="flex flex-col overflow-hidden flex-1">
-                                                    <span className="truncate text-sm font-medium">{asset.path.split('/').pop()}</span>
-                                                    <div className="flex items-center gap-2 text-xs text-muted-foreground truncate">
-                                                        <span className="truncate max-w-[200px]">{asset.path}</span>
-                                                        {asset.metadata.prompt && (
-                                                            <>
-                                                                <span className="shrink-0 opacity-50">•</span>
-                                                                <span className="truncate italic opacity-70">"{asset.metadata.prompt}"</span>
-                                                            </>
+                                                            {asset.type === 'image' ? (
+                                                                <img
+                                                                    src={asset.thumbnailPath ? `thumbnail://${asset.thumbnailPath}` : `media://${asset.path}`}
+                                                                    alt=""
+                                                                    className="w-full h-full object-cover"
+                                                                    loading="lazy"
+                                                                />
+                                                            ) : asset.thumbnailPath ? (
+                                                                <img
+                                                                    src={`thumbnail://${asset.thumbnailPath}`}
+                                                                    alt=""
+                                                                    className="w-full h-full object-cover"
+                                                                    loading="lazy"
+                                                                />
+                                                            ) : (
+                                                                <div className="text-[8px] text-muted-foreground">Video</div>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex flex-col overflow-hidden flex-1">
+                                                            <span className="truncate text-sm font-medium">{asset.path.split('/').pop()}</span>
+                                                            <div className="flex items-center gap-2 text-xs text-muted-foreground truncate">
+                                                                <span className="truncate max-w-[200px]">{asset.path}</span>
+                                                                {asset.metadata.prompt && (
+                                                                    <>
+                                                                        <span className="shrink-0 opacity-50">•</span>
+                                                                        <span className="truncate italic opacity-70">"{asset.metadata.prompt}"</span>
+                                                                    </>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        {asset.metadata.platform && (
+                                                            <div className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground shrink-0">
+                                                                {asset.metadata.platform}
+                                                            </div>
                                                         )}
-                                                    </div>
-                                                </div>
-                                                {asset.metadata.platform && (
-                                                    <div className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground shrink-0">
-                                                        {asset.metadata.platform}
-                                                    </div>
-                                                )}
-                                            </CommandItem>
+                                                    </CommandItem>
                                                 );
                                             })}
                                         </CommandGroup>
