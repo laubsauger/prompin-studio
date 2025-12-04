@@ -15,6 +15,7 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
     const selectRange = useStore(state => state.selectRange);
     const toggleLike = useStore(state => state.toggleLike);
     const setViewingAssetId = useStore(state => state.setViewingAssetId);
+    const setInspectorAsset = useStore(state => state.setInspectorAsset);
 
     const isSelected = useStore(state => state.selectedIds.has(asset.id));
     const aspectRatio = useStore(state => state.aspectRatio);
@@ -381,7 +382,13 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
 
                     {/* Tags section - only show in detailed view */}
                     {viewDisplay === 'detailed' && (
-                        <div className="border-t border-border/50 bg-card/80 backdrop-blur-sm h-7 relative overflow-hidden group/tags">
+                        <div
+                            className="border-t border-border/50 bg-card/80 backdrop-blur-sm h-7 relative overflow-hidden group/tags cursor-pointer"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setInspectorAsset(asset);
+                            }}
+                        >
                             <div className="flex items-center gap-1 px-2 h-full">
                                 {/* Tags Display with stacking */}
                                 {asset.tags && asset.tags.length > 0 ? (

@@ -59,6 +59,7 @@ interface AppState {
     lastSelectedId: string | null;
     viewingAssetId: string | null;
     lineageAssetId: string | null;
+    inspectorAsset: Asset | null;
     currentPath: string | null;
     viewMode: 'grid' | 'list';
     aspectRatio: 'square' | 'video' | 'portrait';
@@ -123,6 +124,8 @@ interface AppState {
     setFilter: (filter: Asset['status'] | 'all') => void;
     setViewingAssetId: (id: string | null) => void;
     setLineageAssetId: (id: string | null) => void;
+    setInspectorAsset: (asset: Asset | null) => void;
+    clearInspectorAsset: () => void;
     setCurrentPath: (path: string | null) => void;
     setViewMode: (mode: 'grid' | 'list') => void;
     setAspectRatio: (ratio: 'square' | 'video' | 'portrait') => void;
@@ -160,6 +163,7 @@ export const useStore = create<AppState>((set, get) => ({
     lastSelectedId: null,
     viewingAssetId: null,
     lineageAssetId: null,
+    inspectorAsset: null,
     currentPath: null, // null = root, string = relative path from root
     viewMode: 'grid',
     isLoading: false,
@@ -185,6 +189,8 @@ export const useStore = create<AppState>((set, get) => ({
     setFilter: (filter) => set({ filter }),
     setViewingAssetId: (id) => set({ viewingAssetId: id }),
     setLineageAssetId: (id) => set({ lineageAssetId: id }),
+    setInspectorAsset: (asset) => set({ inspectorAsset: asset }),
+    clearInspectorAsset: () => set({ inspectorAsset: null }),
     setCurrentPath: (path) => set({ currentPath: path }),
     setViewMode: (mode) => set({ viewMode: mode }),
     setLoading: (isLoading, message = '') => set({ isLoading, loadingMessage: message }),

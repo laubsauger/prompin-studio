@@ -10,6 +10,7 @@ import { BulkActionsBar } from './BulkActionsBar';
 import { SettingsModal } from './SettingsModal';
 import { ExplorerCell } from './ExplorerCell';
 import { AssetListItem } from './AssetListItem';
+import { AssetInspector } from './AssetInspector';
 
 const GAP = 16;
 

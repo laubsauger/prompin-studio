@@ -54,15 +54,14 @@ export const Sidebar: React.FC = () => {
                         onToggle={() => setIsLibraryOpen(!isLibraryOpen)}
                     />
 
+                    <ActiveViewsSection
+                        isOpen={isActiveViewsOpen}
+                        onToggle={() => setIsActiveViewsOpen(!isActiveViewsOpen)}
+                    />
+
                     <FolderTreeSection
                         isOpen={isFoldersOpen}
                         onToggle={() => setIsFoldersOpen(!isFoldersOpen)}
-                    />
-
-                    <TagListSection
-                        isOpen={isTagsOpen}
-                        onToggle={() => setIsTagsOpen(!isTagsOpen)}
-                        onOpenCreateDialog={() => setIsCreateTagDialogOpen(true)}
                     />
 
                     <StatusFilterSection
@@ -70,9 +69,10 @@ export const Sidebar: React.FC = () => {
                         onToggle={() => setIsStatusOpen(!isStatusOpen)}
                     />
 
-                    <ActiveViewsSection
-                        isOpen={isActiveViewsOpen}
-                        onToggle={() => setIsActiveViewsOpen(!isActiveViewsOpen)}
+                    <TagListSection
+                        isOpen={isTagsOpen}
+                        onToggle={() => setIsTagsOpen(!isTagsOpen)}
+                        onOpenCreateDialog={() => setIsCreateTagDialogOpen(true)}
                     />
 
                     <ScratchPadSection

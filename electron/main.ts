@@ -22,6 +22,7 @@ function createWindow() {
   win = new BrowserWindow({
     width: 1200,
     height: 800,
+    show: false, // Don't show until ready
     icon: path.join(process.env.VITE_PUBLIC || '', 'white_alpha.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -33,6 +34,12 @@ function createWindow() {
       vibrancy: 'under-window',
       visualEffectState: 'active',
     }),
+  });
+
+  // Maximize window on load
+  win.once('ready-to-show', () => {
+    win?.maximize();
+    win?.show();
   });
 
   win.webContents.on('did-finish-load', () => {

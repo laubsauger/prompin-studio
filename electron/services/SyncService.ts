@@ -74,34 +74,131 @@ export class SyncService extends EventEmitter {
 
         try {
             const files = await fs.readdir(this.syncDir);
-            const jsonFiles = files.filter(f => f.endsWith('.json')).sort(); // Sort by name (timestamp)
+            const jsonFiles = files.filter(f => f.endsWith('.json'));
 
-            console.log(`[SyncService] Replaying ${jsonFiles.length} events...`);
+            console.log(`[SyncService] Replaying ${jsonFiles.length} files...`);
 
+            const allEvents: SyncEvent[] = [];
+
+            // Read all files first
             for (const file of jsonFiles) {
-                await this.processEventFile(path.join(this.syncDir, file));
+                try {
+                    const content = await fs.readFile(path.join(this.syncDir, file), 'utf-8');
+                    const data = JSON.parse(content);
+                    if (Array.isArray(data)) {
+                        allEvents.push(...data);
+                    } else {
+                        allEvents.push(data);
+                    }
+                } catch (e) {
+                    console.warn(`[SyncService] Failed to read event file ${file}:`, e);
+                }
             }
+
+            // Sort by timestamp
+            allEvents.sort((a, b) => a.timestamp - b.timestamp);
+
+            console.log(`[SyncService] Processing ${allEvents.length} total events...`);
+
+            // Process in order
+            for (const event of allEvents) {
+                this.processEvent(event);
+            }
+
+            // Trigger compaction after replay
+            this.compactEvents(jsonFiles);
+
         } catch (error) {
             console.error('[SyncService] Failed to replay events:', error);
+        }
+    }
+
+    private async compactEvents(allFiles: string[]) {
+        if (!this.syncDir) return;
+
+        // Identify individual event files (not already compacted)
+        const individualFiles = allFiles.filter(f => !f.startsWith('compacted_') && f.endsWith('.json'));
+
+        if (individualFiles.length < 50) return; // Threshold to avoid frequent compaction
+
+        console.log(`[SyncService] Compacting ${individualFiles.length} event files...`);
+
+        try {
+            const eventsToCompact: SyncEvent[] = [];
+            const filesToDelete: string[] = [];
+
+            for (const file of individualFiles) {
+                try {
+                    const filePath = path.join(this.syncDir, file);
+                    const content = await fs.readFile(filePath, 'utf-8');
+                    const event = JSON.parse(content);
+                    eventsToCompact.push(event);
+                    filesToDelete.push(filePath);
+                } catch (e) {
+                    console.warn(`[SyncService] Failed to read file for compaction ${file}:`, e);
+                }
+            }
+
+            if (eventsToCompact.length === 0) return;
+
+            // Sort events
+            eventsToCompact.sort((a, b) => a.timestamp - b.timestamp);
+
+            // Create compacted file
+            const maxTimestamp = eventsToCompact[eventsToCompact.length - 1].timestamp;
+            const compactedFilename = `compacted_${maxTimestamp}_${uuidv4()}.json`;
+            const compactedPath = path.join(this.syncDir, compactedFilename);
+
+            await fs.writeFile(compactedPath, JSON.stringify(eventsToCompact, null, 2));
+            console.log(`[SyncService] Wrote compacted file: ${compactedFilename}`);
+
+            // Delete old files
+            for (const file of filesToDelete) {
+                try {
+                    await fs.unlink(file);
+                } catch (e) {
+                    // Ignore delete errors (race conditions etc)
+                }
+            }
+            console.log(`[SyncService] Deleted ${filesToDelete.length} old event files.`);
+
+        } catch (error) {
+            console.error('[SyncService] Compaction failed:', error);
         }
     }
 
     private async processEventFile(filePath: string) {
         try {
             const content = await fs.readFile(filePath, 'utf-8');
-            const event: SyncEvent = JSON.parse(content);
+            const data = JSON.parse(content);
 
-            // Skip if we processed this event already (e.g. we wrote it)
-            if (this.processedEvents.has(event.id)) return;
+            if (Array.isArray(data)) {
+                // Handle compacted file (array of events)
+                // We should sort them by timestamp just in case
+                const events = data as SyncEvent[];
+                events.sort((a, b) => a.timestamp - b.timestamp);
 
-            // Skip if it's our own event (double check)
-            if (event.userId === this.userId) return;
-
-            this.processedEvents.add(event.id);
-            this.emit('event', event);
+                for (const event of events) {
+                    this.processEvent(event);
+                }
+            } else {
+                // Handle single event file
+                this.processEvent(data as SyncEvent);
+            }
         } catch (error) {
             console.error(`[SyncService] Failed to process event file ${filePath}:`, error);
         }
+    }
+
+    private processEvent(event: SyncEvent) {
+        // Skip if we processed this event already (e.g. we wrote it)
+        if (this.processedEvents.has(event.id)) return;
+
+        // Skip if it's our own event (double check)
+        if (event.userId === this.userId) return;
+
+        this.processedEvents.add(event.id);
+        this.emit('event', event);
     }
 
     async publish(type: SyncEventType, payload: any) {

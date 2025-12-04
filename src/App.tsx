@@ -12,6 +12,7 @@ import './App.css';
 
 import { TitleBar } from './components/TitleBar';
 import { Sidebar } from './components/Sidebar';
+import { AssetInspector } from './components/AssetInspector';
 
 function App() {
   const rootFolder = useSettingsStore(state => state.rootFolder);

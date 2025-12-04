@@ -13,7 +13,7 @@ interface SidebarSectionProps {
 
 export const SidebarSection: React.FC<SidebarSectionProps> = ({ title, isOpen, onToggle, action, children, className }) => (
     <div className={cn("py-2", className)}>
-        <div className="flex items-center justify-between px-3 h-7 mb-1 group bg-muted/20 rounded-md mx-2">
+        <div className="flex items-center justify-between px-3 h-7 mb-1 group bg-muted/40 dark:bg-muted/30 border border-border/50 rounded-md mx-2">
             <button
                 onClick={onToggle}
                 className="flex items-center gap-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors w-full text-left h-full"

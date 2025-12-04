@@ -19,7 +19,7 @@ export const ActiveViewsSection: React.FC<ActiveViewsSectionProps> = ({ isOpen, 
 
     return (
         <SidebarSection
-            title="Active Views"
+            title="Views"
             isOpen={isOpen}
             onToggle={onToggle}
             className="mb-2"

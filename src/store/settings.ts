@@ -11,6 +11,8 @@ interface SettingsState {
     userName: string | null;
     userAvatar: string | null;
     scrollPositions: Record<string, number>; // path -> scroll position
+    sidebarCollapsed: boolean;
+    inspectorCollapsed: boolean;
     setTheme: (theme: 'light' | 'dark' | 'system') => void;
     setDefaultView: (view: 'grid' | 'list') => void;
     setAutoCheckUpdates: (auto: boolean) => void;
@@ -21,6 +23,8 @@ interface SettingsState {
     setUserAvatar: (avatar: string | null) => void;
     setScrollPosition: (path: string, position: number) => void;
     getScrollPosition: (path: string) => number;
+    toggleSidebar: () => void;
+    toggleInspector: () => void;
     resetSettings: () => void;
 }
 
@@ -36,6 +40,8 @@ export const useSettingsStore = create<SettingsState>()(
             userName: null,
             userAvatar: null,
             scrollPositions: {},
+            sidebarCollapsed: false,
+            inspectorCollapsed: false,
             setTheme: (theme) => set({ theme }),
             setDefaultView: (defaultView) => set({ defaultView }),
             setAutoCheckUpdates: (autoCheckUpdates) => set({ autoCheckUpdates }),
@@ -48,6 +54,8 @@ export const useSettingsStore = create<SettingsState>()(
                 scrollPositions: { ...state.scrollPositions, [path]: position }
             })),
             getScrollPosition: (path) => get().scrollPositions[path] || 0,
+            toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+            toggleInspector: () => set((state) => ({ inspectorCollapsed: !state.inspectorCollapsed })),
             resetSettings: () => {
                 localStorage.removeItem('prompin-studio-settings');
                 localStorage.removeItem('prompin-studio-storage'); // Clear main store too if needed
@@ -61,6 +69,8 @@ export const useSettingsStore = create<SettingsState>()(
                     userName: null,
                     userAvatar: null,
                     scrollPositions: {},
+                    sidebarCollapsed: false,
+                    inspectorCollapsed: false,
                 });
                 window.location.reload();
             },
