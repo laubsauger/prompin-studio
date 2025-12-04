@@ -94,10 +94,23 @@ export class IndexerService {
 
     private initializeStatsFromDB() {
         try {
-            const count = db.prepare('SELECT COUNT(*) as count FROM assets WHERE rootPath = ?').get(this.rootPath) as { count: number };
-            this.stats.totalFiles = count.count;
-            this.stats.processedFiles = count.count; // Assume processed if in DB
-            console.log(`[IndexerService] Initialized stats from DB: ${this.stats.totalFiles} files.`);
+            const totalCount = db.prepare('SELECT COUNT(*) as count FROM assets WHERE rootPath = ?').get(this.rootPath) as { count: number };
+            const imageCount = db.prepare('SELECT COUNT(*) as count FROM assets WHERE rootPath = ? AND type = "image"').get(this.rootPath) as { count: number };
+            const videoCount = db.prepare('SELECT COUNT(*) as count FROM assets WHERE rootPath = ? AND type = "video"').get(this.rootPath) as { count: number };
+            const folderCount = db.prepare('SELECT COUNT(*) as count FROM folders').get() as { count: number };
+
+            this.stats.totalFiles = totalCount.count;
+            this.stats.processedFiles = totalCount.count;
+
+            if (!this.stats.filesByType) {
+                this.stats.filesByType = { images: 0, videos: 0, other: 0 };
+            }
+            this.stats.filesByType.images = imageCount.count;
+            this.stats.filesByType.videos = videoCount.count;
+            this.stats.filesByType.other = totalCount.count - imageCount.count - videoCount.count;
+            this.stats.totalFolders = folderCount.count;
+
+            console.log(`[IndexerService] Initialized stats from DB: ${this.stats.totalFiles} files (${this.stats.filesByType.images} images, ${this.stats.filesByType.videos} videos), ${this.stats.totalFolders} folders.`);
         } catch (error) {
             console.error('[IndexerService] Failed to initialize stats from DB:', error);
         }

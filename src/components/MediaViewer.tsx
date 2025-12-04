@@ -2,15 +2,14 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { useStore } from '../store';
 import { Button } from './ui/button';
-import { Badge } from './ui/badge';
-import { X, Heart, Tag, FolderOpen, Info, ChevronDown, ChevronUp, Edit, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Heart, Tag, FolderOpen, Info, Edit, ChevronLeft, ChevronRight, MoreHorizontal, GitFork, StickyNote, Sparkles, Plus } from 'lucide-react';
 import { MediaPlayer, MediaProvider } from '@vidstack/react';
 import { DefaultVideoLayout, defaultLayoutIcons } from '@vidstack/react/player/layouts/default';
 import '@vidstack/react/player/styles/default/theme.css';
 import '@vidstack/react/player/styles/default/layouts/video.css';
-import { ASSET_STATUSES } from '../config/constants';
 import { cn } from '../lib/utils';
 import { CreateTagDialog } from './CreateTagDialog';
+import { CreateScratchPadDialog } from './CreateScratchPadDialog';
 import { MetadataEditor } from './MetadataEditor';
 import { StatusSelector } from './StatusSelector';
 import type { AssetStatus } from '../types';
@@ -20,12 +19,19 @@ import {
     DropdownMenuItem,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
+    DropdownMenuLabel,
 } from "./ui/dropdown-menu";
 
 export const MediaViewer: React.FC = () => {
-    const { viewingAssetId, setViewingAssetId, assets, toggleLike, tags, addTagToAsset, removeTagFromAsset, createTag, updateAssetStatus } = useStore();
+    const {
+        viewingAssetId, setViewingAssetId, assets, toggleLike, tags,
+        addTagToAsset, removeTagFromAsset, createTag, updateAssetStatus,
+        setLineageAssetId, addActiveView, addToScratchPad, scratchPads, createScratchPad,
+        setCurrentPath, setFilterConfig, setViewMode
+    } = useStore();
     const [showMetadata, setShowMetadata] = useState(false);
     const [isCreateTagDialogOpen, setIsCreateTagDialogOpen] = useState(false);
+    const [isCreateScratchPadDialogOpen, setIsCreateScratchPadDialogOpen] = useState(false);
     const [isMetadataEditorOpen, setIsMetadataEditorOpen] = useState(false);
     const [loadError, setLoadError] = useState(false);
 
@@ -204,6 +210,92 @@ export const MediaViewer: React.FC = () => {
                             >
                                 <Edit className="h-4 w-4" />
                             </Button>
+
+                            {/* More Actions Dropdown */}
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" title="More Actions">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-56">
+                                    <DropdownMenuItem onSelect={() => {
+                                        setLineageAssetId(asset.id);
+                                        setViewingAssetId(null); // Close viewer to see results
+                                    }}>
+                                        <GitFork className="mr-2 h-4 w-4" /> View Lineage
+                                    </DropdownMenuItem>
+
+                                    <DropdownMenuItem onSelect={() => {
+                                        const name = `Similar to ${asset.path.split('/').pop()}`;
+                                        addActiveView(name, {
+                                            relatedToAssetId: asset.id,
+                                            semantic: true,
+                                            type: 'all',
+                                            status: 'all',
+                                            likedOnly: false,
+                                            tagId: undefined,
+                                            scratchPadId: undefined
+                                        });
+
+                                        // Switch to view
+                                        const views = useStore.getState().activeViews;
+                                        const view = views.find(v => v.name === name);
+                                        if (view) {
+                                            setCurrentPath(null);
+                                            setFilterConfig(view.filterConfig);
+                                            setViewMode('grid');
+                                            setViewingAssetId(null);
+                                        }
+                                    }}>
+                                        <Sparkles className="mr-2 h-4 w-4 text-purple-400" /> Find Similar
+                                    </DropdownMenuItem>
+
+                                    <DropdownMenuItem onSelect={() => {
+                                        const name = `Derived from ${asset.path.split('/').pop()}`;
+                                        addActiveView(name, {
+                                            relatedToAssetId: asset.id,
+                                            type: 'all',
+                                            status: 'all',
+                                            likedOnly: false,
+                                            tagId: undefined,
+                                            scratchPadId: undefined
+                                        });
+
+                                        const views = useStore.getState().activeViews;
+                                        const view = views.find(v => v.name === name);
+                                        if (view) {
+                                            setCurrentPath(null);
+                                            setFilterConfig(view.filterConfig);
+                                            setViewingAssetId(null);
+                                        }
+                                    }}>
+                                        <GitFork className="mr-2 h-4 w-4 rotate-180" /> Show Derived Assets
+                                    </DropdownMenuItem>
+
+                                    <DropdownMenuSeparator />
+
+                                    <DropdownMenuLabel>Scratch Pad</DropdownMenuLabel>
+                                    {scratchPads.length === 0 ? (
+                                        <DropdownMenuItem disabled className="text-muted-foreground italic">
+                                            No Scratch Pads
+                                        </DropdownMenuItem>
+                                    ) : (
+                                        scratchPads.map(pad => (
+                                            <DropdownMenuItem
+                                                key={pad.id}
+                                                onSelect={() => addToScratchPad(pad.id, [asset.id])}
+                                            >
+                                                <StickyNote className="mr-2 h-4 w-4" />
+                                                Add to {pad.name}
+                                            </DropdownMenuItem>
+                                        ))
+                                    )}
+                                    <DropdownMenuItem onSelect={() => setIsCreateScratchPadDialogOpen(true)}>
+                                        <Plus className="mr-2 h-4 w-4" /> Create New Pad...
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </div>
 
                         {/* Navigation buttons */}
@@ -372,6 +464,13 @@ export const MediaViewer: React.FC = () => {
                 isOpen={isCreateTagDialogOpen}
                 onClose={() => setIsCreateTagDialogOpen(false)}
                 onCreateTag={(name, color) => handleCreateTag(name, color || '#000000')}
+            />
+
+            <CreateScratchPadDialog
+                isOpen={isCreateScratchPadDialogOpen}
+                onClose={() => setIsCreateScratchPadDialogOpen(false)}
+                onCreate={createScratchPad}
+                initialAssetIds={[asset.id]}
             />
 
             <MetadataEditor

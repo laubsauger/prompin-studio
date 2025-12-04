@@ -220,46 +220,41 @@ export const MetadataEditor: React.FC<MetadataEditorProps> = ({ isOpen, onClose,
                                     </div>
                                 </div>
 
-
-                                {/* Input Assets Section */}
-                                <div className="space-y-2">
-                                    <div className="flex items-center justify-between">
-                                        <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">Input Assets (Lineage)</h4>
-                                    </div>
-                                    <div className="flex flex-wrap gap-2">
-                                        {metadata.inputs?.map(input => (
-                                            <div key={input} className="relative group/input">
-                                                {/* We need a way to show thumbnail here. 
-                                                    Since we only have ID, we might need a small component or just fetch it.
-                                                    For now, let's use a simple placeholder or the InputAssetThumbnail if we can import it.
-                                                    We can import InputAssetThumbnail from './InputAssetThumbnail'.
-                                                */}
-                                                <InputAssetThumbnail
-                                                    assetId={input}
-                                                    onRemove={() => {
-                                                        const currentInputs = metadata.inputs || [];
-                                                        setMetadata(prev => ({ ...prev, inputs: currentInputs.filter(i => i !== input) }));
-                                                    }}
-                                                />
-                                            </div>
-                                        ))}
-                                        <button
-                                            onClick={() => setIsAssetPickerOpen(true)}
-                                            className="w-16 h-16 rounded-md border-2 border-dashed border-muted-foreground/25 hover:border-muted-foreground/50 bg-muted/30 hover:bg-muted/50 flex flex-col items-center justify-center gap-1 transition-all"
-                                            title="Add Input Asset"
-                                        >
-                                            <Plus className="h-4 w-4 text-muted-foreground" />
-                                        </button>
-                                    </div>
-                                </div>
-
                             </div>
                         </ScrollArea>
                     </div>
 
-                    {/* Right Column: Form with Prompt at top */}
+                    {/* Right Column: Form with Input Assets at top, then Prompt */}
                     <ScrollArea className="flex-1">
-                        <div className="p-6">
+                        <div className="p-6 space-y-6">
+                            {/* Input Assets Section - Moved to top of right column */}
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">Input Assets (Lineage)</h4>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    {metadata.inputs?.map(input => (
+                                        <div key={input} className="relative group/input">
+                                            <InputAssetThumbnail
+                                                assetId={input}
+                                                onRemove={() => {
+                                                    const currentInputs = metadata.inputs || [];
+                                                    setMetadata(prev => ({ ...prev, inputs: currentInputs.filter(i => i !== input) }));
+                                                }}
+                                            />
+                                        </div>
+                                    ))}
+                                    <button
+                                        onClick={() => setIsAssetPickerOpen(true)}
+                                        className="w-16 h-16 rounded-md border-2 border-dashed border-muted-foreground/25 hover:border-muted-foreground/50 bg-muted/30 hover:bg-muted/50 flex flex-col items-center justify-center gap-1 transition-all"
+                                        title="Add Input Asset"
+                                    >
+                                        <Plus className="h-4 w-4 text-muted-foreground" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Metadata Form with Prompt and other fields */}
                             <MetadataForm
                                 initialMetadata={metadata}
                                 onChange={setMetadata}

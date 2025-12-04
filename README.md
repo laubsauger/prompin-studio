@@ -11,6 +11,7 @@ High-performance media workflow app for media production teams.
 - **Workflow Status**: Track asset status (Unsorted, Review Requested, Approved, etc.).
 - **Collaboration**: Sync metadata across users via shared storage (e.g., Google Drive).
 - **Multi-Selection**: Bulk update status for multiple assets.
+- **Semantic Search**: AI-powered similarity search to find assets by visual content or meaning.
 
 ## Tech Stack
 - **Electron**: Cross-platform desktop runtime.

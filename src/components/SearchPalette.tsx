@@ -35,6 +35,7 @@ export function SearchPalette() {
     const [open, setOpen] = useState(false);
     const [value, setValue] = useState(searchQuery);
     const [isSearching, setIsSearching] = useState(false);
+    const [hasSearched, setHasSearched] = useState(false);
     const [isCreateScratchPadDialogOpen, setIsCreateScratchPadDialogOpen] = useState(false);
     const [isCreateTagDialogOpen, setIsCreateTagDialogOpen] = useState(false);
 
@@ -44,6 +45,7 @@ export function SearchPalette() {
             if (!query.trim()) {
                 setAssets([]);
                 setIsSearching(false);
+                setHasSearched(false);
                 return;
             }
             setIsSearching(true);
@@ -51,6 +53,7 @@ export function SearchPalette() {
             const results = await previewSearch(query);
             setAssets(results);
             setIsSearching(false);
+            setHasSearched(true);
         }, 300),
         []
     );
@@ -64,6 +67,10 @@ export function SearchPalette() {
             } else {
                 setAssets([]);
             }
+        } else {
+            // Reset search state when closing
+            setHasSearched(false);
+            setIsSearching(false);
         }
     }, [open, searchQuery]);
 
@@ -119,7 +126,7 @@ export function SearchPalette() {
 
             {open && (
                 <div
-                    className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm"
+                    className="fixed inset-0 z-[100] bg-background/80 backdrop-blur-sm"
                     onClick={() => setOpen(false)}
                 >
                     <div
@@ -138,10 +145,19 @@ export function SearchPalette() {
                                 autoFocus
                             />
                             <CommandList className="max-h-[500px]">
-                                <CommandEmpty>No results found.</CommandEmpty>
+                                {/* Don't show CommandEmpty by default */}
+
+                                {/* Loading state */}
+                                {isSearching && value.trim() && (
+                                    <div className="py-6 text-center">
+                                        <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                                        <p className="mt-2 text-sm text-muted-foreground">Searching...</p>
+                                    </div>
+                                )}
 
                                 {/* Global Actions - Fixed section at top */}
-                                <CommandGroup heading="Tools">
+                                {!isSearching && (
+                                    <CommandGroup heading="Tools">
                                     {value && (
                                         <CommandItem onSelect={() => {
                                             setSearchQuery(value);
@@ -193,9 +209,10 @@ export function SearchPalette() {
                                         <span>Clear Filters & Search</span>
                                     </CommandItem>
                                 </CommandGroup>
+                                )}
 
                                 {/* Selection Actions */}
-                                {selectedIds.size > 0 && (
+                                {!isSearching && selectedIds.size > 0 && (
                                     <>
                                         <CommandSeparator />
                                         <CommandGroup heading={`Selection Actions (${selectedIds.size} selected)`}>
@@ -238,8 +255,19 @@ export function SearchPalette() {
                                     </>
                                 )}
 
+                                {/* No results message */}
+                                {!isSearching && hasSearched && assets.length === 0 && value.trim() && (
+                                    <>
+                                        <CommandSeparator />
+                                        <div className="py-6 text-center">
+                                            <p className="text-sm font-medium text-muted-foreground">No results found</p>
+                                            <p className="text-xs text-muted-foreground mt-1">Try adjusting your search terms</p>
+                                        </div>
+                                    </>
+                                )}
+
                                 {/* Search Results */}
-                                {assets.length > 0 && (
+                                {!isSearching && assets.length > 0 && (
                                     <>
                                         <CommandSeparator />
                                         <CommandGroup heading={`Results (${assets.length})`}>

@@ -81,59 +81,61 @@ export function TagsMultiSelect({
                 <PopoverContent className="w-[200px] p-0">
                     <Command>
                         <CommandInput placeholder="Search tags..." className="h-8 text-xs" />
-                        <CommandEmpty>No tags found.</CommandEmpty>
-                        <CommandGroup>
-                            {onCreateTag && (
-                                <>
-                                    <CommandItem
-                                        onSelect={() => {
-                                            setOpen(false);
-                                            onCreateTag();
-                                        }}
-                                        className="text-xs"
-                                    >
-                                        <Plus className="mr-2 h-3 w-3" />
-                                        Create new tag...
-                                    </CommandItem>
-                                    <div className="border-t border-border my-1" />
-                                </>
-                            )}
-                            {tags.length === 0 ? (
-                                <div className="px-2 py-3 text-xs text-muted-foreground text-center">
-                                    No tags created yet
-                                </div>
-                            ) : (
-                                tags.map(tag => {
-                                    const isSelected = selectedTagIds.includes(tag.id);
-                                    return (
-                                        <CommandItem
-                                            key={tag.id}
-                                            value={tag.name}
-                                            onSelect={() => toggleTag(tag.id)}
-                                            className="text-xs"
-                                        >
-                                            <div
-                                                className={cn(
-                                                    "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border",
-                                                    isSelected
-                                                        ? "bg-primary text-primary-foreground"
-                                                        : "opacity-50 [&_svg]:invisible"
-                                                )}
+                        {tags.length === 0 ? (
+                            <div className="px-2 py-6 text-xs text-muted-foreground text-center">
+                                No tags created yet
+                            </div>
+                        ) : (
+                            <>
+                                <CommandEmpty>No tags found.</CommandEmpty>
+                                <CommandGroup>
+                                    {onCreateTag && (
+                                        <>
+                                            <CommandItem
+                                                onSelect={() => {
+                                                    setOpen(false);
+                                                    onCreateTag();
+                                                }}
+                                                className="text-xs"
                                             >
-                                                <Check className={cn("h-3 w-3")} />
-                                            </div>
-                                            <div className="flex items-center gap-1.5 flex-1">
+                                                <Plus className="mr-2 h-3 w-3" />
+                                                Create new tag...
+                                            </CommandItem>
+                                            <div className="border-t border-border my-1" />
+                                        </>
+                                    )}
+                                    {tags.map(tag => {
+                                        const isSelected = selectedTagIds.includes(tag.id);
+                                        return (
+                                            <CommandItem
+                                                key={tag.id}
+                                                value={tag.name}
+                                                onSelect={() => toggleTag(tag.id)}
+                                                className="text-xs"
+                                            >
                                                 <div
-                                                    className="w-2 h-2 rounded-full shrink-0"
-                                                    style={{ backgroundColor: tag.color || 'currentColor' }}
-                                                />
-                                                <span className="truncate">{tag.name}</span>
-                                            </div>
-                                        </CommandItem>
-                                    );
-                                })
-                            )}
-                        </CommandGroup>
+                                                    className={cn(
+                                                        "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border",
+                                                        isSelected
+                                                            ? "bg-primary text-primary-foreground"
+                                                            : "opacity-50 [&_svg]:invisible"
+                                                    )}
+                                                >
+                                                    <Check className={cn("h-3 w-3")} />
+                                                </div>
+                                                <div className="flex items-center gap-1.5 flex-1">
+                                                    <div
+                                                        className="w-2 h-2 rounded-full shrink-0"
+                                                        style={{ backgroundColor: tag.color || 'currentColor' }}
+                                                    />
+                                                    <span className="truncate">{tag.name}</span>
+                                                </div>
+                                            </CommandItem>
+                                        );
+                                    })}
+                                </CommandGroup>
+                            </>
+                        )}
                     </Command>
                 </PopoverContent>
             </Popover>

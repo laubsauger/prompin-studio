@@ -117,6 +117,7 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
 
     const handleSeek = useCallback((e: React.MouseEvent) => {
         e.stopPropagation();
+        e.preventDefault();
         if (!videoRef.current || !scrubberRef.current || asset.type !== 'video') return;
 
         const rect = scrubberRef.current.getBoundingClientRect();
@@ -126,6 +127,8 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
         const duration = videoRef.current.duration;
         if (duration && Number.isFinite(duration)) {
             videoRef.current.currentTime = duration * percentage;
+            videoRef.current.play().catch(err => console.error("Failed to play on seek:", err));
+            setIsPlaying(true);
         }
     }, [asset.type]);
 
@@ -224,8 +227,8 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
                                 {/* Scrubber Bar */}
                                 <div
                                     ref={scrubberRef}
-                                    className="absolute bottom-0 left-0 right-0 h-1.5 z-40 cursor-ew-resize flex items-center group/scrubber scrubber-bar px-1"
-                                    onClick={handleSeek}
+                                    className="absolute bottom-0 left-0 right-0 h-1.5 z-40 cursor-ew-resize flex items-center group/scrubber scrubber-bar"
+                                    onMouseDown={handleSeek}
                                     onMouseEnter={() => setIsHoveringScrubber(true)}
                                     onMouseLeave={() => {
                                         setIsHoveringScrubber(false);
@@ -253,7 +256,7 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
                                     {hoverProgress !== null && (
                                         <div
                                             className="absolute h-3 w-2 bg-white shadow-[0_0_4px_rgba(0,0,0,0.5)] z-10 pointer-events-none border border-black/20 rounded-[1px] top-1/2 -translate-y-1/2"
-                                            style={{ left: `${hoverProgress}%`, transform: 'translate(-50%, -50%)' }}
+                                            style={{ left: `${hoverProgress}%`, transform: 'translate(-50%, -25%)' }}
                                         />
                                     )}
                                 </div>
