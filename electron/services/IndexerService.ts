@@ -3,12 +3,12 @@ import fs from 'fs/promises';
 import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { app, BrowserWindow } from 'electron';
-import db from '../db.js';
+import db, { vectorSearchEnabled } from '../db.js';
 import { Asset, SyncStats, AssetMetadata } from '../../src/types.js';
 // @ts-ignore
 import ffmpeg from 'fluent-ffmpeg';
 
-// Dynamic ffmpeg loading handled in constructor/init
+
 // import ffmpegPath from 'ffmpeg-static';
 
 import { Scanner } from './indexer/Scanner.js';
@@ -274,6 +274,10 @@ export class IndexerService {
     }
 
     public async processEmbeddings() {
+        if (!vectorSearchEnabled) {
+            console.log('[IndexerService] Vector search is disabled. Skipping embedding generation.');
+            return;
+        }
         console.log(`[IndexerService] Starting embedding generation for rootPath: ${this.rootPath}`);
         const assets = this.assetManager.getAssets(this.rootPath);
         console.log(`[IndexerService] Found ${assets.length} assets in DB for this rootPath.`);
@@ -425,6 +429,7 @@ export class IndexerService {
     }
 
     public async findSimilar(assetId: string, limit: number = 20): Promise<Asset[]> {
+        if (!vectorSearchEnabled) return [];
         const asset = this.assetManager.getAsset(assetId);
         if (!asset || !asset.metadata.embedding) return [];
 

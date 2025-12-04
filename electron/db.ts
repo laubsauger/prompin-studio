@@ -9,13 +9,16 @@ const dbPath = path.join(app.getPath('userData'), 'gen-studio.db');
 const db = new Database(dbPath);
 
 // Load sqlite-vss extension
+export let vectorSearchEnabled = false;
 try {
   // Load vector0 extension first (required dependency)
   db.loadExtension(sqliteVss.getVectorLoadablePath());
   // Then load vss0 extension
   db.loadExtension(sqliteVss.getVssLoadablePath());
+  vectorSearchEnabled = true;
+  console.log('[DB] sqlite-vss extension loaded successfully.');
 } catch (e) {
-  console.error('[DB] Failed to load sqlite-vss extension:', e);
+  console.warn('[DB] Failed to load sqlite-vss extension. Vector search will be disabled.', e);
 }
 
 db.pragma('journal_mode = WAL');
@@ -75,12 +78,6 @@ db.exec(`
     tokenize='porter unicode61'
   );
 
-  -- Vector search virtual table
-  -- 384 dimensions for all-MiniLM-L6-v2
-  CREATE VIRTUAL TABLE IF NOT EXISTS vss_assets USING vss0(
-    embedding(384)
-  );
-
   -- Cleanup old triggers
   DROP TRIGGER IF EXISTS assets_fts_insert;
   DROP TRIGGER IF EXISTS assets_fts_delete;
@@ -90,16 +87,29 @@ db.exec(`
   DROP TRIGGER IF EXISTS assets_vss_update;
   DROP TRIGGER IF EXISTS assets_vss_update_null;
 
-  -- We keep VSS delete trigger as it is safe and convenient
-  CREATE TRIGGER IF NOT EXISTS assets_vss_delete AFTER DELETE ON assets BEGIN
-    DELETE FROM vss_assets WHERE rowid = old.rowid;
-  END;
-  
   -- We also keep FTS delete trigger as it is safe
   CREATE TRIGGER IF NOT EXISTS assets_fts_delete AFTER DELETE ON assets BEGIN
     DELETE FROM assets_fts WHERE rowid = old.rowid;
   END;
 `);
+
+if (vectorSearchEnabled) {
+  db.exec(`
+    -- Vector search virtual table
+    -- 384 dimensions for all-MiniLM-L6-v2
+    CREATE VIRTUAL TABLE IF NOT EXISTS vss_assets USING vss0(
+      embedding(384)
+    );
+
+    -- We keep VSS delete trigger as it is safe and convenient
+    CREATE TRIGGER IF NOT EXISTS assets_vss_delete AFTER DELETE ON assets BEGIN
+      DELETE FROM vss_assets WHERE rowid = old.rowid;
+    END;
+  `);
+} else {
+  // If VSS is disabled, ensure we don't have leftover triggers that might fail
+  db.exec(`DROP TRIGGER IF EXISTS assets_vss_delete;`);
+}
 
 // Safely create rootPath index (fails if column missing, which is fine as migration will handle it)
 try {
