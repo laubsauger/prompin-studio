@@ -155,7 +155,20 @@ export class IndexerService {
 
     private initializeStatsFromDB() {
         try {
+            console.log(`[IndexerService] Initializing stats from DB for rootPath: '${this.rootPath}'`);
             const totalCount = db.prepare('SELECT COUNT(*) as count FROM assets WHERE rootPath = ?').get(this.rootPath) as { count: number };
+            console.log(`[IndexerService] DB Count for rootPath: ${totalCount.count}`);
+
+            // Debug: Check if there are ANY assets and what their rootPaths are
+            if (totalCount.count === 0) {
+                const anyAsset = db.prepare('SELECT rootPath FROM assets LIMIT 1').get() as { rootPath: string };
+                if (anyAsset) {
+                    console.log(`[IndexerService] Found asset with rootPath: '${anyAsset.rootPath}' (Expected: '${this.rootPath}')`);
+                } else {
+                    console.log('[IndexerService] DB is completely empty.');
+                }
+            }
+
             const imageCount = db.prepare('SELECT COUNT(*) as count FROM assets WHERE rootPath = ? AND type = "image"').get(this.rootPath) as { count: number };
             const videoCount = db.prepare('SELECT COUNT(*) as count FROM assets WHERE rootPath = ? AND type = "video"').get(this.rootPath) as { count: number };
             const folderCount = db.prepare('SELECT COUNT(*) as count FROM folders').get() as { count: number };
@@ -224,6 +237,11 @@ export class IndexerService {
         this.stats.totalFiles = scanStats.totalFiles;
         this.stats.totalFolders = scanStats.totalFolders;
         this.stats.skippedFiles = scanStats.skippedFiles;
+        this.stats.filesByType = {
+            images: scanStats.images,
+            videos: scanStats.videos,
+            other: scanStats.other
+        };
         console.log(`[IndexerService] Pre-scan complete. Found ${this.stats.totalFiles} files.`);
 
         // 2. Manual Scan
@@ -280,12 +298,17 @@ export class IndexerService {
 
         const relativePath = path.relative(this.rootPath, filePath);
         this.stats.currentFile = relativePath;
+        this.stats.processedFiles++;
+
+        const mediaType = this.getMediaType(filePath);
+        if (mediaType === 'image') this.stats.filesByType!.images++;
+        else if (mediaType === 'video') this.stats.filesByType!.videos++;
+        else this.stats.filesByType!.other++;
 
         try {
             // Note: If filePath is a symlink, fs.stat gets stats of the target.
             // But we want to index it as if it's at filePath.
             const stats = await fs.stat(filePath);
-            const mediaType = this.getMediaType(filePath);
             const id = await this.generateFileId(filePath);
 
             let existing = this.assetManager.getAsset(id);
@@ -314,10 +337,6 @@ export class IndexerService {
                 }
             }
 
-            if (mediaType === 'image') this.stats.filesByType!.images++;
-            else if (mediaType === 'video') this.stats.filesByType!.videos++;
-            else this.stats.filesByType!.other++;
-
             let metadata = existing?.metadata || {};
             const newMetadata = await this.metadataExtractor.extract(filePath, mediaType, stats.size);
             metadata = { ...newMetadata, ...metadata };
@@ -340,7 +359,6 @@ export class IndexerService {
             };
 
             this.assetManager.upsertAsset(asset);
-            this.stats.processedFiles++;
 
             if (this.mainWindow) {
                 this.mainWindow.webContents.send('asset-updated', asset);
@@ -1184,6 +1202,34 @@ export class IndexerService {
             if (asset) this.mainWindow.webContents.send('asset-updated', asset);
         }
     }
+    async handleChatMessage(text: string) {
+        try {
+            console.log(`[IndexerService] Handling chat message: "${text}"`);
+
+            // For now, treat everything as a search query
+            // We limit to top 4 results for the chat view
+            const results = await this.searchAssets(text, { semantic: true });
+            const topResults = results.slice(0, 4);
+
+            if (topResults.length > 0) {
+                return {
+                    type: 'search_results',
+                    message: `I found ${results.length} assets. Here are the top matches:`,
+                    assets: topResults
+                };
+            } else {
+                return {
+                    type: 'chat',
+                    message: `I couldn't find any assets matching "${text}".`
+                };
+            }
+
+        } catch (error) {
+            console.error('[IndexerService] Error handling chat message:', error);
+            return { type: 'error', message: 'I encountered an error while searching.' };
+        }
+    }
 }
 
 export const indexerService = new IndexerService();
+

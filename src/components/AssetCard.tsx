@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { useStore } from '../store';
+import { useSettingsStore } from '../store/settings';
 import type { Asset } from '../types';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
@@ -16,6 +17,8 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
     const toggleLike = useStore(state => state.toggleLike);
     const setViewingAssetId = useStore(state => state.setViewingAssetId);
     const setInspectorAsset = useStore(state => state.setInspectorAsset);
+    const inspectorCollapsed = useSettingsStore(state => state.inspectorCollapsed);
+    const toggleInspector = useSettingsStore(state => state.toggleInspector);
 
     const isSelected = useStore(state => state.selectedIds.has(asset.id));
     const aspectRatio = useStore(state => state.aspectRatio);
@@ -371,10 +374,7 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
 
                         {/* Similarity Score - Only show when in similarity search mode */}
                         {filterConfig.relatedToAssetId && filterConfig.semantic && (
-                            <div className={cn(
-                                "absolute z-50 text-[10px] font-bold text-white/90 bg-black/60 px-1.5 py-0.5 rounded-sm backdrop-blur-sm pointer-events-none tabular-nums border border-white/10",
-                                asset.type === 'video' ? "bottom-8 right-2" : "bottom-2 right-2"
-                            )}>
+                            <div className="absolute bottom-2 left-2 z-50 text-[10px] font-bold text-white/90 bg-black/60 px-1.5 py-0.5 rounded-sm backdrop-blur-sm pointer-events-none tabular-nums border border-white/10">
                                 {asset.distance !== undefined ? `${Math.round((1 - asset.distance) * 100)}%` : 'N/A'}
                             </div>
                         )}
@@ -387,6 +387,10 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
                             onClick={(e) => {
                                 e.stopPropagation();
                                 setInspectorAsset(asset);
+                                // Expand inspector if it's collapsed
+                                if (inspectorCollapsed) {
+                                    toggleInspector();
+                                }
                             }}
                         >
                             <div className="flex items-center gap-1 px-2 h-full">

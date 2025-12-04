@@ -5,13 +5,19 @@ export interface ScanStats {
     totalFiles: number;
     totalFolders: number;
     skippedFiles: number;
+    images: number;
+    videos: number;
+    other: number;
 }
 
 export class Scanner {
     private stats: ScanStats = {
         totalFiles: 0,
         totalFolders: 0,
-        skippedFiles: 0
+        skippedFiles: 0,
+        images: 0,
+        videos: 0,
+        other: 0
     };
 
     constructor(private isMediaFile: (filePath: string) => boolean) { }
@@ -20,7 +26,10 @@ export class Scanner {
         this.stats = {
             totalFiles: 0,
             totalFolders: 0,
-            skippedFiles: 0
+            skippedFiles: 0,
+            images: 0,
+            videos: 0,
+            other: 0
         };
     }
 
@@ -41,6 +50,14 @@ export class Scanner {
                 } else if (entry.isFile()) {
                     if (this.isMediaFile(fullPath)) {
                         this.stats.totalFiles++;
+                        const ext = path.extname(fullPath).toLowerCase();
+                        if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext)) {
+                            this.stats.images++;
+                        } else if (['.mp4', '.mov'].includes(ext)) {
+                            this.stats.videos++;
+                        } else {
+                            this.stats.other++;
+                        }
                     } else {
                         this.stats.skippedFiles++;
                     }

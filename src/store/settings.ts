@@ -25,6 +25,8 @@ interface SettingsState {
     getScrollPosition: (path: string) => number;
     toggleSidebar: () => void;
     toggleInspector: () => void;
+    isChatOpen: boolean;
+    toggleChat: () => void;
     resetSettings: () => void;
 }
 
@@ -41,7 +43,7 @@ export const useSettingsStore = create<SettingsState>()(
             userAvatar: null,
             scrollPositions: {},
             sidebarCollapsed: false,
-            inspectorCollapsed: false,
+            inspectorCollapsed: true, // Default to collapsed
             setTheme: (theme) => set({ theme }),
             setDefaultView: (defaultView) => set({ defaultView }),
             setAutoCheckUpdates: (autoCheckUpdates) => set({ autoCheckUpdates }),
@@ -56,6 +58,8 @@ export const useSettingsStore = create<SettingsState>()(
             getScrollPosition: (path) => get().scrollPositions[path] || 0,
             toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
             toggleInspector: () => set((state) => ({ inspectorCollapsed: !state.inspectorCollapsed })),
+            isChatOpen: false,
+            toggleChat: () => set((state) => ({ isChatOpen: !state.isChatOpen })),
             resetSettings: () => {
                 localStorage.removeItem('prompin-studio-settings');
                 localStorage.removeItem('prompin-studio-storage'); // Clear main store too if needed
@@ -70,7 +74,7 @@ export const useSettingsStore = create<SettingsState>()(
                     userAvatar: null,
                     scrollPositions: {},
                     sidebarCollapsed: false,
-                    inspectorCollapsed: false,
+                    inspectorCollapsed: true, // Default to collapsed
                 });
                 window.location.reload();
             },

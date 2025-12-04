@@ -1,7 +1,7 @@
 import React from 'react';
 import { useStore, type FilterConfig } from '../store';
 import { SelectWithIcon } from './ui/select-with-icon';
-import { ArrowUpDown, LayoutGrid, List, ArrowUp, ArrowDown, X, RotateCcw, Eye, EyeOff, Square, RectangleHorizontal, RectangleVertical, FileType, Heart } from 'lucide-react';
+import { ArrowUpDown, LayoutGrid, List, ArrowUp, ArrowDown, X, RotateCcw, Eye, EyeOff, Square, RectangleHorizontal, RectangleVertical, FileType, Heart, FilterX } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Button } from './ui/button';
 import { Slider } from './ui/slider';
@@ -154,8 +154,7 @@ export const FilterBarUI: React.FC<FilterBarUIProps> = ({
                     className="h-8 gap-1.5 text-muted-foreground hover:text-foreground"
                     title="Clear all filters"
                 >
-                    <RotateCcw className="h-3.5 w-3.5" />
-                    <span className="text-xs">Clear All</span>
+                    <FilterX className="h-3.5 w-3.5" />
                 </Button>
             )}
 

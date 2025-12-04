@@ -320,7 +320,7 @@ ipcMain.handle('update-asset-status', async (event, id, status) => {
 
 ipcMain.handle('get-sync-stats', async () => {
   const stats = indexerService.getStats();
-  console.log('[Main] get-sync-stats returning:', stats);
+  // console.log('[Main] get-sync-stats returning:', stats);
   return stats;
 });
 
@@ -413,4 +413,7 @@ ipcMain.handle('reveal-in-finder', async (event, relativePath) => {
   const fullPath = path.join(rootPath, relativePath);
   shell.showItemInFolder(fullPath);
   return true;
+});
+ipcMain.handle('chat-message', async (event, text) => {
+  return indexerService.handleChatMessage(text);
 });

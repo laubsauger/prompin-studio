@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FolderOpen, Settings, Loader2, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
+import { FolderOpen, Settings, Loader2, RefreshCw, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useStore } from '../store';
 import { useSettingsStore } from '../store/settings';
@@ -13,7 +13,7 @@ import { PathDisplay } from './PathDisplay';
 
 export const TitleBar: React.FC = () => {
     const { setRootPath, syncStats, fetchSyncStats, triggerResync, currentPath } = useStore();
-    const { setSettingsOpen, rootFolder } = useSettingsStore();
+    const { setSettingsOpen, rootFolder, toggleChat, isChatOpen } = useSettingsStore();
     const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
     useEffect(() => {
@@ -96,8 +96,8 @@ export const TitleBar: React.FC = () => {
                                         {hasBackgroundTask && syncStats.backgroundTask ?
                                             syncStats.backgroundTask.name :
                                             isIndexing ? 'Indexing...' :
-                                            isSyncing ? 'Syncing...' :
-                                            'Ready'}
+                                                isSyncing ? 'Syncing...' :
+                                                    'Ready'}
                                     </span>
                                 </div>
                                 {showItemCount && (
@@ -113,8 +113,8 @@ export const TitleBar: React.FC = () => {
                                                     className={cn(
                                                         "h-full transition-all duration-300",
                                                         isIndexing ? "bg-purple-500" :
-                                                        hasBackgroundTask ? "bg-blue-500" :
-                                                        "bg-primary"
+                                                            hasBackgroundTask ? "bg-blue-500" :
+                                                                "bg-primary"
                                                     )}
                                                     style={{ width: `${progress}%` }}
                                                 />
@@ -142,6 +142,19 @@ export const TitleBar: React.FC = () => {
                         </HoverCardContent>
                     </HoverCard>
                 )}
+
+                <div className="h-4 w-[1px] bg-border" />
+
+                <Button
+                    variant={isChatOpen ? "secondary" : "ghost"}
+                    size="sm"
+                    className="h-7 gap-2 text-xs font-normal px-2"
+                    onClick={toggleChat}
+                    title="Smart Assistant"
+                >
+                    <Sparkles className="h-3.5 w-3.5 text-primary" />
+                    <span className="hidden sm:inline">Assistant</span>
+                </Button>
 
                 <div className="h-4 w-[1px] bg-border" />
 

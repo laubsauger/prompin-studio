@@ -30,6 +30,7 @@ interface MetadataFormProps {
     tags?: string[]; // Selected tag IDs
     onTagsChange?: (tags: string[]) => void; // Callback for tag selection changes
     currentUser?: { username: string; fullName: string } | null;
+    compact?: boolean;
 }
 
 export const MetadataForm: React.FC<MetadataFormProps> = ({
@@ -39,7 +40,8 @@ export const MetadataForm: React.FC<MetadataFormProps> = ({
     showLineage = true,
     tags: propTags,
     onTagsChange,
-    currentUser
+    currentUser,
+    compact = false
 }) => {
     const assets = useStore(state => state.assets);
     const allTags = useStore(state => state.tags);
@@ -168,16 +170,16 @@ export const MetadataForm: React.FC<MetadataFormProps> = ({
     };
 
     return (
-        <div className="space-y-6">
+        <div className={cn("space-y-6", compact && "space-y-4")}>
             {/* Prompt at the top - most prominent */}
             <div className="space-y-2">
-                <Label htmlFor="prompt">Prompt</Label>
+                <Label htmlFor="prompt" className={cn(compact && "text-xs uppercase tracking-wider text-muted-foreground font-medium")}>Prompt</Label>
                 <Textarea
                     id="prompt"
                     value={metadata.prompt || ''}
                     onChange={(e) => handleInputChange('prompt', e.target.value)}
                     placeholder="Generation prompt..."
-                    className="min-h-[120px] font-mono text-sm"
+                    className={cn("min-h-[120px] font-mono text-sm", compact && "min-h-[80px] text-xs")}
                 />
             </div>
 
@@ -206,110 +208,114 @@ export const MetadataForm: React.FC<MetadataFormProps> = ({
             )}
 
             {/* Generation Details */}
-            <div className="space-y-4">
-                <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">Generation Details</h4>
-                <div className="grid grid-cols-2 gap-4">
+            <div className={cn("space-y-4", compact && "space-y-3")}>
+                {!compact && <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">Generation Details</h4>}
+                <div className={cn("grid grid-cols-2 gap-4", compact && "gap-2")}>
                     <div className="space-y-2">
-                        <Label htmlFor="model">Model</Label>
+                        <Label htmlFor="model" className={cn(compact && "text-[10px] uppercase tracking-wider text-muted-foreground font-medium")}>Model</Label>
                         <Input
                             id="model"
                             value={metadata.model || ''}
                             onChange={(e) => handleInputChange('model', e.target.value)}
                             placeholder="e.g. Stable Diffusion XL"
+                            className={cn(compact && "h-8 text-xs")}
                         />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="platformUrl">Platform URL</Label>
+                        <Label htmlFor="platformUrl" className={cn(compact && "text-[10px] uppercase tracking-wider text-muted-foreground font-medium")}>Platform URL</Label>
                         <Input
                             id="platformUrl"
                             value={metadata.platformUrl || ''}
                             onChange={(e) => handleInputChange('platformUrl', e.target.value)}
                             placeholder="https://..."
+                            className={cn(compact && "h-8 text-xs")}
                         />
                     </div>
                 </div>
             </div>
 
-            {/* Core Metadata */}
-            <div className="space-y-4 pt-4 border-t">
-                <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">Project Details</h4>
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2 flex flex-col">
-                        <Label>Author</Label>
-                        <Popover open={openAuthor} onOpenChange={setOpenAuthor}>
-                            <PopoverTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    role="combobox"
-                                    aria-expanded={openAuthor}
-                                    className="justify-between"
-                                >
-                                    {metadata.authorId ? getAuthorDisplay(metadata.authorId) : "Select author..."}
-                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-[200px] p-0">
-                                <Command>
-                                    <CommandInput placeholder="Search author..." />
-                                    <CommandList>
-                                        <CommandEmpty>No author found.</CommandEmpty>
-                                        <CommandGroup>
-                                            {authors.map((author) => (
-                                                <CommandItem
-                                                    key={author}
-                                                    value={author}
-                                                    onSelect={(currentValue) => {
-                                                        handleInputChange('authorId', currentValue);
-                                                        setOpenAuthor(false);
-                                                    }}
-                                                >
-                                                    <Check
-                                                        className={cn(
-                                                            "mr-2 h-4 w-4",
-                                                            metadata.authorId === author ? "opacity-100" : "opacity-0"
-                                                        )}
-                                                    />
-                                                    {getAuthorDisplay(author)}
-                                                </CommandItem>
-                                            ))}
-                                        </CommandGroup>
-                                    </CommandList>
-                                </Command>
-                            </PopoverContent>
-                        </Popover>
+            {/* Core Metadata - Hide if compact (handled by InlineEdit in Inspector) */}
+            {!compact && (
+                <div className="space-y-4 pt-4 border-t">
+                    <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">Project Details</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2 flex flex-col">
+                            <Label>Author</Label>
+                            <Popover open={openAuthor} onOpenChange={setOpenAuthor}>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        role="combobox"
+                                        aria-expanded={openAuthor}
+                                        className="justify-between"
+                                    >
+                                        {metadata.authorId ? getAuthorDisplay(metadata.authorId) : "Select author..."}
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[200px] p-0">
+                                    <Command>
+                                        <CommandInput placeholder="Search author..." />
+                                        <CommandList>
+                                            <CommandEmpty>No author found.</CommandEmpty>
+                                            <CommandGroup>
+                                                {authors.map((author) => (
+                                                    <CommandItem
+                                                        key={author}
+                                                        value={author}
+                                                        onSelect={(currentValue) => {
+                                                            handleInputChange('authorId', currentValue);
+                                                            setOpenAuthor(false);
+                                                        }}
+                                                    >
+                                                        <Check
+                                                            className={cn(
+                                                                "mr-2 h-4 w-4",
+                                                                metadata.authorId === author ? "opacity-100" : "opacity-0"
+                                                            )}
+                                                        />
+                                                        {getAuthorDisplay(author)}
+                                                    </CommandItem>
+                                                ))}
+                                            </CommandGroup>
+                                        </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="project">Project</Label>
+                            <Input
+                                id="project"
+                                value={metadata.project || ''}
+                                onChange={(e) => handleInputChange('project', e.target.value)}
+                                placeholder="Project Name"
+                            />
+                        </div>
                     </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="project">Project</Label>
-                        <Input
-                            id="project"
-                            value={metadata.project || ''}
-                            onChange={(e) => handleInputChange('project', e.target.value)}
-                            placeholder="Project Name"
-                        />
-                    </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="scene">Scene</Label>
-                        <Input
-                            id="scene"
-                            value={metadata.scene || ''}
-                            onChange={(e) => handleInputChange('scene', e.target.value)}
-                            placeholder="Scene Name"
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="shot">Shot</Label>
-                        <Input
-                            id="shot"
-                            value={metadata.shot || ''}
-                            onChange={(e) => handleInputChange('shot', e.target.value)}
-                            placeholder="Shot Name"
-                        />
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="scene">Scene</Label>
+                            <Input
+                                id="scene"
+                                value={metadata.scene || ''}
+                                onChange={(e) => handleInputChange('scene', e.target.value)}
+                                placeholder="Scene Name"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="shot">Shot</Label>
+                            <Input
+                                id="shot"
+                                value={metadata.shot || ''}
+                                onChange={(e) => handleInputChange('shot', e.target.value)}
+                                placeholder="Shot Name"
+                            />
+                        </div>
                     </div>
                 </div>
-            </div>
+            )}
 
             {/* Only show lineage if requested (not in MetadataEditor since it's in left column) */}
             {showLineage && (

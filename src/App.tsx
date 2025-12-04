@@ -12,7 +12,8 @@ import './App.css';
 
 import { TitleBar } from './components/TitleBar';
 import { Sidebar } from './components/Sidebar';
-import { AssetInspector } from './components/AssetInspector';
+import { ChatInterface } from './components/ChatInterface';
+
 
 function App() {
   const rootFolder = useSettingsStore(state => state.rootFolder);
@@ -63,10 +64,6 @@ function App() {
     ? (syncStats.processedFiles / syncStats.totalFiles) * 100
     : undefined;
 
-  const loadingDetails = syncStats && syncStats.status === 'scanning'
-    ? `Processing ${syncStats.processedFiles || 0} of ${syncStats.totalFiles || 0} files`
-    : undefined;
-
   // Extract file type counts from sync stats
   const imageCount = syncStats?.filesByType?.images;
   const videoCount = syncStats?.filesByType?.videos;
@@ -90,12 +87,15 @@ function App() {
       <LineageView />
 
       {/* Loading Screen */}
+      {/* Loading Screen */}
       {(isLoading || syncStats?.status === 'scanning') && (
         <LoadingScreen
-          message={loadingMessage || 'Scanning folder'}
+          message={syncStats?.status === 'scanning' ? 'Scanning folder' : (loadingMessage || 'Loading...')}
           progress={loadingProgress}
-          details={loadingMessage ? undefined : rootFolder}
-          subDetails={loadingDetails}
+          details={rootFolder}
+          subDetails={syncStats?.status === 'scanning'
+            ? `Processing ${syncStats.processedFiles || 0} of ${syncStats.totalFiles || 0} files`
+            : 'Loading assets from database...'}
           totalFiles={syncStats?.totalFiles}
           imageCount={imageCount}
           videoCount={videoCount}
@@ -103,6 +103,7 @@ function App() {
           otherCount={otherCount}
         />
       )}
+      <ChatInterface />
     </>
   );
 }

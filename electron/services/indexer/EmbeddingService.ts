@@ -149,6 +149,37 @@ class EmbeddingService {
             return null;
         }
     }
+    private chatPipeline: any = null;
+    private chatModelName = 'Xenova/all-MiniLM-L6-v2';
+
+    async initChat() {
+        if (this.chatPipeline) return;
+        try {
+            console.log('[EmbeddingService] Loading chat model:', this.chatModelName);
+            const { pipeline } = await import('@xenova/transformers');
+            this.chatPipeline = await pipeline('feature-extraction', this.chatModelName);
+            console.log('[EmbeddingService] Chat model loaded successfully');
+        } catch (error) {
+            console.error('[EmbeddingService] Failed to load chat model:', error);
+            throw error;
+        }
+    }
+
+    async generateChatEmbedding(text: string): Promise<number[] | null> {
+        try {
+            if (!text || text.trim().length === 0) return null;
+            if (!this.chatPipeline) await this.initChat();
+
+            const output = await this.chatPipeline(text, { pooling: 'mean', normalize: true });
+            // output is a Tensor, we need to convert it to a regular array
+            const embedding = Array.from(output.data) as number[];
+
+            return embedding;
+        } catch (error) {
+            console.error('[EmbeddingService] Error generating chat embedding:', error);
+            return null;
+        }
+    }
 }
 
 export const embeddingService = new EmbeddingService();

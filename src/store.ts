@@ -101,7 +101,9 @@ interface AppState {
     createTag: (name: string, color?: string) => Promise<{ id: string; name: string; color?: string }>;
     deleteTag: (id: string) => Promise<void>;
     addTagToAsset: (assetId: string, tagId: string) => Promise<void>;
+
     removeTagFromAsset: (assetId: string, tagId: string) => Promise<void>;
+    deleteAsset: (id: string) => Promise<void>;
 
     // Ingestion Actions
     startIngestion: (files: File[], targetPath?: string) => void;
@@ -433,6 +435,22 @@ export const useStore = create<AppState>((set, get) => ({
     removeTagFromAsset: async (assetId, tagId) => {
         await getIpcRenderer().invoke('remove-tag-from-asset', assetId, tagId);
         get().refreshAssets();
+    },
+
+    deleteAsset: async (id) => {
+        // Optimistic update
+        set(state => ({
+            assets: state.assets.filter(a => a.id !== id),
+            inspectorAsset: state.inspectorAsset?.id === id ? null : state.inspectorAsset,
+            viewingAssetId: state.viewingAssetId === id ? null : state.viewingAssetId,
+            selectedIds: new Set([...state.selectedIds].filter(sid => sid !== id))
+        }));
+        try {
+            await getIpcRenderer().invoke('delete-asset', id);
+        } catch (error) {
+            console.error('Failed to delete asset:', error);
+            get().refreshAssets();
+        }
     },
 
 
