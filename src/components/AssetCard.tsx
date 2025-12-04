@@ -365,14 +365,15 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
                             <div className="absolute inset-0 z-0 bg-primary/10 pointer-events-none" />
                         )}
 
-                        {/* Similarity Score - Moved to end of container to ensure visibility */}
-                        {/* Similarity Score - Moved to end of container to ensure visibility */}
-                        <div className={cn(
-                            "absolute z-50 text-[10px] font-bold text-white/90 bg-black/60 px-1.5 py-0.5 rounded-sm backdrop-blur-sm pointer-events-none tabular-nums border border-white/10",
-                            asset.type === 'video' ? "bottom-8 right-2" : "bottom-2 right-2"
-                        )}>
-                            {asset.distance !== undefined ? `${Math.round((1 - asset.distance) * 100)}%` : 'N/A'}
-                        </div>
+                        {/* Similarity Score - Only show when in similarity search mode */}
+                        {filterConfig.relatedToAssetId && filterConfig.semantic && (
+                            <div className={cn(
+                                "absolute z-50 text-[10px] font-bold text-white/90 bg-black/60 px-1.5 py-0.5 rounded-sm backdrop-blur-sm pointer-events-none tabular-nums border border-white/10",
+                                asset.type === 'video' ? "bottom-8 right-2" : "bottom-2 right-2"
+                            )}>
+                                {asset.distance !== undefined ? `${Math.round((1 - asset.distance) * 100)}%` : 'N/A'}
+                            </div>
+                        )}
                     </div>
 
                     {/* Tags section - only show in detailed view */}

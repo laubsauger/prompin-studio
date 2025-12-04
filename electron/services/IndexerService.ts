@@ -92,6 +92,17 @@ export class IndexerService {
         return this.rootPath;
     }
 
+    private initializeStatsFromDB() {
+        try {
+            const count = db.prepare('SELECT COUNT(*) as count FROM assets WHERE rootPath = ?').get(this.rootPath) as { count: number };
+            this.stats.totalFiles = count.count;
+            this.stats.processedFiles = count.count; // Assume processed if in DB
+            console.log(`[IndexerService] Initialized stats from DB: ${this.stats.totalFiles} files.`);
+        } catch (error) {
+            console.error('[IndexerService] Failed to initialize stats from DB:', error);
+        }
+    }
+
     async setRootPath(rootPath: string) {
         let realPath = rootPath;
         try {
@@ -102,6 +113,10 @@ export class IndexerService {
 
         if (this.rootPath === realPath) {
             console.log(`[IndexerService] Root path already set to ${realPath}. Skipping re-scan.`);
+            // Ensure stats are populated even if we skip scan
+            if (this.stats.totalFiles === 0) {
+                this.initializeStatsFromDB();
+            }
             return;
         }
 
@@ -111,6 +126,9 @@ export class IndexerService {
         // Watcher will be started after scan completes to avoid race conditions
 
         this.resetStats();
+        // Initialize totalFiles from DB so UI shows something immediately
+        this.initializeStatsFromDB();
+
         this.stats.status = 'scanning';
 
         // 1. Fast Pre-Scan
@@ -282,15 +300,51 @@ export class IndexerService {
         const assets = this.assetManager.getAssets(this.rootPath);
         console.log(`[IndexerService] Found ${assets.length} assets in DB for this rootPath.`);
 
-        // Log a few assets to check metadata
-        if (assets.length > 0) {
-            console.log('[IndexerService] Sample asset metadata:', JSON.stringify(assets[0].metadata));
+        // 1. Identify assets that have embeddings but might be missing from vec_assets (Sync Step)
+        const assetsWithEmbeddings = assets.filter(a => a.metadata.embedding && Array.isArray(a.metadata.embedding) && a.metadata.embedding.length > 0);
+
+        if (assetsWithEmbeddings.length > 0) {
+            console.log(`[IndexerService] Checking ${assetsWithEmbeddings.length} assets for vec_assets sync...`);
+            let syncedCount = 0;
+
+            // Get all rowids currently in vec_assets
+            // Note: This might be heavy if millions of rows, but fine for thousands.
+            // For larger datasets, we should do this in chunks or using a LEFT JOIN query.
+            try {
+                const vecRows = db.prepare('SELECT rowid FROM vec_assets').all() as { rowid: number | bigint }[];
+                const vecRowIds = new Set(vecRows.map(r => BigInt(r.rowid).toString())); // Use string for reliable Set comparison with BigInt
+
+                for (const asset of assetsWithEmbeddings) {
+                    const row = db.prepare('SELECT rowid FROM assets WHERE id = ?').get(asset.id) as { rowid: number | bigint };
+                    if (row) {
+                        const rowId = BigInt(row.rowid);
+                        if (!vecRowIds.has(rowId.toString())) {
+                            // Missing from vec_assets, re-insert
+                            try {
+                                db.prepare('INSERT INTO vec_assets(rowid, embedding) VALUES (?, ?)').run(rowId, JSON.stringify(asset.metadata.embedding));
+                                syncedCount++;
+                            } catch (e) {
+                                console.error(`[IndexerService] Failed to sync vec_assets for ${asset.id}:`, e);
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('[IndexerService] Error during vec_assets sync check:', e);
+            }
+
+            if (syncedCount > 0) {
+                console.log(`[IndexerService] Synced ${syncedCount} assets to vec_assets table.`);
+            } else {
+                console.log('[IndexerService] vec_assets table is in sync.');
+            }
         }
 
+        // 2. Identify assets that need new embeddings
         const assetsToEmbed = assets.filter(a => !a.metadata.embedding || (Array.isArray(a.metadata.embedding) && a.metadata.embedding.length === 0));
 
         if (assetsToEmbed.length === 0) {
-            console.log('[IndexerService] No embeddings to generate.');
+            console.log('[IndexerService] No new embeddings to generate.');
             return;
         }
 
@@ -325,13 +379,13 @@ export class IndexerService {
                     this.updateAssetMetadata(asset.id, newMetadata);
 
                     // 2. Manually update vec_assets table
-                    // We do this here instead of triggers to avoid overhead during ingestion
-                    // and to prevent concurrency issues.
                     try {
-                        const row = db.prepare('SELECT rowid FROM assets WHERE id = ?').get(asset.id) as { rowid: number };
+                        const row = db.prepare('SELECT rowid FROM assets WHERE id = ?').get(asset.id) as { rowid: number | bigint };
                         if (row) {
-                            db.prepare('DELETE FROM vec_assets WHERE rowid = ?').run(row.rowid);
-                            db.prepare('INSERT INTO vec_assets(rowid, embedding) VALUES (?, ?)').run(row.rowid, JSON.stringify(embedding));
+                            // Ensure rowid is passed as a BigInt to guarantee INTEGER binding for sqlite-vec
+                            const rowId = BigInt(row.rowid);
+                            db.prepare('DELETE FROM vec_assets WHERE rowid = ?').run(rowId);
+                            db.prepare('INSERT INTO vec_assets(rowid, embedding) VALUES (?, ?)').run(rowId, JSON.stringify(embedding));
                         }
                     } catch (vecError) {
                         console.error(`[IndexerService] Failed to update vec_assets for ${asset.id}:`, vecError);
@@ -600,7 +654,16 @@ export class IndexerService {
                 // We need to fetch tags for it too if we are doing that below
                 // But let's just add it to the list and let the tag fetching logic handle it if possible
                 // The tag fetching logic uses `assets.map(a => a.id)`, so if we add it here, it will get tags.
-                assets.unshift(sourceAsset as any);
+                const sourceWithDistance = { ...sourceAsset, distance: 0 }; // Source always has 0 distance to itself
+                assets.unshift(sourceWithDistance as any);
+            }
+        }
+
+        if (filters?.relatedToAssetId && filters.semantic && similarAssetsMap) {
+            console.log('[IndexerService] Debug Search: similarAssetsMap size:', similarAssetsMap.size);
+            if (similarAssetsMap.size > 0) {
+                const firstKey = similarAssetsMap.keys().next().value;
+                console.log('[IndexerService] Debug Search: Sample Map Entry:', firstKey, similarAssetsMap.get(firstKey));
             }
         }
 
@@ -625,7 +688,12 @@ export class IndexerService {
                 // Attach distance if available (from semantic search)
                 let distance = asset.distance;
                 if (filters?.relatedToAssetId && filters.semantic && similarAssetsMap) {
-                    distance = similarAssetsMap.get(asset.id);
+                    const assetId = asset.id as string;
+                    const mappedDistance = similarAssetsMap.get(assetId);
+                    if (mappedDistance !== undefined) {
+                        distance = mappedDistance;
+                    }
+                    // console.log(`[IndexerService] Mapping distance for ${assetId}: ${distance}`);
                 }
 
                 return {
@@ -633,6 +701,12 @@ export class IndexerService {
                     tags: tagsByAsset[asset.id] || [],
                     distance
                 };
+            }).filter(asset => {
+                // If semantic search is active, only return assets with a valid distance
+                if (filters?.relatedToAssetId && filters.semantic) {
+                    return asset.distance !== undefined;
+                }
+                return true;
             });
         }
 

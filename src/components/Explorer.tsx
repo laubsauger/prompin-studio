@@ -129,6 +129,13 @@ export const Explorer: React.FC = () => {
 
         // 6. Sort
         const sorted = [...result].sort((a, b) => {
+            // Special handling for semantic search: Sort by distance (ascending)
+            if (filterConfig.relatedToAssetId && filterConfig.semantic) {
+                const distA = a.distance ?? Infinity;
+                const distB = b.distance ?? Infinity;
+                return distA - distB;
+            }
+
             const { key, direction } = sortConfig;
             const valA = key === 'path' ? a.path : (a.metadata as any)[key] || 0;
             const valB = key === 'path' ? b.path : (b.metadata as any)[key] || 0;
@@ -137,6 +144,13 @@ export const Explorer: React.FC = () => {
             if (valA > valB) return direction === 'asc' ? 1 : -1;
             return 0;
         });
+
+        if (filterConfig.relatedToAssetId && filterConfig.semantic) {
+            console.log('[Explorer] Semantic Search Results (Top 5):');
+            sorted.slice(0, 5).forEach(a => {
+                console.log(`- ${a.id}: distance=${a.distance}, type=${typeof a.distance}`);
+            });
+        }
 
         console.log('[Explorer] filteredAssets length:', sorted.length);
         return sorted;
@@ -167,17 +181,16 @@ export const Explorer: React.FC = () => {
                     <VirtuosoGrid
                         ref={virtuosoRef as React.RefObject<VirtuosoGridHandle>}
                         style={{ height: '100%', width: '100%' }}
-                        totalCount={filteredAssets.length}
+                        data={filteredAssets}
                         rangeChanged={handleRangeChanged}
                         overscan={3000}
                         context={{ thumbnailSize }}
-                        computeItemKey={(index) => filteredAssets[index]?.id}
+                        computeItemKey={(index, asset) => asset.id}
                         components={{
                             List: GridList,
                             Item: GridItem
                         }}
-                        itemContent={(index) => {
-                            const asset = filteredAssets[index];
+                        itemContent={(index, asset) => {
                             return (
                                 <div style={{ height: '100%' }}>
                                     <ExplorerCell
@@ -192,12 +205,11 @@ export const Explorer: React.FC = () => {
                     <Virtuoso
                         ref={virtuosoRef as React.RefObject<VirtuosoHandle>}
                         style={{ height: '100%', width: '100%' }}
-                        totalCount={filteredAssets.length}
+                        data={filteredAssets}
                         rangeChanged={handleRangeChanged}
                         overscan={3000}
-                        computeItemKey={(index) => filteredAssets[index]?.id}
-                        itemContent={(index) => {
-                            const asset = filteredAssets[index];
+                        computeItemKey={(index, asset) => asset.id}
+                        itemContent={(index, asset) => {
                             return (
                                 <div className="px-2 py-1">
                                     <AssetListItem

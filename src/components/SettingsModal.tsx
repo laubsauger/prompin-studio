@@ -17,6 +17,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ open, onOpenChange
     const { theme, defaultView, autoCheckUpdates, setTheme, setDefaultView, setAutoCheckUpdates } = useSettingsStore();
     const syncStats = useStore(state => state.syncStats);
 
+    const [thumbnailSuccess, setThumbnailSuccess] = React.useState(false);
+    const [embeddingSuccess, setEmbeddingSuccess] = React.useState(false);
+    const [isRegeneratingThumbnails, setIsRegeneratingThumbnails] = React.useState(false);
+    const [isGeneratingEmbeddings, setIsGeneratingEmbeddings] = React.useState(false);
+
+    // Track previous states to detect completion from background processes
+    const prevStatusRef = React.useRef(syncStats?.status);
+    const prevThumbnailProgressRef = React.useRef(syncStats?.thumbnailProgress);
+
+    useEffect(() => {
+        // Check for Embedding completion (background)
+        if (prevStatusRef.current === 'indexing' && syncStats?.status === 'idle') {
+            setEmbeddingSuccess(true);
+            setTimeout(() => setEmbeddingSuccess(false), 2000);
+        }
+        prevStatusRef.current = syncStats?.status;
+
+        // Check for Thumbnail completion (background)
+        if (prevThumbnailProgressRef.current && !syncStats?.thumbnailProgress) {
+            setThumbnailSuccess(true);
+            setTimeout(() => setThumbnailSuccess(false), 2000);
+        }
+        prevThumbnailProgressRef.current = syncStats?.thumbnailProgress;
+    }, [syncStats?.status, syncStats?.thumbnailProgress]);
+
     // Apply theme effect
     useEffect(() => {
         const root = window.document.documentElement;
@@ -107,16 +132,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ open, onOpenChange
                         <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => {
-                                useStore.getState().regenerateThumbnails();
+                            onClick={async () => {
+                                setIsRegeneratingThumbnails(true);
+                                try {
+                                    await useStore.getState().regenerateThumbnails();
+                                    setThumbnailSuccess(true);
+                                    setTimeout(() => setThumbnailSuccess(false), 2000);
+                                } finally {
+                                    setIsRegeneratingThumbnails(false);
+                                }
                             }}
-                            disabled={!!syncStats?.thumbnailProgress}
+                            disabled={!!syncStats?.thumbnailProgress || isRegeneratingThumbnails || thumbnailSuccess}
                         >
-                            {syncStats?.thumbnailProgress ? (
+                            {syncStats?.thumbnailProgress || isRegeneratingThumbnails ? (
                                 <>
                                     <Loader2 className="mr-2 h-3 w-3 animate-spin" />
                                     Processing
                                 </>
+                            ) : thumbnailSuccess ? (
+                                <span className="text-green-500 font-medium">Done!</span>
                             ) : (
                                 'Regenerate'
                             )}
@@ -145,19 +179,28 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ open, onOpenChange
                         <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => {
+                            onClick={async () => {
+                                setIsGeneratingEmbeddings(true);
                                 const ipc = (window as any).ipcRenderer;
                                 if (ipc) {
-                                    ipc.invoke('generate-embeddings');
+                                    try {
+                                        await ipc.invoke('generate-embeddings');
+                                        setEmbeddingSuccess(true);
+                                        setTimeout(() => setEmbeddingSuccess(false), 2000);
+                                    } finally {
+                                        setIsGeneratingEmbeddings(false);
+                                    }
                                 }
                             }}
-                            disabled={syncStats?.status === 'indexing'}
+                            disabled={syncStats?.status === 'indexing' || isGeneratingEmbeddings || embeddingSuccess}
                         >
-                            {syncStats?.status === 'indexing' ? (
+                            {syncStats?.status === 'indexing' || isGeneratingEmbeddings ? (
                                 <>
                                     <Loader2 className="mr-2 h-3 w-3 animate-spin" />
                                     Generating
                                 </>
+                            ) : embeddingSuccess ? (
+                                <span className="text-green-500 font-medium">Done!</span>
                             ) : (
                                 'Generate'
                             )}

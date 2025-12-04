@@ -1,9 +1,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import { app } from 'electron';
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-const sqliteVec = require('sqlite-vec');
+import * as sqliteVec from 'sqlite-vec';
 
 const dbPath = path.join(app.getPath('userData'), 'gen-studio.db');
 const db = new Database(dbPath);
@@ -17,6 +15,9 @@ try {
 } catch (e) {
   console.warn('[DB] Failed to load sqlite-vec extension. Vector search will be disabled.', e);
 }
+
+
+
 
 db.pragma('journal_mode = WAL');
 
@@ -87,18 +88,11 @@ db.exec(`
 `);
 
 // 3. Vector Search Setup / Cleanup
+// 3. Vector Search Setup
 if (vectorSearchEnabled) {
+  // Setup SQLite-Vec
   try {
     db.exec(`
-      -- Cleanup old VSS/Vec triggers first
-      DROP TRIGGER IF EXISTS assets_vec_insert;
-      DROP TRIGGER IF EXISTS assets_vec_update;
-      DROP TRIGGER IF EXISTS assets_vec_update_null;
-      DROP TRIGGER IF EXISTS assets_vss_delete; -- Cleanup legacy vss trigger
-
-      -- Cleanup legacy vss table if exists
-      DROP TABLE IF EXISTS vss_assets;
-
       -- Vector search virtual table (sqlite-vec)
       CREATE VIRTUAL TABLE IF NOT EXISTS vec_assets USING vec0(
         embedding float[384]
@@ -117,7 +111,6 @@ if (vectorSearchEnabled) {
   try {
     db.exec(`DROP TRIGGER IF EXISTS assets_vec_delete;`);
     db.exec(`DROP TABLE IF EXISTS vec_assets;`);
-    db.exec(`DROP TABLE IF EXISTS vss_assets;`);
   } catch (e) {
     console.warn('[DB] Failed to cleanup Vector tables:', e);
   }
