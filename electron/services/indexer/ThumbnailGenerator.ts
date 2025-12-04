@@ -34,7 +34,7 @@ export class ThumbnailGenerator {
                         count: 1,
                         folder: this.thumbnailCachePath,
                         filename: thumbnailFilename,
-                        size: '320x?'
+                        size: '512x?'
                     })
                     .on('end', () => resolve(thumbnailFilename))
                     .on('error', (err: any) => {
@@ -62,7 +62,7 @@ export class ThumbnailGenerator {
                 try {
                     const image = nativeImage.createFromPath(filePath);
                     if (!image.isEmpty()) {
-                        const resized = image.resize({ width: 320 });
+                        const resized = image.resize({ width: 512 });
                         const buffer = resized.toJPEG(80);
                         await fs.writeFile(thumbnailPath, buffer);
                         return thumbnailFilename;
@@ -80,7 +80,7 @@ export class ThumbnailGenerator {
                     return new Promise((resolve) => {
                         ffmpeg(filePath)
                             .output(thumbnailPath)
-                            .size('320x?')
+                            .size('512x?')
                             .on('end', () => resolve(thumbnailFilename))
                             .on('error', (err: any) => {
                                 if (err.message.includes('Invalid data found') || err.message.includes('Conversion failed')) {

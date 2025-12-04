@@ -157,7 +157,7 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
                                             <img
                                                 src={`thumbnail://${asset.thumbnailPath}`}
                                                 alt={asset.path}
-                                                className="w-full h-full object-contain"
+                                                className="w-full h-full object-cover"
                                                 loading="lazy"
                                                 decoding="async"
                                             />

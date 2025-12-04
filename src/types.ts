@@ -67,7 +67,7 @@ export interface SyncStats {
     totalFiles: number;
     processedFiles: number;
     totalFolders?: number;
-    status: 'idle' | 'scanning' | 'syncing';
+    status: 'idle' | 'scanning' | 'syncing' | 'indexing';
     lastSync: number;
     thumbnailsGenerated?: number;
     thumbnailsFailed?: number;

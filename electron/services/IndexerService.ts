@@ -294,6 +294,9 @@ export class IndexerService {
             return;
         }
 
+        // Set status to indexing
+        this.stats.status = 'indexing';
+
         console.log(`[IndexerService] Generating embeddings for ${assetsToEmbed.length} assets...`);
         let current = 0;
         const total = assetsToEmbed.length;
@@ -347,6 +350,12 @@ export class IndexerService {
         console.log('[IndexerService] Embedding generation complete.');
         this.stats.currentFile = undefined;
         this.stats.embeddingProgress = undefined;
+        // Status will be reset to idle by the caller (setRootPath) or we can set it here if called independently
+        // But since setRootPath sets it to idle at the end, we don't strictly need to set it here if called from there.
+        // However, if called independently, we might want to reset it.
+        // For safety, let's leave it to the caller or set to idle if we are sure?
+        // setRootPath calls this, then sets to idle.
+        // If we set to idle here, it's fine.
     }
 
     // Helper methods

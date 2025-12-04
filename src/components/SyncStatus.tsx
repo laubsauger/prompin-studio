@@ -27,7 +27,7 @@ export const SyncStatus: React.FC = () => {
                 {/* Status Header */}
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        {isSyncing ? (
+                        {isSyncing || syncStats.status === 'indexing' ? (
                             <Loader2 className="h-4 w-4 animate-spin text-primary" />
                         ) : hasErrors || hasThumbnailFailures ? (
                             <AlertCircle className="h-4 w-4 text-yellow-500" />
@@ -36,7 +36,7 @@ export const SyncStatus: React.FC = () => {
                         )}
                         <div className="flex flex-col">
                             <span className="font-medium text-sm">
-                                {isSyncing ? 'Syncing...' : 'Ready'}
+                                {syncStats.status === 'indexing' ? 'Generating embeddings...' : isSyncing ? 'Syncing...' : 'Ready'}
                             </span>
                             <span className="text-[10px] text-muted-foreground">
                                 {syncStats.lastSync ? formatDistanceToNow(new Date(syncStats.lastSync), { addSuffix: true }) : 'Never synced'}
@@ -45,28 +45,41 @@ export const SyncStatus: React.FC = () => {
                     </div>
                     <button
                         onClick={triggerResync}
-                        disabled={isSyncing}
+                        disabled={isSyncing || syncStats.status === 'indexing'}
                         className={cn(
                             "p-1.5 rounded-md hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
-                            isSyncing && "animate-pulse"
+                            (isSyncing || syncStats.status === 'indexing') && "animate-pulse"
                         )}
                         title="Resync Library"
                     >
-                        <RefreshCw className={cn("h-3.5 w-3.5", isSyncing && "animate-spin")} />
+                        <RefreshCw className={cn("h-3.5 w-3.5", (isSyncing || syncStats.status === 'indexing') && "animate-spin")} />
                     </button>
                 </div>
 
-                {/* Progress Bar (when syncing) */}
-                {isSyncing && (
+                {/* Progress Bar (when syncing or indexing) */}
+                {(isSyncing || syncStats.status === 'indexing') && (
                     <div className="space-y-1.5">
                         <div className="flex justify-between text-[10px] text-muted-foreground font-medium">
-                            <span>Processing files...</span>
-                            <span>{Math.round(progress)}%</span>
+                            <span>
+                                {syncStats.status === 'indexing' ? 'Processing embeddings...' : 'Processing files...'}
+                            </span>
+                            <span>
+                                {syncStats.status === 'indexing' && syncStats.embeddingProgress
+                                    ? Math.round((syncStats.embeddingProgress.current / syncStats.embeddingProgress.total) * 100)
+                                    : Math.round(progress)}%
+                            </span>
                         </div>
                         <div className="h-1.5 bg-secondary/50 rounded-full overflow-hidden">
                             <div
-                                className="h-full bg-primary transition-all duration-300 ease-out"
-                                style={{ width: `${progress}%` }}
+                                className={cn(
+                                    "h-full transition-all duration-300 ease-out",
+                                    syncStats.status === 'indexing' ? "bg-purple-500" : "bg-primary"
+                                )}
+                                style={{
+                                    width: `${syncStats.status === 'indexing' && syncStats.embeddingProgress
+                                        ? (syncStats.embeddingProgress.current / syncStats.embeddingProgress.total) * 100
+                                        : progress}%`
+                                }}
                             />
                         </div>
                     </div>
