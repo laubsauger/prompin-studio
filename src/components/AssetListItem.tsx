@@ -75,11 +75,17 @@ const AssetListItemComponent: React.FC<AssetListItemProps> = ({ asset, setViewin
             >
                 {/* Thumbnail */}
                 <div className="relative w-32 h-20 flex-shrink-0 bg-muted rounded overflow-hidden">
-                    <img
-                        src={thumbnailSrc}
-                        alt={asset.path}
-                        className="w-full h-full object-cover"
-                    />
+                    {asset.type === 'video' && !asset.thumbnailPath ? (
+                        <div className="w-full h-full flex items-center justify-center bg-secondary/20">
+                            <Film className="w-8 h-8 text-muted-foreground/50" />
+                        </div>
+                    ) : (
+                        <img
+                            src={thumbnailSrc}
+                            alt={asset.path}
+                            className="w-full h-full object-cover"
+                        />
+                    )}
                     {asset.type === 'video' && (
                         <div className="absolute bottom-1 right-1 bg-black/70 rounded px-1 py-0.5">
                             <span className="text-[10px] text-white font-mono">

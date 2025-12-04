@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Check, ChevronsUpDown, X } from 'lucide-react';
+import { Check, ChevronsUpDown, X, Filter } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Button } from './ui/button';
 import {
@@ -70,19 +70,22 @@ export function StatusMultiSelect({
                             selectedStatuses.length > 0 && "bg-blue-500/10 border-blue-500/50"
                         )}
                     >
-                        {selectedStatuses.length === 0 ? (
-                            "Status"
-                        ) : selectedStatuses.length === 1 ? (
-                            <div className="flex items-center gap-1.5">
-                                <div className={cn(
-                                    "w-2 h-2 rounded-full border",
-                                    getStatusColors(selectedStatuses[0])
-                                )} />
-                                {ASSET_STATUSES[selectedStatuses[0]].label}
-                            </div>
-                        ) : (
-                            `${selectedStatuses.length} statuses`
-                        )}
+                        <div className="flex items-center gap-1.5">
+                            <Filter className="h-3 w-3" />
+                            {selectedStatuses.length === 0 ? (
+                                "Status"
+                            ) : selectedStatuses.length === 1 ? (
+                                <>
+                                    <div className={cn(
+                                        "w-2 h-2 rounded-full border",
+                                        getStatusColors(selectedStatuses[0])
+                                    )} />
+                                    {ASSET_STATUSES[selectedStatuses[0]].label}
+                                </>
+                            ) : (
+                                `${selectedStatuses.length} statuses`
+                            )}
+                        </div>
                         <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
                     </Button>
                 </PopoverTrigger>

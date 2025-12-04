@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useStore } from '../store';
 import { cn } from '../lib/utils';
 import { formatDistanceToNow } from 'date-fns';
@@ -8,26 +8,13 @@ import { SyncStatusModal } from './SyncStatusModal';
 
 export const SyncStatus: React.FC = () => {
     const syncStats = useStore(state => state.syncStats);
-    const fetchSyncStats = useStore(state => state.fetchSyncStats);
     const triggerResync = useStore(state => state.triggerResync);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     const isSyncing = syncStats?.status !== 'idle';
 
-    useEffect(() => {
-        // Initial fetch
-        fetchSyncStats();
-
-        // Only poll when actively syncing, and at a slower rate
-        if (isSyncing) {
-            const interval = setInterval(fetchSyncStats, 10000); // Poll every 10 seconds when syncing
-            return () => clearInterval(interval);
-        } else {
-            // When idle, poll much less frequently to catch new changes
-            const interval = setInterval(fetchSyncStats, 30000); // Poll every 30 seconds when idle
-            return () => clearInterval(interval);
-        }
-    }, [fetchSyncStats, isSyncing]);
+    // Polling is handled by TitleBar (parent) to avoid duplicate requests
+    // We just read the store state here
 
     if (!syncStats) return null;
     const progress = syncStats.totalFiles > 0 ? (syncStats.processedFiles / syncStats.totalFiles) * 100 : 0;

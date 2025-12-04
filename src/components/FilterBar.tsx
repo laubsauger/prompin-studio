@@ -1,9 +1,8 @@
 import React from 'react';
 import { useStore, type FilterConfig } from '../store';
-import { Select } from './ui/select';
-import { Filter, Heart, ArrowUpDown, LayoutGrid, List, ArrowUp, ArrowDown, X, RotateCcw, Eye, EyeOff, Square, RectangleHorizontal, RectangleVertical } from 'lucide-react';
+import { SelectWithIcon } from './ui/select-with-icon';
+import { ArrowUpDown, LayoutGrid, List, ArrowUp, ArrowDown, X, RotateCcw, Eye, EyeOff, Square, RectangleHorizontal, RectangleVertical, FileType } from 'lucide-react';
 import { Button } from './ui/button';
-import { cn } from '../lib/utils';
 import { Slider } from './ui/slider';
 import { AdvancedFilters } from './AdvancedFilters';
 import { StatusMultiSelect } from './StatusMultiSelect';
@@ -67,34 +66,18 @@ export const FilterBarUI: React.FC<FilterBarUIProps> = ({
 
     return (
         <div className="flex items-center gap-2 w-full">
-            {/* Like button - separate from type filters */}
-            <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onFilterConfigChange({ likedOnly: !filterConfig.likedOnly })}
-                className={cn(
-                    "h-8 w-8 p-0",
-                    filterConfig.likedOnly && "text-red-500 hover:text-red-600"
-                )}
-                title="Show Liked Only"
-            >
-                <Heart className={cn("h-4 w-4", filterConfig.likedOnly && "fill-current")} />
-            </Button>
-
-            {/* Separator between like and type filters */}
-            <div className="w-px h-6 bg-border" />
-
             {/* Type filters with clear button */}
-            <div className="flex items-center gap-1">
-                <Select
+            <div className="flex items-center gap-1 ml-2">
+                <SelectWithIcon
+                    icon={<FileType className="h-3.5 w-3.5 text-muted-foreground" />}
                     value={filterConfig.type || 'all'}
                     onChange={(e) => onFilterConfigChange({ type: e.target.value as 'all' | 'image' | 'video' })}
-                    className="w-[100px] h-8 text-xs"
+                    className="w-[110px] h-8 text-xs"
                 >
-                    <option value="all">Types</option>
+                    <option value="all">Media</option>
                     <option value="image">Images</option>
                     <option value="video">Videos</option>
-                </Select>
+                </SelectWithIcon>
                 {filterConfig.type && filterConfig.type !== 'all' && (
                     <Button
                         variant="ghost"
@@ -108,17 +91,29 @@ export const FilterBarUI: React.FC<FilterBarUIProps> = ({
                 )}
             </div>
 
-            <div className="flex items-center gap-2 border-r border-border pr-2 mr-2">
-                <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-                <Select
+            {/* Status filter with multi-select */}
+            <StatusMultiSelect
+                selectedStatuses={filterConfig.statuses || []}
+                onStatusChange={(statuses) => onFilterConfigChange({ statuses })}
+            />
+
+            {/* Tags filter with multi-select */}
+            <TagsMultiSelect
+                selectedTagIds={filterConfig.tagIds || []}
+                onTagsChange={(tagIds) => onFilterConfigChange({ tagIds })}
+            />
+
+            <div className="flex items-center gap-1 pr-2">
+                <SelectWithIcon
+                    icon={<ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />}
                     value={sortConfig.key}
                     onChange={(e) => onSortConfigChange(e.target.value as 'createdAt' | 'updatedAt' | 'path', sortConfig.direction)}
-                    className="w-[130px] h-8 text-xs"
+                    className="w-[140px] h-8 text-xs"
                 >
                     <option value="createdAt">Date Created</option>
                     <option value="updatedAt">Date Modified</option>
                     <option value="path">File Name</option>
-                </Select>
+                </SelectWithIcon>
                 <Button
                     variant="ghost"
                     size="sm"
@@ -132,25 +127,9 @@ export const FilterBarUI: React.FC<FilterBarUIProps> = ({
                         <ArrowDown className="h-4 w-4" />
                     )}
                 </Button>
-            </div>
+                <div className="border-r border-border h-8"></div>
 
-            {/* Status filter with multi-select */}
-            <div className="flex items-center gap-1 border-r border-border pr-2 mr-2">
-                <Filter className="h-4 w-4 text-muted-foreground" />
-                <StatusMultiSelect
-                    selectedStatuses={filterConfig.statuses || []}
-                    onStatusChange={(statuses) => onFilterConfigChange({ statuses })}
-                />
             </div>
-
-            {/* Tags filter with multi-select */}
-            <div className="flex items-center gap-1 border-r border-border pr-2 mr-2">
-                <TagsMultiSelect
-                    selectedTagIds={filterConfig.tagIds || []}
-                    onTagsChange={(tagIds) => onFilterConfigChange({ tagIds })}
-                />
-            </div>
-
             {/* Advanced Filters */}
             <AdvancedFilters />
 
@@ -172,6 +151,27 @@ export const FilterBarUI: React.FC<FilterBarUIProps> = ({
             <div className="flex items-center gap-2 ml-auto">
                 {viewMode === 'grid' && (
                     <>
+                        {/* Clean/Detailed View Toggle */}
+                        <div className="flex items-center border rounded-md">
+                            <Button
+                                variant={viewDisplay === 'clean' ? 'default' : 'ghost'}
+                                size="sm"
+                                onClick={() => onViewDisplayChange('clean')}
+                                className="h-7 px-2 rounded-r-none"
+                                title="Clean View - Focus on images"
+                            >
+                                <EyeOff className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                                variant={viewDisplay === 'detailed' ? 'default' : 'ghost'}
+                                size="sm"
+                                onClick={() => onViewDisplayChange('detailed')}
+                                className="h-7 px-2 rounded-l-none border-l"
+                                title="Detailed View - Show status and tags"
+                            >
+                                <Eye className="h-3.5 w-3.5" />
+                            </Button>
+                        </div>
                         <div className="flex items-center gap-2 mr-2">
                             {/* Aspect Ratio Toggle */}
                             <div className="flex items-center border rounded-md">
@@ -212,28 +212,6 @@ export const FilterBarUI: React.FC<FilterBarUIProps> = ({
                                 step={50}
                                 className="w-24"
                             />
-                        </div>
-
-                        {/* Clean/Detailed View Toggle */}
-                        <div className="flex items-center border rounded-md">
-                            <Button
-                                variant={viewDisplay === 'clean' ? 'default' : 'ghost'}
-                                size="sm"
-                                onClick={() => onViewDisplayChange('clean')}
-                                className="h-7 px-2 rounded-r-none"
-                                title="Clean View - Focus on images"
-                            >
-                                <EyeOff className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                                variant={viewDisplay === 'detailed' ? 'default' : 'ghost'}
-                                size="sm"
-                                onClick={() => onViewDisplayChange('detailed')}
-                                className="h-7 px-2 rounded-l-none border-l"
-                                title="Detailed View - Show status and tags"
-                            >
-                                <Eye className="h-3.5 w-3.5" />
-                            </Button>
                         </div>
                     </>
                 )}

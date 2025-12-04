@@ -169,7 +169,7 @@ export const Explorer: React.FC = () => {
                         rangeChanged={handleRangeChanged}
                         overscan={3000}
                         context={{ thumbnailSize }}
-                        computeItemKey={(index) => filteredAssets[index].id}
+                        computeItemKey={(index) => filteredAssets[index]?.id}
                         components={{
                             List: GridList,
                             Item: GridItem
@@ -193,7 +193,7 @@ export const Explorer: React.FC = () => {
                         totalCount={filteredAssets.length}
                         rangeChanged={handleRangeChanged}
                         overscan={3000}
-                        computeItemKey={(index) => filteredAssets[index].id}
+                        computeItemKey={(index) => filteredAssets[index]?.id}
                         itemContent={(index) => {
                             const asset = filteredAssets[index];
                             return (

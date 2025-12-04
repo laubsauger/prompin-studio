@@ -273,7 +273,7 @@ export const MediaViewer: React.FC = () => {
                     {asset.type === 'image' ? (
                         <div className="w-full h-full relative">
                             <TransformWrapper
-                                minScale={0.1}
+                                minScale={0.5}
                                 maxScale={10}
                                 initialScale={1}
                                 centerOnInit={true}
@@ -298,38 +298,25 @@ export const MediaViewer: React.FC = () => {
                                             alignItems: 'center',
                                             justifyContent: 'center'
                                         }}
+                                        contentStyle={{
+                                            width: '100%',
+                                            height: '100%',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center'
+                                        }}
                                     >
                                         <img
                                             src={`media://${asset.path}`}
                                             alt={asset.path}
                                             style={{
                                                 display: 'block',
-                                                cursor: 'grab',
-                                                maxWidth: 'none',
-                                                maxHeight: 'none',
+                                                maxWidth: '95%', // Leave a bit of space
+                                                maxHeight: '95%', // Leave a bit of space
+                                                objectFit: 'contain',
+                                                boxShadow: '0 0 20px rgba(0,0,0,0.5)' // Optional: add some depth
                                             }}
                                             draggable={false}
-                                            onLoad={(e) => {
-                                                const img = e.currentTarget;
-                                                const wrapper = document.querySelector('.react-transform-component') as HTMLElement;
-
-                                                if (wrapper && img.naturalWidth && img.naturalHeight) {
-                                                    const wrapperRect = wrapper.getBoundingClientRect();
-                                                    const scaleX = wrapperRect.width / img.naturalWidth;
-                                                    const scaleY = wrapperRect.height / img.naturalHeight;
-                                                    const scale = Math.min(scaleX, scaleY, 1) * 0.9; // 90% to leave some padding
-
-                                                    // Reset first to ensure clean state
-                                                    utils.resetTransform();
-
-                                                    // Then center with calculated scale
-                                                    // We need a slight delay for the reset to apply? 
-                                                    // Actually centerView handles it.
-                                                    setTimeout(() => {
-                                                        utils.centerView(scale, 0);
-                                                    }, 50);
-                                                }
-                                            }}
                                         />
                                     </TransformComponent>
                                 )}

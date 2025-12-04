@@ -18,7 +18,7 @@ export const TitleBar: React.FC = () => {
 
     useEffect(() => {
         fetchSyncStats();
-        const interval = setInterval(fetchSyncStats, 1000);
+        const interval = setInterval(fetchSyncStats, 5000);
         return () => clearInterval(interval);
     }, [fetchSyncStats]);
 

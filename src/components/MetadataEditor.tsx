@@ -14,6 +14,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { cn } from '../lib/utils';
 import { MetadataForm } from './MetadataForm';
+import { InputAssetThumbnail } from './InputAssetThumbnail';
 
 interface MetadataEditorProps {
     isOpen: boolean;
@@ -219,6 +220,39 @@ export const MetadataEditor: React.FC<MetadataEditorProps> = ({ isOpen, onClose,
                                     </div>
                                 </div>
 
+
+                                {/* Input Assets Section */}
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">Input Assets (Lineage)</h4>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {metadata.inputs?.map(input => (
+                                            <div key={input} className="relative group/input">
+                                                {/* We need a way to show thumbnail here. 
+                                                    Since we only have ID, we might need a small component or just fetch it.
+                                                    For now, let's use a simple placeholder or the InputAssetThumbnail if we can import it.
+                                                    We can import InputAssetThumbnail from './InputAssetThumbnail'.
+                                                */}
+                                                <InputAssetThumbnail
+                                                    assetId={input}
+                                                    onRemove={() => {
+                                                        const currentInputs = metadata.inputs || [];
+                                                        setMetadata(prev => ({ ...prev, inputs: currentInputs.filter(i => i !== input) }));
+                                                    }}
+                                                />
+                                            </div>
+                                        ))}
+                                        <button
+                                            onClick={() => setIsAssetPickerOpen(true)}
+                                            className="w-16 h-16 rounded-md border-2 border-dashed border-muted-foreground/25 hover:border-muted-foreground/50 bg-muted/30 hover:bg-muted/50 flex flex-col items-center justify-center gap-1 transition-all"
+                                            title="Add Input Asset"
+                                        >
+                                            <Plus className="h-4 w-4 text-muted-foreground" />
+                                        </button>
+                                    </div>
+                                </div>
+
                             </div>
                         </ScrollArea>
                     </div>
@@ -230,7 +264,7 @@ export const MetadataEditor: React.FC<MetadataEditorProps> = ({ isOpen, onClose,
                                 initialMetadata={metadata}
                                 onChange={setMetadata}
                                 asset={asset}
-                                showLineage={true}
+                                showLineage={false}
                                 tags={selectedTagIds}
                                 onTagsChange={setSelectedTagIds}
                                 currentUser={currentUser}
@@ -243,7 +277,7 @@ export const MetadataEditor: React.FC<MetadataEditorProps> = ({ isOpen, onClose,
                     <Button variant="outline" onClick={onClose}>Cancel</Button>
                     <Button onClick={handleSave}>Save Changes</Button>
                 </DialogFooter>
-            </DialogContent>
+            </DialogContent >
 
             <AssetPickerDialog
                 isOpen={isAssetPickerOpen}
@@ -266,6 +300,6 @@ export const MetadataEditor: React.FC<MetadataEditorProps> = ({ isOpen, onClose,
                 isOpen={isManageTagsOpen}
                 onClose={() => setIsManageTagsOpen(false)}
             />
-        </Dialog>
+        </Dialog >
     );
 };

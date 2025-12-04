@@ -22,7 +22,7 @@
     "build:electron": "tsc -p tsconfig.electron.json",
     "build:electron:watch": "tsc -p tsconfig.electron.json -w",
     "dev:electron": "concurrently -k \"npm run dev\" \"npm run build:electron:watch\" \"npm run electron\"",
-    "electron": "wait-on tcp:5173 && VITE_DEV_SERVER_URL=http://localhost:5173 electron .",
+    "electron": "wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest"
@@ -75,6 +75,7 @@
     "@vitejs/plugin-react": "^5.1.1",
     "autoprefixer": "^10.4.22",
     "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
     "electron": "^39.2.4",
     "electron-builder": "^26.0.12",
     "eslint": "^9.39.1",

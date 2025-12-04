@@ -39,8 +39,7 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
             // Cmd/Ctrl+click for multi-select
             toggleSelection(asset.id, true);
         } else {
-            // Regular click: Select exclusively AND open preview
-            toggleSelection(asset.id, false);
+            // Regular click: Open preview ONLY (do not select)
             setViewingAssetId(asset.id);
         }
     };
@@ -61,7 +60,7 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
         return colorMap[color] || colorMap.gray;
     };
 
-    const thumbnailSrc = asset.type === 'video' && asset.thumbnailPath
+    const thumbnailSrc = asset.thumbnailPath
         ? `thumbnail://${asset.thumbnailPath}`
         : `media://${asset.path}`;
 
@@ -151,19 +150,25 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
                         {asset.type === 'video' ? (
                             <>
                                 {/* Show thumbnail when not playing AND not scrubbing */}
+                                {/* Show thumbnail when not playing AND not scrubbing */}
                                 {(!isPlaying && !isHoveringScrubber) && (
-                                    !asset.thumbnailPath ? (
-                                        <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
-                                            <Film className="w-8 h-8 opacity-50" />
-                                        </div>
-                                    ) : (
-                                        <img
-                                            src={thumbnailSrc}
-                                            alt={asset.path}
-                                            className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                                            loading="lazy"
-                                        />
-                                    )
+                                    <div className="w-full h-full flex items-center justify-center bg-secondary/20">
+                                        {asset.thumbnailPath ? (
+                                            <img
+                                                src={`thumbnail://${asset.thumbnailPath}`}
+                                                alt={asset.path}
+                                                className="w-full h-full object-contain"
+                                                loading="lazy"
+                                                decoding="async"
+                                            />
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center text-muted-foreground gap-2">
+                                                <Film className="w-8 h-8 opacity-50" />
+                                                <span className="text-xs opacity-50">Generating...</span>
+                                            </div>
+                                        )}
+                                        {/* Magnifier Icon for Images - Not needed for video here as this block is inside asset.type === 'video' check */}
+                                    </div>
                                 )}
 
                                 {/* Native Video Element - Only render if playing or hovering card (for warmup) */}

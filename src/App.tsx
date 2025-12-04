@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Explorer } from './components/Explorer';
 import { DragDropOverlay } from './components/DragDropOverlay';
 import { IngestionModal } from './components/IngestionModal';
@@ -35,8 +35,12 @@ function App() {
   }, [theme]);
 
   // Initialize root path on mount if it exists
+  const initializedRoot = useRef<string | null>(null);
+
   useEffect(() => {
-    if (rootFolder) {
+    if (rootFolder && initializedRoot.current !== rootFolder) {
+      initializedRoot.current = rootFolder;
+
       // We need a way to just set the path without opening dialog
       // Since I didn't add a separate action for that, let's just invoke IPC directly here for now
       // or add another action. Direct IPC is fine for initialization.
@@ -66,7 +70,7 @@ function App() {
   const imageCount = syncStats?.filesByType?.images;
   const videoCount = syncStats?.filesByType?.videos;
   const otherCount = syncStats?.filesByType?.other;
-  const folderCount = syncStats?.folderCount;
+  const folderCount = syncStats?.totalFolders;
 
   return (
     <>

@@ -21,20 +21,7 @@ if (ffmpegPath) {
     ffmpeg.setFfmpegPath((ffmpegPath as unknown as string).replace('app.asar', 'app.asar.unpacked'));
 }
 
-// Configure custom logger for ffmpeg to suppress verbose errors
-const ffmpegLogger = {
-    debug: () => { },
-    info: () => { },
-    warn: () => { },
-    error: (message: string) => {
-        if (message.includes('moov atom not found') || message.includes('Invalid data found')) {
-            return;
-        }
-        console.error('[FFmpeg]', message);
-    }
-};
-// @ts-ignore
-ffmpeg.setLogger(ffmpegLogger);
+
 
 export class IndexerService {
     private rootPath: string = '';
@@ -83,12 +70,19 @@ export class IndexerService {
     }
 
     async setRootPath(rootPath: string) {
+        let realPath = rootPath;
         try {
-            this.rootPath = await fs.realpath(rootPath);
+            realPath = await fs.realpath(rootPath);
         } catch (error) {
             console.warn(`[IndexerService] Failed to resolve real path for ${rootPath}, using original.`, error);
-            this.rootPath = rootPath;
         }
+
+        if (this.rootPath === realPath) {
+            console.log(`[IndexerService] Root path already set to ${realPath}. Skipping re-scan.`);
+            return;
+        }
+
+        this.rootPath = realPath;
 
         await this.watcher.stop();
         // Watcher will be started after scan completes to avoid race conditions
@@ -197,7 +191,7 @@ export class IndexerService {
             metadata = { ...newMetadata, ...metadata };
 
             let thumbnailPath = existing?.thumbnailPath;
-            if (mediaType === 'video' && (!thumbnailPath) && !skipThumbnail) {
+            if ((mediaType === 'video' || mediaType === 'image') && (!thumbnailPath) && !skipThumbnail) {
                 thumbnailPath = await this.thumbnailGenerator.generate(filePath, id);
             }
 
@@ -541,9 +535,53 @@ export class IndexerService {
         db.prepare('UPDATE assets SET status = ? WHERE id = ?').run(status, id);
     }
 
-    public getLineage(id: string) {
-        // Placeholder for lineage
-        return [];
+    public getLineage(id: string): Asset[] {
+        const assets = new Map<string, Asset>();
+        const visited = new Set<string>();
+
+        // Helper to get asset by ID (synchronous since we have in-memory map)
+        const getAsset = (assetId: string) => this.assetManager.getAsset(assetId);
+
+        // Queue for BFS
+        const queue: string[] = [id];
+
+        while (queue.length > 0) {
+            const currentId = queue.shift()!;
+            if (visited.has(currentId)) continue;
+            visited.add(currentId);
+
+            const asset = getAsset(currentId);
+            if (!asset) continue;
+
+            assets.set(asset.id, asset);
+
+            // 1. Traverse Up (Ancestors) - inputs
+            if (asset.metadata.inputs) {
+                for (const inputId of asset.metadata.inputs) {
+                    if (!visited.has(inputId)) {
+                        queue.push(inputId);
+                    }
+                }
+            }
+
+            // 2. Traverse Down (Descendants) - assets that have this as input
+            // This is expensive if we iterate all assets every time.
+            // Ideally we'd have a reverse index. For now, we'll iterate all assets once to build a map?
+            // Or just iterate all assets for the current node?
+            // Let's iterate all assets to find children.
+            // Optimization: Build a reverse index on startup/update?
+            // For now, simple iteration.
+            const allAssets = this.assetManager.getAssets(this.rootPath);
+            for (const otherAsset of allAssets) {
+                if (otherAsset.metadata.inputs?.includes(currentId)) {
+                    if (!visited.has(otherAsset.id)) {
+                        queue.push(otherAsset.id);
+                    }
+                }
+            }
+        }
+
+        return Array.from(assets.values());
     }
 
     public addComment(assetId: string, text: string, authorId: string) {
