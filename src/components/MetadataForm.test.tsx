@@ -6,7 +6,7 @@ import React from 'react';
 // Mock UI components that might cause issues in JSDOM
 vi.mock('./ui/popover', () => ({
     Popover: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-    PopoverTrigger: ({ children }: { children: React.ReactNode }) => <button>{children}</button>,
+    PopoverTrigger: ({ children, asChild }: { children: React.ReactNode, asChild?: boolean }) => asChild ? <>{children}</> : <button>{children}</button>,
     PopoverContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 

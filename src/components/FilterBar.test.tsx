@@ -10,13 +10,14 @@ vi.mock('../store', () => ({
 
 describe('FilterBar', () => {
     const mockSetFilter = vi.fn();
+    const mockSetFilterConfig = vi.fn();
 
     beforeEach(() => {
         const state = {
             filter: 'all',
             setFilter: mockSetFilter,
             filterConfig: { type: 'all', likedOnly: false },
-            setFilterConfig: vi.fn(),
+            setFilterConfig: mockSetFilterConfig,
             tags: [],
             scratchPads: [],
             sortConfig: { key: 'createdAt', direction: 'desc' },
@@ -33,21 +34,26 @@ describe('FilterBar', () => {
         expect(screen.getByText('Status')).toBeInTheDocument();
     });
 
-    it('calls setFilter on change', () => {
+    it('calls setFilterConfig on status change', () => {
         render(<FilterBar thumbnailSize={150} onThumbnailSizeChange={vi.fn()} />);
-        const selects = screen.getAllByRole('combobox');
-        // Status select is the 3rd one
-        const statusSelect = selects[2];
-        fireEvent.change(statusSelect, { target: { value: 'approved' } });
-        expect(mockSetFilter).toHaveBeenCalledWith('approved');
+
+        // Find the status trigger button
+        const statusButton = screen.getByRole('combobox', { name: /status/i });
+        fireEvent.click(statusButton);
+
+        // Find and click the 'Approved' option
+        const approvedOption = screen.getByText('Approved');
+        fireEvent.click(approvedOption);
+
+        expect(mockSetFilterConfig).toHaveBeenCalledWith({ statuses: ['approved'] });
     });
 
     it('displays current filter value', () => {
         const state = {
-            filter: 'approved',
+            filter: 'all',
             setFilter: mockSetFilter,
-            filterConfig: { type: 'all', likedOnly: false },
-            setFilterConfig: vi.fn(),
+            filterConfig: { type: 'all', likedOnly: false, statuses: ['approved'] },
+            setFilterConfig: mockSetFilterConfig,
             tags: [],
             scratchPads: [],
             sortConfig: { key: 'createdAt', direction: 'desc' },
@@ -57,8 +63,8 @@ describe('FilterBar', () => {
         };
         (useStore as any).mockImplementation((selector: any) => selector ? selector(state) : state);
         render(<FilterBar thumbnailSize={150} onThumbnailSizeChange={vi.fn()} />);
-        const selects = screen.getAllByRole('combobox') as HTMLSelectElement[];
-        const statusSelect = selects[2];
-        expect(statusSelect.value).toBe('approved');
+
+        // Check if the status button shows the selected status
+        expect(screen.getByText('Approved')).toBeInTheDocument();
     });
 });

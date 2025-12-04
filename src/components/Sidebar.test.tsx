@@ -51,7 +51,7 @@ describe('Sidebar', () => {
         expect(screen.getByText('Folders')).toBeInTheDocument();
         expect(screen.getByText('Tags')).toBeInTheDocument();
         expect(screen.getByText('Review Status')).toBeInTheDocument();
-        expect(screen.getByText('Active Views')).toBeInTheDocument();
+        expect(screen.getByText('Views')).toBeInTheDocument();
         expect(screen.getByText('Scratch Pads')).toBeInTheDocument();
     });
 

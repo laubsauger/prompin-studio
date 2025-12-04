@@ -64,6 +64,7 @@ export function StatusMultiSelect({
                     <Button
                         variant="outline"
                         role="combobox"
+                        aria-label="Status"
                         aria-expanded={open}
                         className={cn(
                             "h-8 justify-between text-xs min-w-[150px]",

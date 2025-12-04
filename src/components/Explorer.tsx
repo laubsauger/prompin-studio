@@ -170,55 +170,55 @@ export const Explorer: React.FC = () => {
                 />
             </div>
 
-            <div className="flex-1 flex relative">
+            <div className="flex-1 flex relative min-h-0">
                 <div className="flex-1 p-2 pr-0.5">
                     {filteredAssets.length === 0 ? (
                         <div className="flex h-full items-center justify-center text-muted-foreground">
                             No assets found
                         </div>
                     ) : viewMode === 'grid' ? (
-                    <VirtuosoGrid
-                        ref={virtuosoRef as React.RefObject<VirtuosoGridHandle>}
-                        style={{ height: '100%', width: '100%' }}
-                        data={filteredAssets}
-                        rangeChanged={handleRangeChanged}
-                        overscan={3000}
-                        context={{ thumbnailSize }}
-                        computeItemKey={(index, asset) => asset.id}
-                        components={{
-                            List: GridList,
-                            Item: GridItem
-                        }}
-                        itemContent={(index, asset) => {
-                            return (
-                                <div style={{ height: '100%' }}>
-                                    <ExplorerCell
-                                        asset={asset}
-                                        setViewingAssetId={setViewingAssetId}
-                                    />
-                                </div>
-                            );
-                        }}
-                    />
-                ) : (
-                    <Virtuoso
-                        ref={virtuosoRef as React.RefObject<VirtuosoHandle>}
-                        style={{ height: '100%', width: '100%' }}
-                        data={filteredAssets}
-                        rangeChanged={handleRangeChanged}
-                        overscan={3000}
-                        computeItemKey={(index, asset) => asset.id}
-                        itemContent={(index, asset) => {
-                            return (
-                                <div className="px-2 py-1">
-                                    <AssetListItem
-                                        asset={asset}
-                                        setViewingAssetId={setViewingAssetId}
-                                    />
-                                </div>
-                            );
-                        }}
-                    />
+                        <VirtuosoGrid
+                            ref={virtuosoRef as React.RefObject<VirtuosoGridHandle>}
+                            style={{ height: '100%', width: '100%' }}
+                            data={filteredAssets}
+                            rangeChanged={handleRangeChanged}
+                            overscan={3000}
+                            context={{ thumbnailSize }}
+                            computeItemKey={(index, asset) => asset.id}
+                            components={{
+                                List: GridList,
+                                Item: GridItem
+                            }}
+                            itemContent={(index, asset) => {
+                                return (
+                                    <div style={{ height: '100%' }}>
+                                        <ExplorerCell
+                                            asset={asset}
+                                            setViewingAssetId={setViewingAssetId}
+                                        />
+                                    </div>
+                                );
+                            }}
+                        />
+                    ) : (
+                        <Virtuoso
+                            ref={virtuosoRef as React.RefObject<VirtuosoHandle>}
+                            style={{ height: '100%', width: '100%' }}
+                            data={filteredAssets}
+                            rangeChanged={handleRangeChanged}
+                            overscan={3000}
+                            computeItemKey={(index, asset) => asset.id}
+                            itemContent={(index, asset) => {
+                                return (
+                                    <div className="px-2 py-1">
+                                        <AssetListItem
+                                            asset={asset}
+                                            setViewingAssetId={setViewingAssetId}
+                                        />
+                                    </div>
+                                );
+                            }}
+                        />
                     )}
                 </div>
                 <AssetInspector />

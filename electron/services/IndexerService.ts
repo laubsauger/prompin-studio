@@ -95,7 +95,7 @@ export class IndexerService {
 
     private setupSync() {
         this.syncService.on('event', async (event: SyncEvent) => {
-            console.log('[IndexerService] Received remote event:', event.type);
+            //console.log('[IndexerService] Received remote event:', event.type);
             this.isApplyingRemoteUpdate = true;
             this.stats.status = 'syncing';
             try {
@@ -303,9 +303,13 @@ export class IndexerService {
         this.stats.processedFiles++;
 
         const mediaType = this.getMediaType(filePath);
-        if (mediaType === 'image') this.stats.filesByType!.images++;
-        else if (mediaType === 'video') this.stats.filesByType!.videos++;
-        else this.stats.filesByType!.other++;
+        // Only update stats if we are not in the initial scanning phase
+        // (preScan already counted everything)
+        if (this.stats.status !== 'scanning') {
+            if (mediaType === 'image') this.stats.filesByType!.images++;
+            else if (mediaType === 'video') this.stats.filesByType!.videos++;
+            else this.stats.filesByType!.other++;
+        }
 
         try {
             // Note: If filePath is a symlink, fs.stat gets stats of the target.

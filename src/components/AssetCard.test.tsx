@@ -28,6 +28,16 @@ vi.mock('./MinimalVideoLayout', () => ({
     MinimalVideoLayout: () => <div data-testid="minimal-video-layout" />,
 }));
 
+// Mock ipcRenderer
+Object.defineProperty(window, 'ipcRenderer', {
+    value: {
+        invoke: vi.fn().mockResolvedValue({ username: 'test', fullName: 'Test User' }),
+        on: vi.fn(),
+        removeListener: vi.fn(),
+    },
+    writable: true
+});
+
 describe('AssetCard', () => {
     const mockAsset = {
         id: '1',
