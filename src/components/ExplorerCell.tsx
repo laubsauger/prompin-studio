@@ -21,7 +21,8 @@ const arePropsEqual = (prevProps: Readonly<ExplorerCellProps>, nextProps: Readon
         prev.thumbnailPath === next.thumbnailPath &&
         prev.metadata.liked === next.metadata.liked &&
         prev.tags?.length === next.tags?.length &&
-        (prev.tags?.every((tag, i) => tag.id === next.tags?.[i]?.id) ?? true)
+        (prev.tags?.every((tag, i) => tag.id === next.tags?.[i]?.id) ?? true) &&
+        prev.distance === next.distance
     );
 };
 
