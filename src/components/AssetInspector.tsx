@@ -126,7 +126,7 @@ export function AssetInspector() {
   return (
     <div
       className={cn(
-        "border-l border-border bg-card/80 dark:bg-card/70 flex flex-col h-full transition-all duration-300 relative",
+        "border-l border-border bg-card/80 dark:bg-card/70 flex flex-col h-full transition-all duration-300 relative min-h-0",
         inspectorCollapsed ? "w-0 border-none" : "w-80"
       )}
     >

@@ -1,0 +1,39 @@
+
+> prompin-studio@0.0.0 test
+> vitest src/components/AssetCard.test.tsx --run
+
+
+[1m[46m RUN [49m[22m [36mv4.0.14 [39m[90m/Users/flo/work/code/gen-studio[39m
+
+ [31m❯[39m src/components/AssetCard.test.tsx [2m([22m[2m1 test[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 12[2mms[22m[39m
+[31m     [31m×[31m renders asset path[39m[32m 11[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/components/AssetCard.test.tsx[2m > [22mAssetCard[2m > [22mrenders asset path
+[31m[1mTypeError[22m: Cannot read properties of undefined (reading 'relatedToAssetId')[39m
+[36m [2m❯[22m AssetCard src/components/AssetCard.tsx:[2m28:80[22m[39m
+    [90m 26| [39m    [35mconst[39m filterConfig [33m=[39m [34museStore[39m(state [33m=>[39m state[33m.[39mfilterConfig)[33m;[39m
+    [90m 27| [39m
+    [90m 28| [39m    if (asset.type === 'image' && asset.distance === undefined && filt…
+    [90m   | [39m                                                                               [31m^[39m
+    [90m 29| [39m        [90m// console.log('Image missing distance:', asset.id);[39m
+    [90m 30| [39m    }
+[90m [2m❯[22m Object.react_stack_bottom_frame node_modules/react-dom/cjs/react-dom-client.development.js:[2m25904:20[22m[39m
+[90m [2m❯[22m renderWithHooks node_modules/react-dom/cjs/react-dom-client.development.js:[2m7662:22[22m[39m
+[90m [2m❯[22m updateFunctionComponent node_modules/react-dom/cjs/react-dom-client.development.js:[2m10166:19[22m[39m
+[90m [2m❯[22m updateSimpleMemoComponent node_modules/react-dom/cjs/react-dom-client.development.js:[2m9830:14[22m[39m
+[90m [2m❯[22m updateMemoComponent node_modules/react-dom/cjs/react-dom-client.development.js:[2m9763:13[22m[39m
+[90m [2m❯[22m beginWork node_modules/react-dom/cjs/react-dom-client.development.js:[2m12204:18[22m[39m
+[90m [2m❯[22m runWithFiberInDEV node_modules/react-dom/cjs/react-dom-client.development.js:[2m874:13[22m[39m
+[90m [2m❯[22m performUnitOfWork node_modules/react-dom/cjs/react-dom-client.development.js:[2m17641:22[22m[39m
+[90m [2m❯[22m workLoopSync node_modules/react-dom/cjs/react-dom-client.development.js:[2m17469:41[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m   Start at [22m 21:05:43
+[2m   Duration [22m 908ms[2m (transform 242ms, setup 55ms, import 422ms, tests 12ms, environment 335ms)[22m
+

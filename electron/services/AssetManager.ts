@@ -1,5 +1,5 @@
-import db from '../../db.js';
-import { Asset } from '../../../src/types.js';
+import db from '../db.js';
+import { Asset } from '../../src/types.js';
 import path from 'path';
 
 export class AssetManager {

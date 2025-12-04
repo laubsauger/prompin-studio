@@ -2,6 +2,10 @@ import { app, BrowserWindow, ipcMain, Menu, shell, dialog, protocol, net } from 
 import path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { indexerService } from './services/IndexerService.js';
+import { searchService } from './services/SearchService.js';
+import { tagService } from './services/TagService.js';
+import { folderService } from './services/FolderService.js';
+import { assetService } from './services/AssetService.js';
 import os from 'os';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -301,21 +305,21 @@ ipcMain.handle('set-root-path', async (event, path) => {
 });
 
 ipcMain.handle('get-assets', async () => {
-  const assets = indexerService.getAssets();
+  const assets = assetService.getAssets();
   console.log('[Main] get-assets returning:', assets.length);
   return assets;
 });
 
 ipcMain.handle('search-assets', async (event, searchQuery, filters) => {
-  return indexerService.searchAssets(searchQuery, filters);
+  return searchService.searchAssets(searchQuery, filters);
 });
 
 ipcMain.handle('get-lineage', async (event, assetId) => {
-  return indexerService.getLineage(assetId);
+  return assetService.getLineage(assetId);
 });
 
 ipcMain.handle('update-asset-status', async (event, id, status) => {
-  return indexerService.updateAssetStatus(id, status);
+  return assetService.updateAssetStatus(id, status);
 });
 
 ipcMain.handle('get-sync-stats', async () => {
@@ -329,21 +333,19 @@ ipcMain.handle('trigger-resync', async () => {
 });
 
 ipcMain.handle('add-comment', async (event, assetId, text, authorId) => {
-  return indexerService.addComment(assetId, text, authorId);
+  return assetService.addComment(assetId, text, authorId);
 });
 
 ipcMain.handle('update-metadata', async (event, assetId, key, value) => {
-  return indexerService.updateMetadata(assetId, key, value);
+  return assetService.updateMetadata(assetId, key, value);
 });
 
 ipcMain.handle('update-asset-metadata', async (event, assetId, metadata) => {
-  return indexerService.updateAssetMetadata(assetId, metadata);
+  return assetService.updateAssetMetadata(assetId, metadata);
 });
 
-
-
 ipcMain.handle('get-asset', async (event, assetId) => {
-  return indexerService.getAsset(assetId);
+  return assetService.getAsset(assetId);
 });
 
 ipcMain.handle('regenerate-thumbnails', async () => {
@@ -355,36 +357,36 @@ ipcMain.handle('generate-embeddings', async () => {
 });
 
 ipcMain.handle('get-folder-colors', async () => {
-  return indexerService.getFolderColors();
+  return folderService.getFolderColors();
 });
 
 ipcMain.handle('set-folder-color', async (event, path, color) => {
-  return indexerService.setFolderColor(path, color);
+  return folderService.setFolderColor(path, color);
 });
 
 // Tag IPC Handlers
 ipcMain.handle('get-folders', () => {
-  return indexerService.getFolders();
+  return folderService.getFolders();
 });
 
 ipcMain.handle('get-tags', async () => {
-  return indexerService.getTags();
+  return tagService.getTags();
 });
 
 ipcMain.handle('create-tag', async (event, name, color) => {
-  return indexerService.createTag(name, color);
+  return tagService.createTag(name, color);
 });
 
 ipcMain.handle('delete-tag', async (event, id) => {
-  return indexerService.deleteTag(id);
+  return tagService.deleteTag(id);
 });
 
 ipcMain.handle('add-tag-to-asset', async (event, assetId, tagId) => {
-  return indexerService.addTagToAsset(assetId, tagId);
+  return tagService.addTagToAsset(assetId, tagId);
 });
 
 ipcMain.handle('remove-tag-from-asset', async (event, assetId, tagId) => {
-  return indexerService.removeTagFromAsset(assetId, tagId);
+  return tagService.removeTagFromAsset(assetId, tagId);
 });
 
 ipcMain.handle('ingest-file', async (event, sourcePath, metadata) => {
@@ -392,7 +394,7 @@ ipcMain.handle('ingest-file', async (event, sourcePath, metadata) => {
 });
 
 ipcMain.handle('get-asset-tags', async (event, assetId) => {
-  return indexerService.getAssetTags(assetId);
+  return tagService.getAssetTags(assetId);
 });
 
 ipcMain.handle('get-current-user', async () => {
@@ -415,5 +417,5 @@ ipcMain.handle('reveal-in-finder', async (event, relativePath) => {
   return true;
 });
 ipcMain.handle('chat-message', async (event, text) => {
-  return indexerService.handleChatMessage(text);
+  return searchService.handleChatMessage(text);
 });

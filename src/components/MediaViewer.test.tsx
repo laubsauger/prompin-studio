@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MediaViewer } from './MediaViewer';
 import { useStore } from '../store';
@@ -10,7 +10,7 @@ vi.mock('../store', () => ({
 
 // Mock react-zoom-pan-pinch
 vi.mock('react-zoom-pan-pinch', () => ({
-    TransformWrapper: ({ children }: any) => <div>{children}</div>,
+    TransformWrapper: ({ children }: any) => <div>{typeof children === 'function' ? children({}) : children}</div>,
     TransformComponent: ({ children }: any) => <div>{children}</div>,
 }));
 
@@ -28,16 +28,44 @@ vi.mock('@vidstack/react/player/layouts/default', () => ({
 describe('MediaViewer', () => {
     const mockSetViewingAssetId = vi.fn();
 
+    beforeAll(() => {
+        Object.defineProperty(window, 'ipcRenderer', {
+            value: {
+                invoke: vi.fn().mockResolvedValue({ username: 'test', fullName: 'Test User' }),
+                on: vi.fn(),
+                removeListener: vi.fn(),
+            },
+            writable: true
+        });
+    });
+
     beforeEach(() => {
         mockSetViewingAssetId.mockReset();
-        (useStore as any).mockReturnValue({
-            viewingAssetId: '1',
-            setViewingAssetId: mockSetViewingAssetId,
-            assets: [
-                { id: '1', path: 'test.jpg', type: 'image', metadata: { liked: false } },
-                { id: '2', path: 'video.mp4', type: 'video', metadata: { liked: true } },
-            ],
-            tags: [],
+        (useStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector: any) => {
+            const state = {
+                viewingAssetId: '1',
+                setViewingAssetId: mockSetViewingAssetId,
+                assets: [
+                    { id: '1', path: 'test.jpg', type: 'image', metadata: { liked: false }, status: 'unsorted' },
+                    { id: '2', path: 'video.mp4', type: 'video', metadata: { liked: true }, status: 'approved' },
+                ],
+                tags: [],
+                toggleLike: vi.fn(),
+                addTagToAsset: vi.fn(),
+                removeTagFromAsset: vi.fn(),
+                createTag: vi.fn(),
+                updateAssetStatus: vi.fn(),
+                setLineageAssetId: vi.fn(),
+                addActiveView: vi.fn(),
+                addToScratchPad: vi.fn(),
+                scratchPads: [],
+                createScratchPad: vi.fn(),
+                setCurrentPath: vi.fn(),
+                setFilterConfig: vi.fn(),
+                setViewMode: vi.fn(),
+                updateAssetMetadata: vi.fn(),
+            };
+            return selector ? selector(state) : state;
         });
     });
 
@@ -49,14 +77,31 @@ describe('MediaViewer', () => {
     });
 
     it('renders video player when video is selected', () => {
-        (useStore as any).mockReturnValue({
-            viewingAssetId: '2',
-            setViewingAssetId: mockSetViewingAssetId,
-            assets: [
-                { id: '1', path: 'test.jpg', type: 'image', metadata: { liked: false } },
-                { id: '2', path: 'video.mp4', type: 'video', metadata: { liked: true } },
-            ],
-            tags: [],
+        (useStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector: any) => {
+            const state = {
+                viewingAssetId: '2',
+                setViewingAssetId: mockSetViewingAssetId,
+                assets: [
+                    { id: '1', path: 'test.jpg', type: 'image', metadata: { liked: false }, status: 'unsorted' },
+                    { id: '2', path: 'video.mp4', type: 'video', metadata: { liked: true }, status: 'approved' },
+                ],
+                tags: [],
+                toggleLike: vi.fn(),
+                addTagToAsset: vi.fn(),
+                removeTagFromAsset: vi.fn(),
+                createTag: vi.fn(),
+                updateAssetStatus: vi.fn(),
+                setLineageAssetId: vi.fn(),
+                addActiveView: vi.fn(),
+                addToScratchPad: vi.fn(),
+                scratchPads: [],
+                createScratchPad: vi.fn(),
+                setCurrentPath: vi.fn(),
+                setFilterConfig: vi.fn(),
+                setViewMode: vi.fn(),
+                updateAssetMetadata: vi.fn(),
+            };
+            return selector ? selector(state) : state;
         });
         render(<MediaViewer />);
         // Video tag might not have a role by default in some setups, but let's try finding by tag or src
@@ -66,11 +111,28 @@ describe('MediaViewer', () => {
     });
 
     it('does not render when no asset is selected', () => {
-        (useStore as any).mockReturnValue({
-            viewingAssetId: null,
-            setViewingAssetId: mockSetViewingAssetId,
-            assets: [],
-            tags: [],
+        (useStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector: any) => {
+            const state = {
+                viewingAssetId: null,
+                setViewingAssetId: mockSetViewingAssetId,
+                assets: [],
+                tags: [],
+                toggleLike: vi.fn(),
+                addTagToAsset: vi.fn(),
+                removeTagFromAsset: vi.fn(),
+                createTag: vi.fn(),
+                updateAssetStatus: vi.fn(),
+                setLineageAssetId: vi.fn(),
+                addActiveView: vi.fn(),
+                addToScratchPad: vi.fn(),
+                scratchPads: [],
+                createScratchPad: vi.fn(),
+                setCurrentPath: vi.fn(),
+                setFilterConfig: vi.fn(),
+                setViewMode: vi.fn(),
+                updateAssetMetadata: vi.fn(),
+            };
+            return selector ? selector(state) : state;
         });
         const { container } = render(<MediaViewer />);
         expect(container).toBeEmptyDOMElement();

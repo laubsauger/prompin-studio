@@ -1,0 +1,138 @@
+
+> prompin-studio@0.0.0 test
+> vitest electron/services/IndexerService.test.ts --run
+
+
+[1m[46m RUN [49m[22m [36mv4.0.14 [39m[90m/Users/flo/work/code/gen-studio[39m
+
+[90mstdout[2m | electron/services/IndexerService.test.ts
+[22m[39m[IndexerService] Using ffmpeg-static at: /Users/flo/work/code/gen-studio/node_modules/ffmpeg-static/ffmpeg
+
+[90mstdout[2m | electron/services/IndexerService.test.ts[2m > [22m[2mIndexerService Integration[2m > [22m[2mshould index existing files
+[22m[39m[IndexerService] Initializing stats from DB for rootPath: '/private/var/folders/76/82pdky3x5gj3qm4p5r90tst00000gn/T/prompin-studio-test-uIJVdN'
+
+[90mstderr[2m | electron/services/IndexerService.test.ts[2m > [22m[2mIndexerService Integration[2m > [22m[2mshould index existing files
+[22m[39m[IndexerService] Failed to initialize stats from DB: TypeError: Cannot read properties of undefined (reading 'count')
+    at IndexerService.initializeStatsFromDB [90m(/Users/flo/work/code/gen-studio/[39melectron/services/IndexerService.ts:157:79[90m)[39m
+    at IndexerService.setRootPath [90m(/Users/flo/work/code/gen-studio/[39melectron/services/IndexerService.ts:219:14[90m)[39m
+    at [90m/Users/flo/work/code/gen-studio/[39melectron/services/IndexerService.test.ts:157:9
+    at [90mfile:///Users/flo/work/code/gen-studio/[39mnode_modules/[4m@vitest/runner[24m/dist/index.js:919:20
+
+[90mstdout[2m | electron/services/IndexerService.test.ts[2m > [22m[2mIndexerService Integration[2m > [22m[2mshould index existing files
+[22m[39m[IndexerService] Processing embeddings...
+
+[90mstdout[2m | electron/services/IndexerService.test.ts[2m > [22m[2mIndexerService Integration[2m > [22m[2mshould index existing files
+[22m[39m[IndexerService] Starting fast pre-scan...
+
+[90mstdout[2m | electron/services/IndexerService.test.ts[2m > [22m[2mIndexerService Integration[2m > [22m[2mshould index existing files
+[22m[39m[IndexerService] Pre-scan complete. Found 1 files.
+[IndexerService] Starting manual scan...
+
+[90mstdout[2m | electron/services/IndexerService.test.ts[2m > [22m[2mIndexerService Integration[2m > [22m[2mshould index existing files
+[22m[39m[IndexerService] Manual scan complete.
+
+[90mstdout[2m | electron/services/IndexerService.test.ts[2m > [22m[2mIndexerService Integration[2m > [22m[2mshould index existing files
+[22m[39m[IndexerService] Starting watcher...
+
+[90mstdout[2m | electron/services/IndexerService.test.ts[2m > [22m[2mIndexerService Integration[2m > [22m[2mshould update asset status
+[22m[39m[IndexerService] Initializing stats from DB for rootPath: '/private/var/folders/76/82pdky3x5gj3qm4p5r90tst00000gn/T/prompin-studio-test-FhRfAI'
+
+[90mstderr[2m | electron/services/IndexerService.test.ts[2m > [22m[2mIndexerService Integration[2m > [22m[2mshould update asset status
+[22m[39m[IndexerService] Failed to initialize stats from DB: TypeError: Cannot read properties of undefined (reading 'count')
+    at IndexerService.initializeStatsFromDB [90m(/Users/flo/work/code/gen-studio/[39melectron/services/IndexerService.ts:157:79[90m)[39m
+    at IndexerService.setRootPath [90m(/Users/flo/work/code/gen-studio/[39melectron/services/IndexerService.ts:219:14[90m)[39m
+    at [90m/Users/flo/work/code/gen-studio/[39melectron/services/IndexerService.test.ts:167:9
+    at [90mfile:///Users/flo/work/code/gen-studio/[39mnode_modules/[4m@vitest/runner[24m/dist/index.js:919:20
+
+[90mstdout[2m | electron/services/IndexerService.test.ts[2m > [22m[2mIndexerService Integration[2m > [22m[2mshould update asset status
+[22m[39m[IndexerService] Processing embeddings...
+
+[90mstdout[2m | electron/services/IndexerService.test.ts[2m > [22m[2mIndexerService Integration[2m > [22m[2mshould update asset status
+[22m[39m[IndexerService] Starting fast pre-scan...
+
+[90mstdout[2m | electron/services/IndexerService.test.ts[2m > [22m[2mIndexerService Integration[2m > [22m[2mshould update asset status
+[22m[39m[IndexerService] Pre-scan complete. Found 1 files.
+[IndexerService] Starting manual scan...
+
+[90mstdout[2m | electron/services/IndexerService.test.ts[2m > [22m[2mIndexerService Integration[2m > [22m[2mshould update asset status
+[22m[39m[IndexerService] Manual scan complete.
+
+[90mstdout[2m | electron/services/IndexerService.test.ts[2m > [22m[2mIndexerService Integration[2m > [22m[2mshould update asset status
+[22m[39m[IndexerService] Starting watcher...
+
+ [32m✓[39m electron/services/IndexerService.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 1514[2mms[22m[39m
+     [33m[2m✓[22m[39m should index existing files [33m 1009[2mms[22m[39m
+     [33m[2m✓[22m[39m should update asset status [33m 505[2mms[22m[39m
+[31m⎯⎯⎯⎯⎯⎯[39m[1m[41m Unhandled Errors [49m[22m[31m⎯⎯⎯⎯⎯⎯[39m
+[31m[1m
+Vitest caught 2 unhandled errors during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.[22m[39m
+
+[31m⎯⎯⎯⎯[39m[1m[41m Unhandled Rejection [49m[22m[31m⎯⎯⎯⎯⎯[39m
+[31m[1mError[22m: [vitest] No "vectorSearchEnabled" export is defined on the "../db" mock. Did you forget to return it from "vi.mock"?
+If you need to partially mock a module, you can use "importOriginal" helper inside:
+[39m
+vi.mock(import("../db"), async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    // your mocked methods
+  }
+})
+
+[90m [2m❯[22m VitestMocker.createError node_modules/vitest/dist/chunks/startModuleRunner.W28wBIgJ.js:[2m310:17[22m[39m
+[90m [2m❯[22m Object.get node_modules/vitest/dist/chunks/startModuleRunner.W28wBIgJ.js:[2m383:16[22m[39m
+[36m [2m❯[22m IndexerService.processEmbeddings electron/services/IndexerService.ts:[2m416:14[22m[39m
+    [90m414| [39m
+    [90m415| [39m    [35mpublic[39m [35masync[39m [34mprocessEmbeddings[39m() {
+    [90m416| [39m        [35mif[39m ([33m![39mvectorSearchEnabled) {
+    [90m   | [39m             [31m^[39m
+    [90m417| [39m            console.log('[IndexerService] Vector search is disabled. S…
+    [90m418| [39m            [35mreturn[39m[33m;[39m
+[90m [2m❯[22m IndexerService.setRootPath electron/services/IndexerService.ts:[2m260:14[22m[39m
+[90m [2m❯[22m electron/services/IndexerService.test.ts:[2m157:9[22m[39m
+[90m [2m❯[22m node_modules/@vitest/runner/dist/index.js:[2m919:20[22m[39m
+
+[31mThis error originated in "[1melectron/services/IndexerService.test.ts[22m" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.[39m
+[31mThe latest test that might've caused the error is "[1mshould index existing files[22m". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.[39m
+
+[31m⎯⎯⎯⎯[39m[1m[41m Unhandled Rejection [49m[22m[31m⎯⎯⎯⎯⎯[39m
+[31m[1mError[22m: [vitest] No "vectorSearchEnabled" export is defined on the "../db" mock. Did you forget to return it from "vi.mock"?
+If you need to partially mock a module, you can use "importOriginal" helper inside:
+[39m
+vi.mock(import("../db"), async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    // your mocked methods
+  }
+})
+
+[90m [2m❯[22m VitestMocker.createError node_modules/vitest/dist/chunks/startModuleRunner.W28wBIgJ.js:[2m310:17[22m[39m
+[90m [2m❯[22m Object.get node_modules/vitest/dist/chunks/startModuleRunner.W28wBIgJ.js:[2m383:16[22m[39m
+[36m [2m❯[22m IndexerService.processEmbeddings electron/services/IndexerService.ts:[2m416:14[22m[39m
+    [90m414| [39m
+    [90m415| [39m    [35mpublic[39m [35masync[39m [34mprocessEmbeddings[39m() {
+    [90m416| [39m        [35mif[39m ([33m![39mvectorSearchEnabled) {
+    [90m   | [39m             [31m^[39m
+    [90m417| [39m            console.log('[IndexerService] Vector search is disabled. S…
+    [90m418| [39m            [35mreturn[39m[33m;[39m
+[90m [2m❯[22m IndexerService.setRootPath electron/services/IndexerService.ts:[2m260:14[22m[39m
+[90m [2m❯[22m electron/services/IndexerService.test.ts:[2m167:9[22m[39m
+[90m [2m❯[22m node_modules/@vitest/runner/dist/index.js:[2m919:20[22m[39m
+
+[31mThis error originated in "[1melectron/services/IndexerService.test.ts[22m" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.[39m
+[31mThe latest test that might've caused the error is "[1mshould update asset status[22m". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.[39m
+[31m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[39m
+
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+[2m     Errors [22m [1m[31m2 errors[39m[22m
+[2m   Start at [22m 20:55:46
+[2m   Duration [22m 2.12s[2m (transform 91ms, setup 66ms, import 97ms, tests 1.51s, environment 363ms)[22m
+

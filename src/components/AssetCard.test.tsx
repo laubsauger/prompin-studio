@@ -53,6 +53,7 @@ describe('AssetCard', () => {
             setViewingAssetId: vi.fn(),
             scratchPads: [],
             tags: [],
+            filterConfig: {},
         };
         (useStore as any).mockImplementation((selector: any) => selector ? selector(state) : state);
         // Also mock getState for AssetContextMenu

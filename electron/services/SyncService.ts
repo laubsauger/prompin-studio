@@ -233,3 +233,5 @@ export class SyncService extends EventEmitter {
         }
     }
 }
+
+export const syncService = new SyncService();

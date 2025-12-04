@@ -18,12 +18,16 @@ class EmbeddingService {
     // Switch to CLIP model for multimodal (image + text) embeddings
     private modelName = 'Xenova/clip-vit-base-patch32';
     private isInitializing = false;
+    private initializationError: Error | null = null;
+    private isAvailable = true;
 
     constructor() {
     }
 
     async init() {
         if (this.visionModel && this.textModel) return;
+        if (!this.isAvailable) return; // Skip if service is not available
+        if (this.initializationError) return; // Skip if we already failed
         if (this.isInitializing) {
             // Wait for initialization
             while (this.isInitializing) {
@@ -51,9 +55,18 @@ class EmbeddingService {
             this.textModel = textModel;
 
             console.log('[EmbeddingService] Models loaded successfully');
-        } catch (error) {
-            console.error('[EmbeddingService] Failed to load models:', error);
-            throw error;
+        } catch (error: any) {
+            this.initializationError = error;
+            this.isAvailable = false;
+
+            // Check for Windows-specific ONNX runtime errors
+            if (error.message?.includes('onnxruntime') || error.message?.includes('specified module could not be found')) {
+                console.warn('[EmbeddingService] ONNX Runtime not available on this system. Embedding features will be disabled.');
+                console.warn('[EmbeddingService] To fix: Run "npm run rebuild:windows" on Windows or reinstall dependencies.');
+            } else {
+                console.error('[EmbeddingService] Failed to load models:', error);
+            }
+            // Don't throw - let the app continue without embeddings
         } finally {
             this.isInitializing = false;
         }
@@ -67,7 +80,13 @@ class EmbeddingService {
         try {
             if (!input || input.trim().length === 0) return null;
 
+            // Skip if service is not available
+            if (!this.isAvailable) return null;
+
             if (!this.visionModel || !this.textModel) await this.init();
+
+            // Check again after init attempt
+            if (!this.visionModel || !this.textModel) return null;
 
             // Check if input is likely a file path (for images)
             const isImagePath = path.isAbsolute(input) && /\.(jpg|jpeg|png|webp|gif|bmp|tiff)$/i.test(input);
@@ -154,21 +173,34 @@ class EmbeddingService {
 
     async initChat() {
         if (this.chatPipeline) return;
+        if (!this.isAvailable) return; // Skip if service is not available
         try {
             console.log('[EmbeddingService] Loading chat model:', this.chatModelName);
             const { pipeline } = await import('@xenova/transformers');
             this.chatPipeline = await pipeline('feature-extraction', this.chatModelName);
             console.log('[EmbeddingService] Chat model loaded successfully');
-        } catch (error) {
-            console.error('[EmbeddingService] Failed to load chat model:', error);
-            throw error;
+        } catch (error: any) {
+            this.isAvailable = false;
+            if (error.message?.includes('onnxruntime') || error.message?.includes('specified module could not be found')) {
+                console.warn('[EmbeddingService] ONNX Runtime not available for chat model. Feature disabled.');
+            } else {
+                console.error('[EmbeddingService] Failed to load chat model:', error);
+            }
+            // Don't throw - let the app continue without chat embeddings
         }
     }
 
     async generateChatEmbedding(text: string): Promise<number[] | null> {
         try {
             if (!text || text.trim().length === 0) return null;
+
+            // Skip if service is not available
+            if (!this.isAvailable) return null;
+
             if (!this.chatPipeline) await this.initChat();
+
+            // Check again after init attempt
+            if (!this.chatPipeline) return null;
 
             const output = await this.chatPipeline(text, { pooling: 'mean', normalize: true });
             // output is a Tensor, we need to convert it to a regular array

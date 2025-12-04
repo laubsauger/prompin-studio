@@ -15,9 +15,13 @@ import { Scanner } from './indexer/Scanner.js';
 import { Watcher } from './indexer/Watcher.js';
 import { MetadataExtractor } from './indexer/MetadataExtractor.js';
 import { ThumbnailGenerator } from './indexer/ThumbnailGenerator.js';
-import { AssetManager } from './indexer/AssetManager.js';
+import { AssetManager } from './AssetManager.js';
 import { SyncService, SyncEvent } from './SyncService.js';
 import { embeddingService } from './indexer/EmbeddingService.js';
+import { searchService } from './SearchService.js';
+import { tagService } from './TagService.js';
+import { folderService } from './FolderService.js';
+import { assetService } from './AssetService.js';
 
 // Helper to setup ffmpeg
 const setupFfmpeg = async () => {
@@ -100,13 +104,16 @@ export class IndexerService {
                         await this.handleRemoteAssetUpdate(event.payload);
                         break;
                     case 'TAG_CREATE':
-                        await this.handleRemoteTagCreate(event.payload);
+                        // Delegate to TagService
+                        tagService.createTag(event.payload.tag.name, event.payload.tag.color, true);
                         break;
                     case 'ASSET_TAG_ADD':
-                        await this.handleRemoteAssetTagAdd(event.payload);
+                        // Delegate to TagService
+                        tagService.addTagToAsset(event.payload.assetId, event.payload.tagId, true);
                         break;
                     case 'ASSET_TAG_REMOVE':
-                        await this.handleRemoteAssetTagRemove(event.payload);
+                        // Delegate to TagService
+                        tagService.removeTagFromAsset(event.payload.assetId, event.payload.tagId, true);
                         break;
                 }
             } catch (error) {
@@ -122,28 +129,18 @@ export class IndexerService {
     private async handleRemoteAssetUpdate(payload: { assetId: string; changes: any }) {
         const { assetId, changes } = payload;
         if (changes.status) {
-            this.updateAssetStatus(assetId, changes.status);
+            assetService.updateAssetStatus(assetId, changes.status, true);
         }
         if (changes.metadata) {
             const asset = this.assetManager.getAsset(assetId);
             if (asset) {
                 const newMetadata = { ...asset.metadata, ...changes.metadata };
-                this.updateAssetMetadata(assetId, newMetadata);
+                assetService.updateAssetMetadata(assetId, newMetadata, true);
             }
         }
     }
 
-    private async handleRemoteTagCreate(payload: { tag: any }) {
-        this.createTag(payload.tag.name, payload.tag.color);
-    }
 
-    private async handleRemoteAssetTagAdd(payload: { assetId: string; tagId: string }) {
-        this.addTagToAsset(payload.assetId, payload.tagId);
-    }
-
-    private async handleRemoteAssetTagRemove(payload: { assetId: string; tagId: string }) {
-        this.removeTagFromAsset(payload.assetId, payload.tagId);
-    }
 
     public setMainWindow(window: BrowserWindow) {
         this.mainWindow = window;
@@ -208,6 +205,11 @@ export class IndexerService {
         }
 
         this.rootPath = realPath;
+
+        // Propagate to services
+        searchService.setRootPath(this.rootPath);
+        folderService.setRootPath(this.rootPath);
+        assetService.setRootPath(this.rootPath);
 
         await this.watcher.stop();
         // Watcher will be started after scan completes to avoid race conditions
@@ -543,7 +545,7 @@ export class IndexerService {
                     const newMetadata = { ...asset.metadata, embedding };
 
                     // 1. Update main assets table
-                    this.updateAssetMetadata(asset.id, newMetadata);
+                    assetService.updateAssetMetadata(asset.id, newMetadata);
 
                     // 2. Manually update vec_assets table
                     try {
@@ -645,9 +647,6 @@ export class IndexerService {
         } catch { }
     }
 
-    // Public API delegates
-    public getAssets() { return this.assetManager.getAssets(this.rootPath); }
-    public getAsset(id: string) { return this.assetManager.getAsset(id); }
     public getStats() { return { ...this.stats }; }
     public async resync() { if (this.rootPath) await this.setRootPath(this.rootPath); }
     public async regenerateThumbnails() {
@@ -655,369 +654,7 @@ export class IndexerService {
         await this.processThumbnails();
     }
 
-    public async findSimilar(assetId: string, limit: number = 20): Promise<Asset[]> {
-        if (!vectorSearchEnabled) return [];
-        const asset = this.assetManager.getAsset(assetId);
-        if (!asset || !asset.metadata.embedding) return [];
 
-        try {
-            const embedding = JSON.stringify(asset.metadata.embedding);
-
-            const stmt = db.prepare(`
-                WITH matches AS (
-                    SELECT rowid, distance 
-                    FROM vec_assets 
-                    WHERE embedding MATCH ?
-                    ORDER BY distance
-                    LIMIT ?
-                )
-                SELECT a.*, m.distance 
-                FROM matches m
-                JOIN assets a ON a.rowid = m.rowid
-                WHERE a.id != ? -- Exclude self
-                ORDER BY m.distance ASC
-            `);
-
-            const results = stmt.all(embedding, limit + 1, assetId) as any[];
-
-            return results.map(row => ({
-                ...row,
-                metadata: JSON.parse(row.metadata)
-            }));
-        } catch (error) {
-            console.error('[IndexerService] findSimilar failed:', error);
-            return [];
-        }
-    }
-
-    // Search Assets (Kept in IndexerService for now to ensure compatibility)
-    public async searchAssets(searchQuery: string, filters?: any): Promise<Asset[]> {
-        let sql = `SELECT DISTINCT a.* FROM assets a`;
-        let similarAssetsMap: Map<string, number> | undefined;
-        const params: any = { rootPath: this.rootPath };
-        const conditions: string[] = ['a.rootPath = @rootPath'];
-
-        // 1. FTS Search
-        if (searchQuery && searchQuery.trim() !== '') {
-            // Standard FTS setup
-            sql += ` JOIN assets_fts ON assets_fts.id = a.id`;
-            conditions.push(`assets_fts MATCH @searchQuery`);
-            params.searchQuery = searchQuery.split(' ').map(term => term + '*').join(' ');
-        }
-
-        // Apply filters to FTS query
-        if (filters?.tagIds && filters.tagIds.length > 0) {
-            conditions.push(`EXISTS (SELECT 1 FROM asset_tags at WHERE at.assetId = a.id AND at.tagId IN (${filters.tagIds.map((_: any, i: number) => `@tagId${i}`).join(',')}))`);
-            filters.tagIds.forEach((tagId: string, i: number) => { params[`tagId${i}`] = tagId; });
-        }
-        if (filters?.ids && filters.ids.length > 0) {
-            conditions.push(`a.id IN (${filters.ids.map((_: any, i: number) => `@id${i}`).join(',')})`);
-            filters.ids.forEach((id: string, i: number) => { params[`id${i}`] = id; });
-        }
-        // ... (other filters are applied below in the original code)
-
-        // We need to capture the "base" conditions for the vector query too if we want to filter vector results.
-        // But vector search with complex SQL filters is hard in sqlite-vec (pre-filtering vs post-filtering).
-        // Post-filtering is easier: Get top N vector matches, then filter in JS or join.
-
-        // Let's proceed with running the FTS query first (which includes all filters).
-        // Then, if searchQuery is present and vector enabled, run vector search.
-
-        // Wait, the original code constructs `sql` and `conditions` then runs `db.prepare(sql)`.
-        // I should let the original code run for FTS.
-        // But I need to inject the Vector logic.
-
-        // Let's change the structure:
-        // 1. Build FTS Query (mostly existing code)
-        // 2. Run FTS Query -> `ftsAssets`
-        // 3. If searchQuery, Run Vector Query -> `vectorAssets`
-        // 4. Merge
-
-        // But the existing code applies filters to `sql`.
-        // I'll leave the existing code to build and run the FTS query.
-        // I will just ADD the vector search logic AFTER the FTS query execution, then merge.
-        // But `searchAssets` returns `Promise<Asset[]>`.
-
-        // The existing code executes the query at line 759: `const stmt = db.prepare(sql); let assets = ...`
-
-        // So I should modify the code *around* line 759, or wrap the whole thing.
-        // But I am editing lines 661-689.
-
-        // I will remove the `if (filters?.semantic)` block and just setup FTS here.
-        // Then I will add the Vector Search logic LATER in the function (I'll need another edit for that).
-        // OR I can do it all here if I restructure.
-
-        // Let's just simplify this block to ALWAYS do FTS setup.
-        // And I'll add a TODO or just rely on the fact that I'll edit the execution part next.
-
-        // Actually, if I want to do Hybrid, I need to NOT join assets_fts if I'm doing *only* vector? 
-        // No, Hybrid means both.
-
-        // So this block should just setup FTS.
-        // I will remove the "Semantic Search" try-catch block that was falling back to FTS anyway.
-
-        if (searchQuery && searchQuery.trim() !== '') {
-            sql += ` JOIN assets_fts ON assets_fts.id = a.id`;
-            conditions.push(`assets_fts MATCH @searchQuery`);
-            params.searchQuery = searchQuery.split(' ').map(term => term + '*').join(' ');
-        }
-
-        if (filters?.tagIds && filters.tagIds.length > 0) {
-            conditions.push(`EXISTS (SELECT 1 FROM asset_tags at WHERE at.assetId = a.id AND at.tagId IN (${filters.tagIds.map((_: any, i: number) => `@tagId${i}`).join(',')}))`);
-            filters.tagIds.forEach((tagId: string, i: number) => { params[`tagId${i}`] = tagId; });
-        }
-
-        if (filters?.ids && filters.ids.length > 0) {
-            conditions.push(`a.id IN (${filters.ids.map((_: any, i: number) => `@id${i}`).join(',')})`);
-            filters.ids.forEach((id: string, i: number) => { params[`id${i}`] = id; });
-        }
-
-        if (filters?.relatedToAssetId) {
-            if (filters.semantic) {
-                // Use vector search
-                const similarAssets = await this.findSimilar(filters.relatedToAssetId, 50);
-                // We might want to filter these results further by other criteria?
-                // For now, let's just return them, maybe filtering by other criteria in memory if needed.
-                // But wait, findSimilar returns Asset[].
-                // If we want to combine with other SQL filters, it's tricky because findSimilar uses vec_assets which is a virtual table.
-                // The best way is to get IDs from findSimilar and then filter by other criteria in SQL.
-
-                if (similarAssets.length === 0) return [];
-
-                similarAssetsMap = new Map(similarAssets.map(a => [a.id, (a as any).distance]));
-
-                const similarIds = similarAssets.map(a => a.id);
-                conditions.push(`a.id IN (${similarIds.map((_, i) => `@simId${i}`).join(',')})`);
-                similarIds.forEach((id, i) => { params[`simId${i}`] = id; });
-
-                // We also want to preserve the order from findSimilar (distance)
-                // We can do this by using a CASE statement in ORDER BY or just sorting in JS.
-                // Sorting in JS is easier since we already have the distance in similarAssets (if we kept it).
-                // But searchAssets returns Asset[], and we lose the distance unless we attach it.
-                // Let's rely on the fact that we are filtering by IDs.
-                // But SQL won't preserve order of IN clause.
-                // So we should probably return here if we want strict similarity order, 
-                // OR we can attach the distance to the assets and sort after SQL query.
-
-                // Let's do the ID filter approach so other filters (type, status) still work.
-            } else {
-                // Exact match on inputs (lineage)
-                conditions.push(`EXISTS (SELECT 1 FROM json_each(a.metadata, '$.inputs') WHERE json_each.value = @relatedToAssetId)`);
-                params.relatedToAssetId = filters.relatedToAssetId;
-            }
-        }
-
-        if (filters?.type) { conditions.push(`a.type = @type`); params.type = filters.type; }
-        if (filters?.status) { conditions.push(`a.status = @status`); params.status = filters.status; }
-        if (filters?.dateFrom) { conditions.push(`a.createdAt >= @dateFrom`); params.dateFrom = filters.dateFrom; }
-        if (filters?.dateTo) { conditions.push(`a.createdAt <= @dateTo`); params.dateTo = filters.dateTo; }
-
-        if (filters?.authorId) { conditions.push(`json_extract(a.metadata, '$.authorId') = @authorId`); params.authorId = filters.authorId; }
-        if (filters?.project) { conditions.push(`json_extract(a.metadata, '$.project') = @project`); params.project = filters.project; }
-        if (filters?.scene) { conditions.push(`json_extract(a.metadata, '$.scene') = @scene`); params.scene = filters.scene; }
-        if (filters?.shot) { conditions.push(`json_extract(a.metadata, '$.shot') = @shot`); params.shot = filters.shot; }
-        if (filters?.platform) { conditions.push(`json_extract(a.metadata, '$.platform') = @platform`); params.platform = filters.platform; }
-        if (filters?.platformUrl) { conditions.push(`json_extract(a.metadata, '$.platformUrl') LIKE @platformUrl`); params.platformUrl = `%${filters.platformUrl}%`; }
-        if (filters?.model) { conditions.push(`json_extract(a.metadata, '$.model') = @model`); params.model = filters.model; }
-
-        if (conditions.length > 0) {
-            sql += ` WHERE ${conditions.join(' AND ')}`;
-        }
-
-        if (searchQuery && searchQuery.trim() !== '') {
-            sql += ` ORDER BY assets_fts.rank, a.createdAt DESC`;
-        } else {
-            sql += ` ORDER BY a.createdAt DESC`;
-        }
-
-        const stmt = db.prepare(sql);
-        let assets = stmt.all(params).map((row: any) => ({
-            ...row,
-            metadata: JSON.parse(row.metadata)
-        }));
-
-        // Hybrid Search: If we have a search query and vector search is enabled,
-        // fetch visually similar assets and append them.
-        if (searchQuery && searchQuery.trim() !== '' && vectorSearchEnabled) {
-            try {
-                // 1. Generate embedding for the search query
-                const embedding = await embeddingService.generateEmbedding(searchQuery);
-
-                if (embedding) {
-                    console.log(`[IndexerService] Generated query embedding. Preview: [${embedding.slice(0, 5).join(', ')}...]`);
-
-                    // 2. Query vec_assets for top matches
-                    const vectorLimit = 50;
-                    const vectorStmt = db.prepare(`
-                        WITH matches AS (
-                            SELECT rowid, distance 
-                            FROM vec_assets 
-                            WHERE embedding MATCH ?
-                            ORDER BY distance
-                            LIMIT ?
-                        )
-                        SELECT a.*, m.distance 
-                        FROM matches m
-                        JOIN assets a ON a.rowid = m.rowid
-                        ORDER BY m.distance ASC
-                    `);
-
-                    const vectorResults = vectorStmt.all(JSON.stringify(embedding), vectorLimit).map((row: any) => ({
-                        ...row,
-                        metadata: JSON.parse(row.metadata)
-                    }));
-
-                    console.log(`[IndexerService] Vector search returned ${vectorResults.length} raw matches.`);
-                    if (vectorResults.length > 0) {
-                        console.log(`[IndexerService] Top match: ${vectorResults[0].id} (dist: ${(vectorResults[0] as any).distance})`);
-                    }
-
-                    // 3. Merge results
-                    // Strategy: Keep all FTS results (they are exact matches).
-                    // Append Vector results that are NOT in FTS results.
-                    const existingIds = new Set(assets.map((a: any) => a.id));
-
-                    for (const vecAsset of vectorResults) {
-                        if (!existingIds.has(vecAsset.id)) {
-                            // Apply other filters to vector results if needed?
-                            // For now, we'll just do a basic check for type/status if they are simple.
-                            // Implementing full SQL filter parity in JS is hard.
-                            // Let's just check the most common ones: type, status.
-
-                            let pass = true;
-                            if (filters?.type && vecAsset.type !== filters.type) pass = false;
-                            if (filters?.status && vecAsset.status !== filters.status) pass = false;
-
-                            if (pass) {
-                                assets.push(vecAsset);
-                                existingIds.add(vecAsset.id);
-                            }
-                        }
-                    }
-                }
-            } catch (e) {
-                console.error('[IndexerService] Hybrid search vector query failed:', e);
-            }
-        }
-
-        // If semantic search for related assets, sort by distance
-        if (filters?.relatedToAssetId && filters.semantic && assets.length > 0 && similarAssetsMap) {
-            assets.sort((a: any, b: any) => {
-                const distA = similarAssetsMap!.get(a.id) ?? Infinity;
-                const distB = similarAssetsMap!.get(b.id) ?? Infinity;
-                return distA - distB; // Ascending distance = Descending similarity
-            });
-        }
-
-
-
-        // If we have a relatedToAssetId, ensure that asset is included and at the top
-        if (filters?.relatedToAssetId) {
-            const sourceAsset = this.assetManager.getAsset(filters.relatedToAssetId);
-            if (sourceAsset) {
-                // Remove source asset if it's already in the results
-                assets = assets.filter((a: any) => a.id !== filters.relatedToAssetId);
-
-                // Prepend source asset
-                // We need to fetch tags for it too if we are doing that below
-                // But let's just add it to the list and let the tag fetching logic handle it if possible
-                // The tag fetching logic uses `assets.map(a => a.id)`, so if we add it here, it will get tags.
-                const sourceWithDistance = { ...sourceAsset, distance: 0 }; // Source always has 0 distance to itself
-                assets.unshift(sourceWithDistance as any);
-            }
-        }
-
-        if (filters?.relatedToAssetId && filters.semantic && similarAssetsMap) {
-            // Debug logging removed
-        }
-
-        if (assets.length > 0) {
-            const assetIds = assets.map((a: any) => a.id);
-            const placeholders = assetIds.map(() => '?').join(', ');
-            const tagsStmt = db.prepare(`
-                SELECT at.assetId, t.id, t.name, t.color
-                FROM asset_tags at
-                JOIN tags t ON at.tagId = t.id
-                WHERE at.assetId IN (${placeholders})
-            `);
-            const allTags = tagsStmt.all(...assetIds) as { assetId: string; id: string; name: string; color: string }[];
-
-            const tagsByAsset: Record<string, any[]> = {};
-            for (const tag of allTags) {
-                if (!tagsByAsset[tag.assetId]) tagsByAsset[tag.assetId] = [];
-                tagsByAsset[tag.assetId].push({ id: tag.id, name: tag.name, color: tag.color });
-            }
-
-            return assets.map((asset: any) => {
-                // Attach distance if available (from semantic search)
-                let distance = asset.distance;
-                if (filters?.relatedToAssetId && filters.semantic && similarAssetsMap) {
-                    const assetId = asset.id as string;
-                    const mappedDistance = similarAssetsMap.get(assetId);
-                    if (mappedDistance !== undefined) {
-                        distance = mappedDistance;
-                    }
-                    // console.log(`[IndexerService] Mapping distance for ${assetId}: ${distance}`);
-                }
-
-                return {
-                    ...asset,
-                    tags: tagsByAsset[asset.id] || [],
-                    distance
-                };
-            }).filter(asset => {
-                // If semantic search is active, only return assets with a valid distance
-                if (filters?.relatedToAssetId && filters.semantic) {
-                    return asset.distance !== undefined;
-                }
-                return true;
-            });
-        }
-
-        return assets;
-    }
-
-    // Folder Colors
-    public getFolderColors(): Record<string, string> {
-        const stmt = db.prepare('SELECT path, color FROM folders WHERE color IS NOT NULL');
-        const rows = stmt.all() as { path: string; color: string }[];
-        return rows.reduce((acc, row) => {
-            acc[row.path] = row.color;
-            return acc;
-        }, {} as Record<string, string>);
-    }
-
-    public setFolderColor(folderPath: string, color: string | null) {
-        if (color === null) {
-            const stmt = db.prepare('UPDATE folders SET color = NULL WHERE path = ?');
-            stmt.run(folderPath);
-        } else {
-            const stmt = db.prepare(`
-                INSERT INTO folders (path, color) VALUES (?, ?)
-                ON CONFLICT(path) DO UPDATE SET color = excluded.color
-            `);
-            stmt.run(folderPath, color);
-        }
-    }
-
-    public getFolders(): string[] {
-        const stmt = db.prepare('SELECT DISTINCT path FROM assets WHERE rootPath = ?');
-        const paths = stmt.all(this.rootPath) as { path: string }[];
-        const folders = new Set<string>();
-
-        paths.forEach(p => {
-            const dir = path.dirname(p.path);
-            if (dir !== '.') {
-                let current = dir;
-                while (current !== '.' && current !== '') {
-                    folders.add(current);
-                    current = path.dirname(current);
-                }
-            }
-        });
-
-        return Array.from(folders).sort();
-    }
 
     // Tag Management
     public getTags() {
@@ -1111,125 +748,7 @@ export class IndexerService {
         return asset;
     }
 
-    public updateAssetStatus(id: string, status: string) {
-        db.prepare('UPDATE assets SET status = ? WHERE id = ?').run(status, id);
-        if (!this.isApplyingRemoteUpdate) {
-            this.syncService.publish('ASSET_UPDATE', { assetId: id, changes: { status } });
-        }
-    }
 
-    public getLineage(id: string): Asset[] {
-        const assets = new Map<string, Asset>();
-        const visited = new Set<string>();
-
-        // Helper to get asset by ID (synchronous since we have in-memory map)
-        const getAsset = (assetId: string) => this.assetManager.getAsset(assetId);
-
-        // Queue for BFS
-        const queue: string[] = [id];
-
-        while (queue.length > 0) {
-            const currentId = queue.shift()!;
-            if (visited.has(currentId)) continue;
-            visited.add(currentId);
-
-            const asset = getAsset(currentId);
-            if (!asset) continue;
-
-            assets.set(asset.id, asset);
-
-            // 1. Traverse Up (Ancestors) - inputs
-            if (asset.metadata.inputs) {
-                for (const inputId of asset.metadata.inputs) {
-                    if (!visited.has(inputId)) {
-                        queue.push(inputId);
-                    }
-                }
-            }
-
-            // 2. Traverse Down (Descendants) - assets that have this as input
-            // This is expensive if we iterate all assets every time.
-            // Ideally we'd have a reverse index. For now, we'll iterate all assets once to build a map?
-            // Or just iterate all assets for the current node?
-            // Let's iterate all assets to find children.
-            // Optimization: Build a reverse index on startup/update?
-            // For now, simple iteration.
-            const allAssets = this.assetManager.getAssets(this.rootPath);
-            for (const otherAsset of allAssets) {
-                if (otherAsset.metadata.inputs?.includes(currentId)) {
-                    if (!visited.has(otherAsset.id)) {
-                        queue.push(otherAsset.id);
-                    }
-                }
-            }
-        }
-
-        return Array.from(assets.values());
-    }
-
-    public addComment(assetId: string, text: string, authorId: string) {
-        const asset = this.assetManager.getAsset(assetId);
-        if (!asset) return;
-        const comments = asset.metadata.comments || [];
-        comments.push({ id: uuidv4(), text, authorId, timestamp: Date.now() });
-        this.updateAssetMetadata(assetId, { ...asset.metadata, comments });
-    }
-
-    public updateMetadata(assetId: string, key: string, value: any) {
-        const asset = this.assetManager.getAsset(assetId);
-        if (!asset) return;
-        const metadata = { ...asset.metadata, [key]: value };
-        this.updateAssetMetadata(assetId, metadata);
-    }
-
-    public updateAssetMetadata(id: string, metadata: any) {
-        db.prepare('UPDATE assets SET metadata = ? WHERE id = ?').run(JSON.stringify(metadata), id);
-
-        if (!this.isApplyingRemoteUpdate) {
-            // Filter out embedding to avoid syncing huge blobs
-            const { embedding, ...syncMetadata } = metadata;
-            this.syncService.publish('ASSET_UPDATE', { assetId: id, changes: { metadata: syncMetadata } });
-        }
-
-        // Manual FTS Update
-        const row = db.prepare('SELECT rowid, path FROM assets WHERE id = ?').get(id) as { rowid: number, path: string };
-        if (row) {
-            db.prepare('DELETE FROM assets_fts WHERE rowid = ?').run(row.rowid);
-            db.prepare('INSERT INTO assets_fts(rowid, id, path, metadata) VALUES (?, ?, ?, ?)').run(row.rowid, id, row.path, JSON.stringify(metadata));
-        }
-        if (this.mainWindow) {
-            const asset = this.assetManager.getAsset(id);
-            if (asset) this.mainWindow.webContents.send('asset-updated', asset);
-        }
-    }
-    async handleChatMessage(text: string) {
-        try {
-            console.log(`[IndexerService] Handling chat message: "${text}"`);
-
-            // For now, treat everything as a search query
-            // We limit to top 4 results for the chat view
-            const results = await this.searchAssets(text, { semantic: true });
-            const topResults = results.slice(0, 4);
-
-            if (topResults.length > 0) {
-                return {
-                    type: 'search_results',
-                    message: `I found ${results.length} assets. Here are the top matches:`,
-                    assets: topResults
-                };
-            } else {
-                return {
-                    type: 'chat',
-                    message: `I couldn't find any assets matching "${text}".`
-                };
-            }
-
-        } catch (error) {
-            console.error('[IndexerService] Error handling chat message:', error);
-            return { type: 'error', message: 'I encountered an error while searching.' };
-        }
-    }
 }
 
 export const indexerService = new IndexerService();
-
