@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Info, Clock, MessageSquare, Folder, Sparkles, Save, Plus, MoreHorizontal, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Info, Clock, MessageSquare, Folder, Sparkles, Save, Plus, MoreHorizontal, X, Maximize2 } from 'lucide-react';
 import { useStore } from '../store';
 import { useSettingsStore } from '../store/settings';
 import { formatFileSize, formatRelativeDate } from '../utils/format';
@@ -43,6 +43,7 @@ export function AssetInspector() {
   const removeTagFromAsset = useStore(state => state.removeTagFromAsset);
   const createTag = useStore(state => state.createTag);
   const createScratchPad = useStore(state => state.createScratchPad);
+  const setViewingAssetId = useStore(state => state.setViewingAssetId);
 
   const [isDetailsOpen, setIsDetailsOpen] = useState(true);
   const [isMetadataOpen, setIsMetadataOpen] = useState(true);
@@ -57,6 +58,7 @@ export function AssetInspector() {
   const [isCreateTagOpen, setIsCreateTagOpen] = useState(false);
   const [isTagPopoverOpen, setIsTagPopoverOpen] = useState(false);
   const [isCreateScratchPadOpen, setIsCreateScratchPadOpen] = useState(false);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
 
   useEffect(() => {
     if (window.ipcRenderer) {
@@ -123,6 +125,46 @@ export function AssetInspector() {
     }
   };
 
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const data = e.dataTransfer.types.includes('application/json');
+    if (data) {
+      e.dataTransfer.dropEffect = 'copy';
+      setIsDraggingOver(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Only set to false if we're actually leaving the drop zone
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX;
+    const y = e.clientY;
+    if (x < rect.left || x >= rect.right || y < rect.top || y >= rect.bottom) {
+      setIsDraggingOver(false);
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+
+    try {
+      const data = e.dataTransfer.getData('application/json');
+      if (data) {
+        const { assetId } = JSON.parse(data);
+        if (assetId && asset) {
+          await handleAddInput([assetId]);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to handle drop:', error);
+    }
+  };
+
   return (
     <div
       className={cn(
@@ -171,13 +213,26 @@ export function AssetInspector() {
                   className="aspect-video"
                 />
 
-                {/* Close button overlay */}
-                <button
-                  onClick={clearInspectorAsset}
-                  className="absolute top-2 right-2 p-1.5 bg-background/80 backdrop-blur-sm rounded-md hover:bg-background transition-colors opacity-0 group-hover:opacity-100 z-50"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+                {/* Action buttons overlay */}
+                <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                  {/* Fullscreen button */}
+                  <button
+                    onClick={() => setViewingAssetId(asset.id)}
+                    className="p-1.5 bg-background/80 backdrop-blur-sm rounded-md hover:bg-background transition-colors"
+                    title="View fullscreen"
+                  >
+                    <Maximize2 className="h-4 w-4" />
+                  </button>
+
+                  {/* Close button */}
+                  <button
+                    onClick={clearInspectorAsset}
+                    className="p-1.5 bg-background/80 backdrop-blur-sm rounded-md hover:bg-background transition-colors"
+                    title="Close inspector"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
 
               {/* Asset name and type */}
@@ -270,7 +325,15 @@ export function AssetInspector() {
                   isOpen={isLineageOpen}
                   onToggle={() => setIsLineageOpen(!isLineageOpen)}
                 >
-                  <div className="px-4 py-2">
+                  <div
+                    className={cn(
+                      "px-4 py-2 transition-all rounded-md",
+                      isDraggingOver && "bg-primary/10 ring-2 ring-primary/50"
+                    )}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                  >
                     <div className="flex flex-wrap gap-2">
                       {asset.metadata.inputs?.map(input => (
                         <InputAssetThumbnail
@@ -281,10 +344,24 @@ export function AssetInspector() {
                       ))}
                       <button
                         onClick={() => setIsAssetPickerOpen(true)}
-                        className="w-12 h-12 rounded-md border border-dashed border-muted-foreground/30 hover:border-muted-foreground/60 bg-muted/20 hover:bg-muted/40 flex items-center justify-center transition-all"
+                        className={cn(
+                          "w-24 h-24 rounded-lg border-2 border-dashed transition-all flex flex-col items-center justify-center gap-1",
+                          isDraggingOver
+                            ? "border-primary bg-primary/20 scale-105"
+                            : "border-muted-foreground/30 hover:border-muted-foreground/60 bg-muted/20 hover:bg-muted/40"
+                        )}
                         title="Add Input Asset"
                       >
-                        <Plus className="h-4 w-4 text-muted-foreground" />
+                        <Plus className={cn(
+                          "h-5 w-5 transition-all",
+                          isDraggingOver ? "text-primary scale-110" : "text-muted-foreground"
+                        )} />
+                        <span className={cn(
+                          "text-[10px] font-medium",
+                          isDraggingOver ? "text-primary" : "text-muted-foreground"
+                        )}>
+                          {isDraggingOver ? "Drop here" : "Add"}
+                        </span>
                       </button>
                     </div>
                   </div>

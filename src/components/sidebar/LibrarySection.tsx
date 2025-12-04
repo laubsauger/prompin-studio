@@ -23,6 +23,7 @@ export const LibrarySection: React.FC<LibrarySectionProps> = ({ isOpen, onToggle
             title="Library"
             isOpen={isOpen}
             onToggle={onToggle}
+            className="mt-2"
         >
             <Button
                 variant="ghost"

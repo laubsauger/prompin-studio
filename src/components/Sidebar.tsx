@@ -54,7 +54,7 @@ export const Sidebar: React.FC = () => {
             </button>
 
             <div className={cn("flex-1 flex flex-col overflow-hidden w-64", isCollapsed && "hidden")}>
-                <div className="flex-1 overflow-y-auto py-4">
+                <div className="flex-1 overflow-y-auto pb-4">
                     <LibrarySection
                         isOpen={isLibraryOpen}
                         onToggle={() => setIsLibraryOpen(!isLibraryOpen)}

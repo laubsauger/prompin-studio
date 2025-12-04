@@ -22,7 +22,6 @@ export const ActiveViewsSection: React.FC<ActiveViewsSectionProps> = ({ isOpen, 
             title="Views"
             isOpen={isOpen}
             onToggle={onToggle}
-            className="mb-2"
         >
             {activeViews.map(view => (
                 <div

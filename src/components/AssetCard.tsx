@@ -47,6 +47,20 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
         return `${m}:${s.toString().padStart(2, '0')}`;
     };
 
+    const handleDragStart = (e: React.DragEvent) => {
+        e.dataTransfer.effectAllowed = 'copy';
+        e.dataTransfer.setData('application/json', JSON.stringify({ assetId: asset.id }));
+        // Add a visual feedback
+        if (e.dataTransfer.setDragImage) {
+            const dragImage = e.currentTarget.cloneNode(true) as HTMLElement;
+            dragImage.style.transform = 'scale(0.8)';
+            dragImage.style.opacity = '0.8';
+            document.body.appendChild(dragImage);
+            e.dataTransfer.setDragImage(dragImage, e.nativeEvent.offsetX, e.nativeEvent.offsetY);
+            setTimeout(() => document.body.removeChild(dragImage), 0);
+        }
+    };
+
     const handleClick = (e: React.MouseEvent) => {
         // Prevent click from propagating through overlay buttons
         if ((e.target as HTMLElement).closest('button')) return;
@@ -150,6 +164,8 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
                         // Highlight source asset in similarity search
                         asset.id === filterConfig.relatedToAssetId && !isSelected && "border-2 border-purple-500 shadow-lg"
                     )}
+                    draggable
+                    onDragStart={handleDragStart}
                     onClick={handleClick}
                     onMouseEnter={() => setIsHoveringCard(true)}
                     onMouseLeave={() => {
