@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
+import { Loader2 } from 'lucide-react';
 import { Label } from './ui/label';
 import { Switch } from './ui/switch';
 import { Select } from './ui/select';
@@ -14,6 +15,7 @@ interface SettingsModalProps {
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ open, onOpenChange }) => {
     const { theme, defaultView, autoCheckUpdates, setTheme, setDefaultView, setAutoCheckUpdates } = useSettingsStore();
+    const syncStats = useStore(state => state.syncStats);
 
     // Apply theme effect
     useEffect(() => {
@@ -84,9 +86,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ open, onOpenChange
                     </div>
 
                     <div className="flex items-center justify-between border-t pt-4">
-                        <div className="flex flex-col gap-1">
+                        <div className="flex flex-col gap-1 flex-1 mr-4">
                             <Label>Thumbnails</Label>
                             <span className="text-xs text-muted-foreground">Regenerate all video thumbnails</span>
+                            {syncStats?.thumbnailProgress && (
+                                <div className="mt-2 space-y-1">
+                                    <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-primary transition-all duration-300"
+                                            style={{ width: `${(syncStats.thumbnailProgress.current / syncStats.thumbnailProgress.total) * 100}%` }}
+                                        />
+                                    </div>
+                                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                                        <span>Processing...</span>
+                                        <span>{Math.round((syncStats.thumbnailProgress.current / syncStats.thumbnailProgress.total) * 100)}%</span>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                         <Button
                             variant="outline"
@@ -94,15 +110,37 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ open, onOpenChange
                             onClick={() => {
                                 useStore.getState().regenerateThumbnails();
                             }}
+                            disabled={!!syncStats?.thumbnailProgress}
                         >
-                            Regenerate
+                            {syncStats?.thumbnailProgress ? (
+                                <>
+                                    <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                                    Processing
+                                </>
+                            ) : (
+                                'Regenerate'
+                            )}
                         </Button>
                     </div>
 
                     <div className="flex items-center justify-between border-t pt-4">
-                        <div className="flex flex-col gap-1">
+                        <div className="flex flex-col gap-1 flex-1 mr-4">
                             <Label>AI Indexing</Label>
                             <span className="text-xs text-muted-foreground">Generate embeddings for similarity search</span>
+                            {syncStats?.status === 'indexing' && syncStats.embeddingProgress && (
+                                <div className="mt-2 space-y-1">
+                                    <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-purple-500 transition-all duration-300"
+                                            style={{ width: `${(syncStats.embeddingProgress.current / syncStats.embeddingProgress.total) * 100}%` }}
+                                        />
+                                    </div>
+                                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                                        <span>Generating embeddings...</span>
+                                        <span>{Math.round((syncStats.embeddingProgress.current / syncStats.embeddingProgress.total) * 100)}%</span>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                         <Button
                             variant="outline"
@@ -113,8 +151,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ open, onOpenChange
                                     ipc.invoke('generate-embeddings');
                                 }
                             }}
+                            disabled={syncStats?.status === 'indexing'}
                         >
-                            Generate
+                            {syncStats?.status === 'indexing' ? (
+                                <>
+                                    <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                                    Generating
+                                </>
+                            ) : (
+                                'Generate'
+                            )}
                         </Button>
                     </div>
 

@@ -3,22 +3,19 @@ import path from 'path';
 import { app } from 'electron';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
-const sqliteVss = require('sqlite-vss');
+const sqliteVec = require('sqlite-vec');
 
 const dbPath = path.join(app.getPath('userData'), 'gen-studio.db');
 const db = new Database(dbPath);
 
-// Load sqlite-vss extension
+// Load sqlite-vec extension
 export let vectorSearchEnabled = false;
 try {
-  // Load vector0 extension first (required dependency)
-  db.loadExtension(sqliteVss.getVectorLoadablePath());
-  // Then load vss0 extension
-  db.loadExtension(sqliteVss.getVssLoadablePath());
+  sqliteVec.load(db);
   vectorSearchEnabled = true;
-  console.log('[DB] sqlite-vss extension loaded successfully.');
+  console.log('[DB] sqlite-vec extension loaded successfully.');
 } catch (e) {
-  console.warn('[DB] Failed to load sqlite-vss extension. Vector search will be disabled.', e);
+  console.warn('[DB] Failed to load sqlite-vec extension. Vector search will be disabled.', e);
 }
 
 db.pragma('journal_mode = WAL');
@@ -89,39 +86,40 @@ db.exec(`
   END;
 `);
 
-// 3. VSS Setup / Cleanup
+// 3. Vector Search Setup / Cleanup
 if (vectorSearchEnabled) {
   try {
     db.exec(`
-      -- Cleanup old VSS triggers first
-      DROP TRIGGER IF EXISTS assets_vss_insert;
-      DROP TRIGGER IF EXISTS assets_vss_update;
-      DROP TRIGGER IF EXISTS assets_vss_update_null;
+      -- Cleanup old VSS/Vec triggers first
+      DROP TRIGGER IF EXISTS assets_vec_insert;
+      DROP TRIGGER IF EXISTS assets_vec_update;
+      DROP TRIGGER IF EXISTS assets_vec_update_null;
+      DROP TRIGGER IF EXISTS assets_vss_delete; -- Cleanup legacy vss trigger
 
-      -- Vector search virtual table
-      CREATE VIRTUAL TABLE IF NOT EXISTS vss_assets USING vss0(
-        embedding(384)
+      -- Cleanup legacy vss table if exists
+      DROP TABLE IF EXISTS vss_assets;
+
+      -- Vector search virtual table (sqlite-vec)
+      CREATE VIRTUAL TABLE IF NOT EXISTS vec_assets USING vec0(
+        embedding float[384]
       );
 
-      -- Create VSS delete trigger
-      CREATE TRIGGER IF NOT EXISTS assets_vss_delete AFTER DELETE ON assets BEGIN
-        DELETE FROM vss_assets WHERE rowid = old.rowid;
+      -- Create Vec delete trigger
+      CREATE TRIGGER IF NOT EXISTS assets_vec_delete AFTER DELETE ON assets BEGIN
+        DELETE FROM vec_assets WHERE rowid = old.rowid;
       END;
     `);
   } catch (e) {
-    console.error('[DB] Failed to initialize VSS tables:', e);
+    console.error('[DB] Failed to initialize Vector tables:', e);
   }
 } else {
-  // If VSS is disabled, try to clean up any existing VSS artifacts
-  // We wrap in try-catch because interacting with missing modules might fail
+  // If Vector search is disabled, try to clean up any existing artifacts
   try {
-    db.exec(`DROP TRIGGER IF EXISTS assets_vss_delete;`);
-    db.exec(`DROP TRIGGER IF EXISTS assets_vss_insert;`);
-    db.exec(`DROP TRIGGER IF EXISTS assets_vss_update;`);
-    db.exec(`DROP TRIGGER IF EXISTS assets_vss_update_null;`);
+    db.exec(`DROP TRIGGER IF EXISTS assets_vec_delete;`);
+    db.exec(`DROP TABLE IF EXISTS vec_assets;`);
     db.exec(`DROP TABLE IF EXISTS vss_assets;`);
   } catch (e) {
-    console.warn('[DB] Failed to cleanup VSS tables (expected if module missing):', e);
+    console.warn('[DB] Failed to cleanup Vector tables:', e);
   }
 }
 

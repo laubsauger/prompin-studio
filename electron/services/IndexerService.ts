@@ -324,17 +324,17 @@ export class IndexerService {
                     // 1. Update main assets table
                     this.updateAssetMetadata(asset.id, newMetadata);
 
-                    // 2. Manually update vss_assets table
+                    // 2. Manually update vec_assets table
                     // We do this here instead of triggers to avoid overhead during ingestion
                     // and to prevent concurrency issues.
                     try {
                         const row = db.prepare('SELECT rowid FROM assets WHERE id = ?').get(asset.id) as { rowid: number };
                         if (row) {
-                            db.prepare('DELETE FROM vss_assets WHERE rowid = ?').run(row.rowid);
-                            db.prepare('INSERT INTO vss_assets(rowid, embedding) VALUES (?, ?)').run(row.rowid, JSON.stringify(embedding));
+                            db.prepare('DELETE FROM vec_assets WHERE rowid = ?').run(row.rowid);
+                            db.prepare('INSERT INTO vec_assets(rowid, embedding) VALUES (?, ?)').run(row.rowid, JSON.stringify(embedding));
                         }
-                    } catch (vssError) {
-                        console.error(`[IndexerService] Failed to update vss_assets for ${asset.id}:`, vssError);
+                    } catch (vecError) {
+                        console.error(`[IndexerService] Failed to update vec_assets for ${asset.id}:`, vecError);
                     }
 
                     this.stats.embeddingsGenerated = (this.stats.embeddingsGenerated || 0) + 1;
@@ -350,12 +350,7 @@ export class IndexerService {
         console.log('[IndexerService] Embedding generation complete.');
         this.stats.currentFile = undefined;
         this.stats.embeddingProgress = undefined;
-        // Status will be reset to idle by the caller (setRootPath) or we can set it here if called independently
-        // But since setRootPath sets it to idle at the end, we don't strictly need to set it here if called from there.
-        // However, if called independently, we might want to reset it.
-        // For safety, let's leave it to the caller or set to idle if we are sure?
-        // setRootPath calls this, then sets to idle.
-        // If we set to idle here, it's fine.
+        this.stats.status = 'idle';
     }
 
     // Helper methods
@@ -448,8 +443,9 @@ export class IndexerService {
             const stmt = db.prepare(`
                 WITH matches AS (
                     SELECT rowid, distance 
-                    FROM vss_assets 
-                    WHERE vss_search(embedding, ?)
+                    FROM vec_assets 
+                    WHERE embedding MATCH ?
+                    ORDER BY distance
                     LIMIT ?
                 )
                 SELECT a.*, m.distance 
@@ -525,7 +521,7 @@ export class IndexerService {
                 // We might want to filter these results further by other criteria?
                 // For now, let's just return them, maybe filtering by other criteria in memory if needed.
                 // But wait, findSimilar returns Asset[].
-                // If we want to combine with other SQL filters, it's tricky because findSimilar uses vss_search which is a virtual table.
+                // If we want to combine with other SQL filters, it's tricky because findSimilar uses vec_assets which is a virtual table.
                 // The best way is to get IDs from findSimilar and then filter by other criteria in SQL.
 
                 if (similarAssets.length === 0) return [];
