@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Check, ChevronsUpDown, X, Filter } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Button } from './ui/button';
@@ -14,7 +14,6 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from './ui/popover';
-import { Badge } from './ui/badge';
 import { ASSET_STATUSES } from '../config/constants';
 import type { AssetStatus } from '../types';
 

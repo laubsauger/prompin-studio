@@ -54,7 +54,7 @@ export const InputAssetThumbnail: React.FC<InputAssetThumbnailProps> = ({
 
     const handleInspect = () => {
         if (asset) {
-            setInspectorAsset(asset.id);
+            setInspectorAsset(asset);
         }
     };
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useStore, type FilterConfig } from '../store';
 import { SelectWithIcon } from './ui/select-with-icon';
-import { ArrowUpDown, LayoutGrid, List, ArrowUp, ArrowDown, X, RotateCcw, Eye, EyeOff, Square, RectangleHorizontal, RectangleVertical, FileType, Heart, FilterX } from 'lucide-react';
+import { ArrowUpDown, LayoutGrid, List, ArrowUp, ArrowDown, X, Eye, EyeOff, Square, RectangleHorizontal, RectangleVertical, FileType, Heart, FilterX } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Button } from './ui/button';
 import { Slider } from './ui/slider';

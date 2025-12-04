@@ -406,7 +406,7 @@ export const MediaViewer: React.FC = () => {
                                     mode: 'reset'
                                 }}
                             >
-                                {(utils) => (
+                                {() => (
                                     <TransformComponent
                                         wrapperStyle={{
                                             width: '100%',

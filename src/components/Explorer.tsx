@@ -184,12 +184,12 @@ export const Explorer: React.FC = () => {
                             rangeChanged={handleRangeChanged}
                             overscan={3000}
                             context={{ thumbnailSize }}
-                            computeItemKey={(index, asset) => asset.id}
+                            computeItemKey={(_, asset) => asset.id}
                             components={{
                                 List: GridList,
                                 Item: GridItem
                             }}
-                            itemContent={(index, asset) => {
+                            itemContent={(_, asset) => {
                                 return (
                                     <div style={{ height: '100%' }}>
                                         <ExplorerCell
@@ -207,8 +207,8 @@ export const Explorer: React.FC = () => {
                             data={filteredAssets}
                             rangeChanged={handleRangeChanged}
                             overscan={3000}
-                            computeItemKey={(index, asset) => asset.id}
-                            itemContent={(index, asset) => {
+                            computeItemKey={(_, asset) => asset.id}
+                            itemContent={(_, asset) => {
                                 return (
                                     <div className="px-2 py-1">
                                         <AssetListItem

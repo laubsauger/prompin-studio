@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Search, Loader2, RefreshCw, Inbox, Star, X, StickyNote, CheckCircle, AlertCircle, Tag } from 'lucide-react';
 import { useStore } from '../store';
 import { debounce } from '../utils/debounce';
@@ -7,7 +7,6 @@ import {
     Command,
     CommandInput,
     CommandList,
-    CommandEmpty,
     CommandGroup,
     CommandItem,
     CommandSeparator,

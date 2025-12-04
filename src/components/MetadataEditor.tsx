@@ -4,7 +4,7 @@ import { useStore } from '../store';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
-import { Film, Plus, Settings, X, Check, ChevronsUpDown } from 'lucide-react';
+import { Film, Plus, X, Check, ChevronsUpDown } from 'lucide-react';
 
 import { AssetPickerDialog } from './AssetPickerDialog';
 import { Badge } from './ui/badge';

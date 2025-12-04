@@ -96,13 +96,20 @@ export const AssetPickerDialog: React.FC<AssetPickerDialogProps> = ({
                         thumbnailSize={thumbnailSize}
                         onThumbnailSizeChange={setThumbnailSize}
                         filter={filter}
-                        onFilterChange={setFilter}
                         sortConfig={sortConfig}
                         onSortConfigChange={(key, direction) => setSortConfig({ key, direction })}
                         filterConfig={filterConfig}
                         onFilterConfigChange={(config) => setFilterConfig(prev => ({ ...prev, ...config }))}
                         viewMode={viewMode}
                         onViewModeChange={setViewMode}
+                        aspectRatio="square"
+                        onAspectRatioChange={() => {}}
+                        viewDisplay="clean"
+                        onViewDisplayChange={() => {}}
+                        onResetFilters={() => {
+                            setFilter('all');
+                            setFilterConfig({ likedOnly: false, type: 'all' });
+                        }}
                     />
                 </div>
 

@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { SearchPalette } from './SearchPalette';
 import { useStore } from '../store';
@@ -8,7 +7,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 vi.mock('../store');
 
 // Mock ResizeObserver for cmdk
-global.ResizeObserver = class ResizeObserver {
+(globalThis as any).ResizeObserver = class ResizeObserver {
     observe() { }
     unobserve() { }
     disconnect() { }

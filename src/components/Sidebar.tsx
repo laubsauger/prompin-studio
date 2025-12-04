@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useStore } from '../store';
 import { cn } from '../lib/utils';
-import { Button } from './ui/button';
 import { CreateTagDialog } from './CreateTagDialog';
 import { CreateScratchPadDialog } from './CreateScratchPadDialog';
 
