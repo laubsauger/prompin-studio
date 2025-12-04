@@ -11,6 +11,7 @@ export interface Asset {
     metadata: AssetMetadata;
     thumbnailPath?: string;
     tags?: { id: string; name: string; color?: string }[];
+    distance?: number; // Similarity distance (lower is better)
 }
 
 export interface AssetMetadata {

@@ -474,6 +474,7 @@ export class IndexerService {
     // Search Assets (Kept in IndexerService for now to ensure compatibility)
     public async searchAssets(searchQuery: string, filters?: any): Promise<Asset[]> {
         let sql = `SELECT DISTINCT a.* FROM assets a`;
+        let similarAssetsMap: Map<string, number> | undefined;
         const params: any = { rootPath: this.rootPath };
         const conditions: string[] = ['a.rootPath = @rootPath'];
 
@@ -529,6 +530,8 @@ export class IndexerService {
 
                 if (similarAssets.length === 0) return [];
 
+                similarAssetsMap = new Map(similarAssets.map(a => [a.id, (a as any).distance]));
+
                 const similarIds = similarAssets.map(a => a.id);
                 conditions.push(`a.id IN (${similarIds.map((_, i) => `@simId${i}`).join(',')})`);
                 similarIds.forEach((id, i) => { params[`simId${i}`] = id; });
@@ -579,30 +582,16 @@ export class IndexerService {
             metadata: JSON.parse(row.metadata)
         }));
 
-        // If semantic search for related assets, sort by the order of IDs returned by findSimilar
-        if (filters?.relatedToAssetId && filters.semantic && assets.length > 0) {
-            // We need to re-fetch the similar IDs to get the order, or we could have passed them in.
-            // Since we didn't pass them in, let's just re-sort based on the input IDs order if possible.
-            // But wait, we don't have the input IDs here easily without re-running findSimilar or passing them.
-            // Actually, we constructed the SQL with `IN (@simId0, @simId1...)`.
-            // We can reconstruct the order from the params.
-
-            const similarIds: string[] = [];
-            let i = 0;
-            while (params[`simId${i}`]) {
-                similarIds.push(params[`simId${i}`]);
-                i++;
-            }
-
-            if (similarIds.length > 0) {
-                const idMap = new Map(similarIds.map((id, index) => [id, index]));
-                assets.sort((a: any, b: any) => {
-                    const indexA = idMap.get(a.id) ?? Infinity;
-                    const indexB = idMap.get(b.id) ?? Infinity;
-                    return indexA - indexB;
-                });
-            }
+        // If semantic search for related assets, sort by distance
+        if (filters?.relatedToAssetId && filters.semantic && assets.length > 0 && similarAssetsMap) {
+            assets.sort((a: any, b: any) => {
+                const distA = similarAssetsMap!.get(a.id) ?? Infinity;
+                const distB = similarAssetsMap!.get(b.id) ?? Infinity;
+                return distA - distB; // Ascending distance = Descending similarity
+            });
         }
+
+
 
         // If we have a relatedToAssetId, ensure that asset is included and at the top
         if (filters?.relatedToAssetId) {
@@ -636,10 +625,19 @@ export class IndexerService {
                 tagsByAsset[tag.assetId].push({ id: tag.id, name: tag.name, color: tag.color });
             }
 
-            return assets.map((asset: any) => ({
-                ...asset,
-                tags: tagsByAsset[asset.id] || []
-            }));
+            return assets.map((asset: any) => {
+                // Attach distance if available (from semantic search)
+                let distance = asset.distance;
+                if (filters?.relatedToAssetId && filters.semantic && similarAssetsMap) {
+                    distance = similarAssetsMap.get(asset.id);
+                }
+
+                return {
+                    ...asset,
+                    tags: tagsByAsset[asset.id] || [],
+                    distance
+                };
+            });
         }
 
         return assets;

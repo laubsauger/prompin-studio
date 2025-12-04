@@ -2,6 +2,7 @@ import React from 'react';
 import { useStore, type FilterConfig } from '../store';
 import { SelectWithIcon } from './ui/select-with-icon';
 import { ArrowUpDown, LayoutGrid, List, ArrowUp, ArrowDown, X, RotateCcw, Eye, EyeOff, Square, RectangleHorizontal, RectangleVertical, FileType } from 'lucide-react';
+import { cn } from '../lib/utils';
 import { Button } from './ui/button';
 import { Slider } from './ui/slider';
 import { AdvancedFilters } from './AdvancedFilters';
@@ -152,26 +153,20 @@ export const FilterBarUI: React.FC<FilterBarUIProps> = ({
                 {viewMode === 'grid' && (
                     <>
                         {/* Clean/Detailed View Toggle */}
-                        <div className="flex items-center border rounded-md">
-                            <Button
-                                variant={viewDisplay === 'clean' ? 'default' : 'ghost'}
-                                size="sm"
-                                onClick={() => onViewDisplayChange('clean')}
-                                className="h-7 px-2 rounded-r-none"
-                                title="Clean View - Focus on images"
-                            >
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onViewDisplayChange(viewDisplay === 'clean' ? 'detailed' : 'clean')}
+                            className={cn("h-7 w-7 p-0", viewDisplay === 'detailed' && "text-primary bg-accent")}
+                            title={viewDisplay === 'clean' ? "Show details" : "Hide details"}
+                        >
+                            {viewDisplay === 'clean' ? (
                                 <EyeOff className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                                variant={viewDisplay === 'detailed' ? 'default' : 'ghost'}
-                                size="sm"
-                                onClick={() => onViewDisplayChange('detailed')}
-                                className="h-7 px-2 rounded-l-none border-l"
-                                title="Detailed View - Show status and tags"
-                            >
+                            ) : (
                                 <Eye className="h-3.5 w-3.5" />
-                            </Button>
-                        </div>
+                            )}
+                        </Button>
+
                         <div className="flex items-center gap-2 mr-2">
                             {/* Aspect Ratio Toggle */}
                             <div className="flex items-center border rounded-md">
@@ -207,8 +202,8 @@ export const FilterBarUI: React.FC<FilterBarUIProps> = ({
                             <Slider
                                 value={[thumbnailSize]}
                                 onValueChange={(value) => onThumbnailSizeChange(value[0])}
-                                min={150}
-                                max={400}
+                                min={100}
+                                max={800}
                                 step={50}
                                 className="w-24"
                             />

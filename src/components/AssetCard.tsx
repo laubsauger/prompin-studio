@@ -19,6 +19,14 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
     const isSelected = useStore(state => state.selectedIds.has(asset.id));
     const aspectRatio = useStore(state => state.aspectRatio);
     const viewDisplay = useStore(state => state.viewDisplay);
+    const filterConfig = useStore(state => state.filterConfig);
+
+    if (asset.type === 'image' && asset.distance === undefined && filterConfig.relatedToAssetId) {
+        // console.log('Image missing distance:', asset.id);
+    }
+
+    // console.log('AssetCard render:', asset.id, asset.distance);
+
     const [isPlaying, setIsPlaying] = useState(false);
     const [isHoveringScrubber, setIsHoveringScrubber] = useState(false);
     const [isHoveringCard, setIsHoveringCard] = useState(false);
@@ -145,21 +153,26 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
                 <Card
                     className={cn(
                         "group relative overflow-hidden transition-all duration-200 hover:shadow-md border-border/50 bg-card/50",
-                        isSelected && "ring-2 ring-primary border-primary shadow-lg bg-accent/10"
+                        isSelected && "ring-2 ring-primary border-primary shadow-lg bg-accent/10",
+                        // Highlight source asset in similarity search
+                        asset.id === filterConfig.relatedToAssetId && !isSelected && "border-2 border-purple-500 shadow-lg"
                     )}
                     onClick={handleClick}
                     onMouseEnter={() => setIsHoveringCard(true)}
                     onMouseLeave={() => {
                         setIsHoveringCard(false);
-                        // Pause video when leaving card if it was only playing due to hover/scrub interaction?
-                        // For now, let's leave explicit play/pause behavior alone, but maybe pause if it was just scrubbing?
-                        // Actually, if we stop rendering the video on mouse leave (unless isPlaying), it will stop anyway.
                     }}
                 >
+                    {/* Source Asset Label */}
+                    {asset.id === filterConfig.relatedToAssetId && (
+                        <div className="absolute top-0 left-1/2 -translate-x-1/2 z-20 bg-purple-500 text-white text-[8px] px-1.5 py-0.5 rounded-b-sm font-medium shadow-sm leading-none">
+                            Source
+                        </div>
+                    )}
+
                     <div className={cn("relative bg-muted/20", aspectRatioClass)}>
                         {asset.type === 'video' ? (
                             <>
-                                {/* Show thumbnail when not playing AND not scrubbing */}
                                 {/* Show thumbnail when not playing AND not scrubbing */}
                                 {(!isPlaying && !isHoveringScrubber) && (
                                     <div className="w-full h-full flex items-center justify-center bg-secondary/20">
@@ -211,7 +224,7 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
                                 {/* Scrubber Bar */}
                                 <div
                                     ref={scrubberRef}
-                                    className="absolute bottom-0 left-0 right-0 h-3 z-40 cursor-ew-resize flex items-end group/scrubber scrubber-bar px-1"
+                                    className="absolute bottom-0 left-0 right-0 h-1.5 z-40 cursor-ew-resize flex items-center group/scrubber scrubber-bar px-1"
                                     onClick={handleSeek}
                                     onMouseEnter={() => setIsHoveringScrubber(true)}
                                     onMouseLeave={() => {
@@ -234,15 +247,15 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
                                             className="absolute top-0 left-0 bottom-0 bg-primary/80 transition-all duration-75"
                                             style={{ width: `${(currentTime / (duration || 1)) * 100}%` }}
                                         />
-
-                                        {/* Hover Indicator */}
-                                        {hoverProgress !== null && (
-                                            <div
-                                                className="absolute top-0 bottom-0 w-1.5 bg-white shadow-[0_0_4px_rgba(0,0,0,0.5)] z-10"
-                                                style={{ left: `${hoverProgress}%`, transform: 'translateX(-50%)' }}
-                                            />
-                                        )}
                                     </div>
+
+                                    {/* Hover Indicator - Moved outside to avoid clipping and allow full height */}
+                                    {hoverProgress !== null && (
+                                        <div
+                                            className="absolute h-3 w-2 bg-white shadow-[0_0_4px_rgba(0,0,0,0.5)] z-10 pointer-events-none border border-black/20 rounded-[1px] top-1/2 -translate-y-1/2"
+                                            style={{ left: `${hoverProgress}%`, transform: 'translate(-50%, -50%)' }}
+                                        />
+                                    )}
                                 </div>
 
                                 {/* Time Display */}
@@ -351,6 +364,15 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
                         {isSelected && (
                             <div className="absolute inset-0 z-0 bg-primary/10 pointer-events-none" />
                         )}
+
+                        {/* Similarity Score - Moved to end of container to ensure visibility */}
+                        {/* Similarity Score - Moved to end of container to ensure visibility */}
+                        <div className={cn(
+                            "absolute z-50 text-[10px] font-bold text-white/90 bg-black/60 px-1.5 py-0.5 rounded-sm backdrop-blur-sm pointer-events-none tabular-nums border border-white/10",
+                            asset.type === 'video' ? "bottom-8 right-2" : "bottom-2 right-2"
+                        )}>
+                            {asset.distance !== undefined ? `${Math.round((1 - asset.distance) * 100)}%` : 'N/A'}
+                        </div>
                     </div>
 
                     {/* Tags section - only show in detailed view */}
