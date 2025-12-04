@@ -30,6 +30,9 @@ export interface AssetMetadata {
     comments?: Comment[];
     liked?: boolean;
     inputs?: string[]; // IDs of input assets
+    embedding?: number[];
+    description?: string;
+    tags?: string[]; // Extracted tags from metadata
 }
 
 export interface Comment {
@@ -76,4 +79,9 @@ export interface SyncStats {
         current: number;
         total: number;
     };
+    embeddingProgress?: {
+        current: number;
+        total: number;
+    };
+    embeddingsGenerated?: number;
 }

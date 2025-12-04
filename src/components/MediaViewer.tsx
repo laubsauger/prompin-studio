@@ -251,6 +251,15 @@ export const MediaViewer: React.FC = () => {
                                     <span className="ml-2">{asset.metadata.prompt}</span>
                                 </div>
                             )}
+                            <div>
+                                <span className="text-muted-foreground">AI Indexing:</span>
+                                <span className={cn(
+                                    "ml-2",
+                                    asset.metadata.embedding ? "text-green-500" : "text-yellow-500"
+                                )}>
+                                    {asset.metadata.embedding ? "Yes" : "Pending"}
+                                </span>
+                            </div>
                         </div>
                         {asset.tags && asset.tags.length > 0 && (
                             <div className="flex items-center gap-2">
@@ -339,7 +348,7 @@ export const MediaViewer: React.FC = () => {
                         </MediaPlayer>
                     )}
                 </div>
-            </div>
+            </div >
 
             <CreateTagDialog
                 isOpen={isCreateTagDialogOpen}

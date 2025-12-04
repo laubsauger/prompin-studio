@@ -48,6 +48,7 @@ export interface FilterConfig {
     dateFrom?: number;
     dateTo?: number;
     relatedToAssetId?: string;
+    semantic?: boolean;
 }
 
 interface AppState {
@@ -294,7 +295,8 @@ export const useStore = create<AppState>((set, get) => ({
             model: undefined,
             dateFrom: undefined,
             dateTo: undefined,
-            relatedToAssetId: undefined
+            relatedToAssetId: undefined,
+            semantic: false
         };
         try {
             localStorage.setItem('filterConfig', JSON.stringify(emptyConfig));
@@ -325,6 +327,7 @@ export const useStore = create<AppState>((set, get) => ({
             if (filterConfig.dateTo) backendFilters.dateTo = filterConfig.dateTo;
             if (filterConfig.tagId) backendFilters.tagIds = [filterConfig.tagId];
             if (filterConfig.relatedToAssetId) backendFilters.relatedToAssetId = filterConfig.relatedToAssetId;
+            if (filterConfig.semantic) backendFilters.semantic = filterConfig.semantic;
 
             if (filterConfig.scratchPadId) {
                 const scratchPad = get().scratchPads.find(p => p.id === filterConfig.scratchPadId);

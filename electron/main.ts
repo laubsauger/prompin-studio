@@ -17,6 +17,8 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 
 let win: BrowserWindow | null;
 
 function createWindow() {
+  const isMac = process.platform === 'darwin';
+
   win = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -26,9 +28,11 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
     },
-    titleBarStyle: 'hiddenInset',
-    vibrancy: 'under-window',
-    visualEffectState: 'active',
+    ...(isMac && {
+      titleBarStyle: 'hiddenInset',
+      vibrancy: 'under-window',
+      visualEffectState: 'active',
+    }),
   });
 
   win.webContents.on('did-finish-load', () => {
@@ -337,6 +341,10 @@ ipcMain.handle('get-asset', async (event, assetId) => {
 
 ipcMain.handle('regenerate-thumbnails', async () => {
   return indexerService.regenerateThumbnails();
+});
+
+ipcMain.handle('generate-embeddings', async () => {
+  return indexerService.processEmbeddings();
 });
 
 ipcMain.handle('get-folder-colors', async () => {

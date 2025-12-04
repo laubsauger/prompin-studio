@@ -101,6 +101,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ open, onOpenChange
 
                     <div className="flex items-center justify-between border-t pt-4">
                         <div className="flex flex-col gap-1">
+                            <Label>AI Indexing</Label>
+                            <span className="text-xs text-muted-foreground">Generate embeddings for similarity search</span>
+                        </div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                                const ipc = (window as any).ipcRenderer;
+                                if (ipc) {
+                                    ipc.invoke('generate-embeddings');
+                                }
+                            }}
+                        >
+                            Generate
+                        </Button>
+                    </div>
+
+                    <div className="flex items-center justify-between border-t pt-4">
+                        <div className="flex flex-col gap-1">
                             <Label className="text-destructive">Reset App</Label>
                             <span className="text-xs text-muted-foreground">Clear all settings and return to setup</span>
                         </div>

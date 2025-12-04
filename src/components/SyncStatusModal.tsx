@@ -135,6 +135,40 @@ export const SyncStatusModal: React.FC<SyncStatusModalProps> = ({ isOpen, onClos
                         )}
                     </div>
 
+                    {/* AI Indexing */}
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="p-3 rounded-lg bg-muted/30 border border-border">
+                            <div className="text-xs text-muted-foreground mb-1">AI Indexing</div>
+                            <div className="flex items-baseline gap-3">
+                                <div>
+                                    <span className="text-xs text-muted-foreground mr-1">Generated</span>
+                                    <span className={cn(
+                                        "text-base font-semibold",
+                                        (syncStats.embeddingsGenerated || 0) > 0 && "text-purple-500"
+                                    )}>
+                                        {syncStats.embeddingsGenerated || 0}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Progress Bar if generating */}
+                        {syncStats.embeddingProgress && syncStats.embeddingProgress.total > 0 && (
+                            <div className="p-3 rounded-lg bg-muted/30 border border-border">
+                                <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                                    <span>Generating embeddings...</span>
+                                    <span>{Math.round((syncStats.embeddingProgress.current / syncStats.embeddingProgress.total) * 100)}%</span>
+                                </div>
+                                <div className="w-full bg-secondary h-1.5 rounded-full overflow-hidden">
+                                    <div
+                                        className="bg-purple-500 h-full transition-all duration-300"
+                                        style={{ width: `${(syncStats.embeddingProgress.current / syncStats.embeddingProgress.total) * 100}%` }}
+                                    />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
                     {/* Errors */}
                     {hasErrors && (
                         <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">

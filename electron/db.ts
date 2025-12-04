@@ -1,9 +1,22 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import { app } from 'electron';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const sqliteVss = require('sqlite-vss');
 
 const dbPath = path.join(app.getPath('userData'), 'gen-studio.db');
 const db = new Database(dbPath);
+
+// Load sqlite-vss extension
+try {
+  // Load vector0 extension first (required dependency)
+  db.loadExtension(sqliteVss.getVectorLoadablePath());
+  // Then load vss0 extension
+  db.loadExtension(sqliteVss.getVssLoadablePath());
+} catch (e) {
+  console.error('[DB] Failed to load sqlite-vss extension:', e);
+}
 
 db.pragma('journal_mode = WAL');
 
@@ -59,6 +72,12 @@ db.exec(`
     tokenize='porter unicode61'
   );
 
+  -- Vector search virtual table
+  -- 384 dimensions for all-MiniLM-L6-v2
+  CREATE VIRTUAL TABLE IF NOT EXISTS vss_assets USING vss0(
+    embedding(384)
+  );
+
   -- Triggers to keep FTS index in sync
   CREATE TRIGGER IF NOT EXISTS assets_fts_insert AFTER INSERT ON assets BEGIN
     INSERT INTO assets_fts(rowid, id, path, metadata)
@@ -73,6 +92,34 @@ db.exec(`
     DELETE FROM assets_fts WHERE rowid = old.rowid;
     INSERT INTO assets_fts(rowid, id, path, metadata)
     VALUES (new.rowid, new.id, new.path, new.metadata);
+  END;
+
+  -- Triggers to keep VSS index in sync
+  -- Note: We assume metadata contains an 'embedding' field which is a JSON array
+  CREATE TRIGGER IF NOT EXISTS assets_vss_insert AFTER INSERT ON assets 
+  WHEN json_extract(new.metadata, '$.embedding') IS NOT NULL
+  BEGIN
+    INSERT INTO vss_assets(rowid, embedding)
+    VALUES (new.rowid, json_extract(new.metadata, '$.embedding'));
+  END;
+
+  CREATE TRIGGER IF NOT EXISTS assets_vss_delete AFTER DELETE ON assets BEGIN
+    DELETE FROM vss_assets WHERE rowid = old.rowid;
+  END;
+
+  CREATE TRIGGER IF NOT EXISTS assets_vss_update AFTER UPDATE ON assets 
+  WHEN json_extract(new.metadata, '$.embedding') IS NOT NULL
+  BEGIN
+    DELETE FROM vss_assets WHERE rowid = old.rowid;
+    INSERT INTO vss_assets(rowid, embedding)
+    VALUES (new.rowid, json_extract(new.metadata, '$.embedding'));
+  END;
+
+  -- Also handle case where embedding is removed/nullified
+  CREATE TRIGGER IF NOT EXISTS assets_vss_update_null AFTER UPDATE ON assets
+  WHEN json_extract(new.metadata, '$.embedding') IS NULL
+  BEGIN
+    DELETE FROM vss_assets WHERE rowid = old.rowid;
   END;
 `);
 

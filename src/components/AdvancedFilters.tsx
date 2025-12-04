@@ -1,15 +1,14 @@
 import { useState } from 'react';
-import { SlidersHorizontal, Calendar, Film, Tag, Cpu } from 'lucide-react';
+import { SlidersHorizontal, Calendar, Film, Cpu, Sparkles, X } from 'lucide-react';
 import { useStore } from '../store';
 import { Button } from './ui/button';
-import { Select } from './ui/select';
 import * as Popover from '@radix-ui/react-popover';
 import { cn } from '../lib/utils';
 
 
 export function AdvancedFilters() {
     const [isOpen, setIsOpen] = useState(false);
-    const { filterConfig, setFilterConfig, searchAssets, tags, resetFilters } = useStore();
+    const { filterConfig, setFilterConfig, searchAssets, assets, resetFilters } = useStore();
 
     const handleFilterChange = (key: string, value: any) => {
         const newConfig = { ...filterConfig, [key]: value };
@@ -26,6 +25,7 @@ export function AdvancedFilters() {
         if (key === 'type' && value === 'all') return false;
         if (key === 'status' && value === 'all') return false;
         if (key === 'likedOnly' && !value) return false;
+        if (key === 'semantic' && !value) return false;
         // Handle empty arrays (statuses, tagIds)
         if (Array.isArray(value) && value.length === 0) return false;
         // Handle null, undefined, empty string
@@ -71,6 +71,35 @@ export function AdvancedFilters() {
                                 Clear All
                             </Button>
                         </div>
+
+                        {/* Active Context (Similarity/Lineage) */}
+                        {filterConfig.relatedToAssetId && (
+                            <div className="p-2 rounded bg-purple-500/10 border border-purple-500/20 space-y-1.5">
+                                <div className="text-[11px] font-medium text-purple-500 flex items-center gap-1.5">
+                                    <Sparkles className="h-3 w-3" />
+                                    Active Context
+                                </div>
+                                <div className="flex items-center justify-between gap-2">
+                                    <span className="text-xs truncate flex-1" title={filterConfig.relatedToAssetId}>
+                                        {filterConfig.semantic ? 'Similar to ' : 'Derived from '}
+                                        <span className="font-mono opacity-70">
+                                            {/* We ideally want the filename here, but we only have ID. 
+                                                We can try to find it in the assets store if loaded. */}
+                                            {assets.find(a => a.id === filterConfig.relatedToAssetId)?.path.split('/').pop() || 'Asset'}
+                                        </span>
+                                    </span>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-5 w-5 shrink-0 hover:bg-purple-500/20"
+                                        onClick={() => handleFilterChange('relatedToAssetId', undefined)}
+                                        title="Clear Context"
+                                    >
+                                        <X className="h-3 w-3" />
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Production Metadata */}
                         <div className="space-y-2">

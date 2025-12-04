@@ -3,7 +3,7 @@ import { useStore } from '../store';
 import type { Asset } from '../types';
 import { ASSET_STATUSES } from '../config/constants';
 import { cn } from '../lib/utils';
-import { FolderOpen, Heart, Plus, Tag, FileText, GitFork, StickyNote } from 'lucide-react';
+import { FolderOpen, Heart, Plus, Tag, FileText, GitFork, StickyNote, Sparkles } from 'lucide-react';
 import {
     ContextMenu,
     ContextMenuContent,
@@ -144,6 +144,36 @@ export const AssetContextMenu: React.FC<AssetContextMenuProps> = ({ asset, child
                         useStore.getState().setLineageAssetId(asset.id);
                     }}>
                         <GitFork className="mr-2 h-4 w-4" /> View Lineage
+                    </ContextMenuItem>
+
+                    <ContextMenuItem onClick={(e) => {
+                        e.stopPropagation();
+
+                        const name = `Similar to ${asset.path.split('/').pop()}`;
+
+                        // Create Active View for Semantic Search
+                        useStore.getState().addActiveView(name, {
+                            relatedToAssetId: asset.id, // We'll use this field for similarity search
+                            semantic: true, // New flag we'll need to handle in store/indexer
+                            type: 'all',
+                            status: 'all',
+                            likedOnly: false,
+                            tagId: undefined,
+                            scratchPadId: undefined
+                        });
+
+                        // Switch to the new view
+                        const views = useStore.getState().activeViews;
+                        const view = views.find(v => v.name === name);
+                        if (view) {
+                            useStore.getState().setCurrentPath(null);
+                            useStore.getState().setFilterConfig(view.filterConfig);
+                            useStore.getState().setViewMode('grid');
+                            useStore.getState().setViewingAssetId(null);
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }
+                    }}>
+                        <Sparkles className="mr-2 h-4 w-4 text-purple-400" /> Find Similar
                     </ContextMenuItem>
                     <ContextMenuItem onClick={(e) => {
                         e.stopPropagation();
