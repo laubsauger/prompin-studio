@@ -170,12 +170,13 @@ export const Explorer: React.FC = () => {
                 />
             </div>
 
-            <div className="flex-1 p-2 pr-0.5 relative">
-                {filteredAssets.length === 0 ? (
-                    <div className="flex h-full items-center justify-center text-muted-foreground">
-                        No assets found
-                    </div>
-                ) : viewMode === 'grid' ? (
+            <div className="flex-1 flex relative">
+                <div className="flex-1 p-2 pr-0.5">
+                    {filteredAssets.length === 0 ? (
+                        <div className="flex h-full items-center justify-center text-muted-foreground">
+                            No assets found
+                        </div>
+                    ) : viewMode === 'grid' ? (
                     <VirtuosoGrid
                         ref={virtuosoRef as React.RefObject<VirtuosoGridHandle>}
                         style={{ height: '100%', width: '100%' }}
@@ -218,7 +219,9 @@ export const Explorer: React.FC = () => {
                             );
                         }}
                     />
-                )}
+                    )}
+                </div>
+                <AssetInspector />
             </div>
 
             <MediaViewer />

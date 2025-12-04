@@ -22,13 +22,23 @@ export function AssetInspector() {
   const [isTagsOpen, setIsTagsOpen] = useState(true);
   const [isEngagementOpen, setIsEngagementOpen] = useState(true);
 
-  // Reset sections when asset changes
-  useEffect(() => {
-    if (inspectorAsset) {
-      setIsDetailsOpen(true);
-      setIsMetadataOpen(false);
-    }
-  }, [inspectorAsset?.id]);
+  // // Reset sections when asset changes
+  // useEffect(() => {
+  //   if (inspectorAsset) {
+  //     setTimeout(() => {
+  //       setIsDetailsOpen(true);
+  //     }, 0);
+  //     setTimeout(() => {
+  //       setIsMetadataOpen(false);
+  //     }, 0);
+  //     setTimeout(() => {
+  //       setIsTagsOpen(false);
+  //     }, 0);
+  //     setTimeout(() => {
+  //       setIsEngagementOpen(false);
+  //     }, 0);
+  //   }
+  // }, [inspectorAsset?.id]);
 
   const asset = inspectorAsset;
   const isVideo = asset?.type === 'video';
@@ -41,17 +51,24 @@ export function AssetInspector() {
         inspectorCollapsed ? "w-0 border-none" : "w-64"
       )}
     >
-      {/* Collapse Toggle Button */}
-      <div className="absolute -left-3 top-3 z-50">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6 rounded-full border border-border bg-background shadow-sm hover:bg-accent"
-          onClick={toggleInspector}
-        >
-          {inspectorCollapsed ? <ChevronLeft className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-        </Button>
-      </div>
+      {/* Collapse Toggle Button - positioned to align with left sidebar button */}
+      <button
+        className={cn(
+          "absolute z-50 flex items-center justify-center bg-background/95 dark:bg-background/80 border border-border shadow-sm hover:bg-accent/50 transition-all duration-200 group",
+          "top-[11px]", // Aligned with left sidebar button (accounting for filter bar height ~45px)
+          inspectorCollapsed
+            ? "right-0 px-1 py-4 rounded-l-md border-r-0"
+            : "-left-[13px] px-0.5 py-3 rounded-md"
+        )}
+        onClick={toggleInspector}
+        title={inspectorCollapsed ? "Expand inspector" : "Collapse inspector"}
+      >
+        {inspectorCollapsed ? (
+          <ChevronLeft className="h-4 w-3 text-muted-foreground group-hover:text-foreground" />
+        ) : (
+          <ChevronRight className="h-4 w-3 text-muted-foreground group-hover:text-foreground" />
+        )}
+      </button>
 
       <div className={cn("flex-1 flex flex-col overflow-hidden w-64", inspectorCollapsed && "hidden")}>
         {!asset ? (

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Search, Loader2, RefreshCw, Inbox, Star, X, StickyNote, CheckCircle, AlertCircle, Tag } from 'lucide-react';
 import { useStore } from '../store';
 import { debounce } from '../utils/debounce';
@@ -39,9 +39,9 @@ export function SearchPalette() {
     const [isCreateScratchPadDialogOpen, setIsCreateScratchPadDialogOpen] = useState(false);
     const [isCreateTagDialogOpen, setIsCreateTagDialogOpen] = useState(false);
 
-    // Debounced search function
-    const debouncedSearch = useCallback(
-        debounce(async (query: string) => {
+    // Create a stable debounced search function using useMemo
+    const debouncedSearch = useMemo(
+        () => debounce(async (query: string, searchFn: typeof previewSearch) => {
             if (!query.trim()) {
                 setAssets([]);
                 setIsSearching(false);
@@ -50,20 +50,25 @@ export function SearchPalette() {
             }
             setIsSearching(true);
             // Use previewSearch instead of searchAssets to avoid updating global state
-            const results = await previewSearch(query);
+            const results = await searchFn(query);
             setAssets(results);
             setIsSearching(false);
             setHasSearched(true);
         }, 300),
-        []
+        [] // Empty deps since we pass searchFn as parameter
     );
+
+    // Wrapper to use current previewSearch
+    const handleSearch = useCallback((query: string) => {
+        debouncedSearch(query, previewSearch);
+    }, [previewSearch, debouncedSearch]);
 
     useEffect(() => {
         // Sync local value with global search query when opening
         if (open) {
             setValue(searchQuery);
             if (searchQuery) {
-                debouncedSearch(searchQuery);
+                handleSearch(searchQuery);
             } else {
                 setAssets([]);
             }
@@ -72,11 +77,11 @@ export function SearchPalette() {
             setHasSearched(false);
             setIsSearching(false);
         }
-    }, [open, searchQuery]);
+    }, [open, searchQuery, handleSearch]);
 
     const handleValueChange = (value: string) => {
         setValue(value);
-        debouncedSearch(value);
+        handleSearch(value);
     };
 
     // Keyboard shortcuts to open/close search

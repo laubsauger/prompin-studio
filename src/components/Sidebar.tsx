@@ -36,16 +36,22 @@ export const Sidebar: React.FC = () => {
                 isCollapsed ? "w-0 border-none" : "w-64"
             )}
         >
-            <div className="absolute -right-3 top-3 z-50">
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 rounded-full border border-border bg-background shadow-sm hover:bg-accent"
-                    onClick={() => setIsCollapsed(!isCollapsed)}
-                >
-                    {isCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
-                </Button>
-            </div>
+            <button
+                className={cn(
+                    "absolute top-16 z-50 flex items-center justify-center bg-card border border-border shadow-sm hover:bg-accent/50 transition-all duration-200 group",
+                    isCollapsed
+                        ? "left-0 px-1 py-4 rounded-r-md border-l-0"
+                        : "-right-[13px] px-0.5 py-3 rounded-md"
+                )}
+                onClick={() => setIsCollapsed(!isCollapsed)}
+                title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+                {isCollapsed ? (
+                    <ChevronRight className="h-4 w-3 text-muted-foreground group-hover:text-foreground" />
+                ) : (
+                    <ChevronLeft className="h-4 w-3 text-muted-foreground group-hover:text-foreground" />
+                )}
+            </button>
 
             <div className={cn("flex-1 flex flex-col overflow-hidden w-64", isCollapsed && "hidden")}>
                 <div className="flex-1 overflow-y-auto py-4">
