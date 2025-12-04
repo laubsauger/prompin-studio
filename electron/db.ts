@@ -63,12 +63,15 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_assets_updated ON assets(updatedAt);
 
   -- Full-text search virtual table
+  -- We use a standard FTS table instead of external content (content=assets)
+  -- because external content + concurrent writes causes corruption in this environment.
+  -- We also handle updates manually to avoid triggers.
+  
+  DROP TABLE IF EXISTS assets_fts; -- Force recreation to remove content=assets option
   CREATE VIRTUAL TABLE IF NOT EXISTS assets_fts USING fts5(
     id UNINDEXED,
     path,
     metadata,
-    content=assets,
-    content_rowid=rowid,
     tokenize='porter unicode61'
   );
 
@@ -78,48 +81,23 @@ db.exec(`
     embedding(384)
   );
 
-  -- Triggers to keep FTS index in sync
-  CREATE TRIGGER IF NOT EXISTS assets_fts_insert AFTER INSERT ON assets BEGIN
-    INSERT INTO assets_fts(rowid, id, path, metadata)
-    VALUES (new.rowid, new.id, new.path, new.metadata);
-  END;
+  -- Cleanup old triggers
+  DROP TRIGGER IF EXISTS assets_fts_insert;
+  DROP TRIGGER IF EXISTS assets_fts_delete;
+  DROP TRIGGER IF EXISTS assets_fts_update;
+  
+  DROP TRIGGER IF EXISTS assets_vss_insert;
+  DROP TRIGGER IF EXISTS assets_vss_update;
+  DROP TRIGGER IF EXISTS assets_vss_update_null;
 
-  CREATE TRIGGER IF NOT EXISTS assets_fts_delete AFTER DELETE ON assets BEGIN
-    DELETE FROM assets_fts WHERE rowid = old.rowid;
-  END;
-
-  CREATE TRIGGER IF NOT EXISTS assets_fts_update AFTER UPDATE ON assets BEGIN
-    DELETE FROM assets_fts WHERE rowid = old.rowid;
-    INSERT INTO assets_fts(rowid, id, path, metadata)
-    VALUES (new.rowid, new.id, new.path, new.metadata);
-  END;
-
-  -- Triggers to keep VSS index in sync
-  -- Note: We assume metadata contains an 'embedding' field which is a JSON array
-  CREATE TRIGGER IF NOT EXISTS assets_vss_insert AFTER INSERT ON assets 
-  WHEN json_extract(new.metadata, '$.embedding') IS NOT NULL
-  BEGIN
-    INSERT INTO vss_assets(rowid, embedding)
-    VALUES (new.rowid, json_extract(new.metadata, '$.embedding'));
-  END;
-
+  -- We keep VSS delete trigger as it is safe and convenient
   CREATE TRIGGER IF NOT EXISTS assets_vss_delete AFTER DELETE ON assets BEGIN
     DELETE FROM vss_assets WHERE rowid = old.rowid;
   END;
-
-  CREATE TRIGGER IF NOT EXISTS assets_vss_update AFTER UPDATE ON assets 
-  WHEN json_extract(new.metadata, '$.embedding') IS NOT NULL
-  BEGIN
-    DELETE FROM vss_assets WHERE rowid = old.rowid;
-    INSERT INTO vss_assets(rowid, embedding)
-    VALUES (new.rowid, json_extract(new.metadata, '$.embedding'));
-  END;
-
-  -- Also handle case where embedding is removed/nullified
-  CREATE TRIGGER IF NOT EXISTS assets_vss_update_null AFTER UPDATE ON assets
-  WHEN json_extract(new.metadata, '$.embedding') IS NULL
-  BEGIN
-    DELETE FROM vss_assets WHERE rowid = old.rowid;
+  
+  -- We also keep FTS delete trigger as it is safe
+  CREATE TRIGGER IF NOT EXISTS assets_fts_delete AFTER DELETE ON assets BEGIN
+    DELETE FROM assets_fts WHERE rowid = old.rowid;
   END;
 `);
 

@@ -74,6 +74,14 @@ export class AssetManager {
                 ...asset,
                 metadata: JSON.stringify(asset.metadata)
             });
+
+            // Manual FTS Update
+            const row = db.prepare('SELECT rowid FROM assets WHERE id = ?').get(asset.id) as { rowid: number };
+            if (row) {
+                db.prepare('DELETE FROM assets_fts WHERE rowid = ?').run(row.rowid);
+                db.prepare('INSERT INTO assets_fts(rowid, id, path, metadata) VALUES (?, ?, ?, ?)').run(row.rowid, asset.id, asset.path, JSON.stringify(asset.metadata));
+            }
+
         } else {
             try {
                 db.prepare(`
@@ -83,6 +91,13 @@ export class AssetManager {
                     ...asset,
                     metadata: JSON.stringify(asset.metadata)
                 });
+
+                // Manual FTS Insert
+                const row = db.prepare('SELECT rowid FROM assets WHERE id = ?').get(asset.id) as { rowid: number };
+                if (row) {
+                    db.prepare('INSERT INTO assets_fts(rowid, id, path, metadata) VALUES (?, ?, ?, ?)').run(row.rowid, asset.id, asset.path, JSON.stringify(asset.metadata));
+                }
+
             } catch (error: any) {
                 if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
                     // Handle collision by updating existing record at that path
@@ -100,6 +115,13 @@ export class AssetManager {
                         ...asset,
                         metadata: JSON.stringify(asset.metadata)
                     });
+
+                    // Manual FTS Update
+                    const row = db.prepare('SELECT rowid FROM assets WHERE id = ?').get(asset.id) as { rowid: number };
+                    if (row) {
+                        db.prepare('DELETE FROM assets_fts WHERE rowid = ?').run(row.rowid);
+                        db.prepare('INSERT INTO assets_fts(rowid, id, path, metadata) VALUES (?, ?, ?, ?)').run(row.rowid, asset.id, asset.path, JSON.stringify(asset.metadata));
+                    }
                 } else {
                     throw error;
                 }
@@ -134,9 +156,32 @@ export class AssetManager {
 
             if (updates.length > 0) {
                 const stmt = db.prepare('UPDATE assets SET rootPath = @rootPath, path = @path WHERE id = @id');
+                const deleteStmt = db.prepare('DELETE FROM assets WHERE id = ?');
+                const checkStmt = db.prepare('SELECT id FROM assets WHERE rootPath = ? AND path = ?');
+
                 const updateTransaction = db.transaction((assetsToUpdate: any[]) => {
                     for (const update of assetsToUpdate) {
+                        // Check for conflict
+                        const existing = checkStmt.get(update.rootPath, update.path) as { id: string };
+                        if (existing && existing.id !== update.id) {
+                            // Conflict! Delete the existing one to allow the move
+                            deleteStmt.run(existing.id);
+                            // FTS delete handled by trigger (we kept delete trigger)
+                        }
                         stmt.run(update);
+
+                        // Manual FTS Update for re-homed asset
+                        const row = db.prepare('SELECT rowid FROM assets WHERE id = ?').get(update.id) as { rowid: number };
+                        if (row) {
+                            // We need to fetch metadata to update FTS fully, or just update path?
+                            // FTS5 doesn't support partial updates easily without content=assets.
+                            // We need to delete and re-insert.
+                            const asset = db.prepare('SELECT * FROM assets WHERE id = ?').get(update.id) as any;
+                            if (asset) {
+                                db.prepare('DELETE FROM assets_fts WHERE rowid = ?').run(row.rowid);
+                                db.prepare('INSERT INTO assets_fts(rowid, id, path, metadata) VALUES (?, ?, ?, ?)').run(row.rowid, asset.id, asset.path, asset.metadata);
+                            }
+                        }
                     }
                 });
                 updateTransaction(updates);

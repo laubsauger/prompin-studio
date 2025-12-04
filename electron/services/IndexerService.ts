@@ -295,9 +295,24 @@ export class IndexerService {
 
                 if (embedding) {
                     // Update metadata with embedding
-                    // This will trigger the DB trigger to update vss_assets
                     const newMetadata = { ...asset.metadata, embedding };
+
+                    // 1. Update main assets table
                     this.updateAssetMetadata(asset.id, newMetadata);
+
+                    // 2. Manually update vss_assets table
+                    // We do this here instead of triggers to avoid overhead during ingestion
+                    // and to prevent concurrency issues.
+                    try {
+                        const row = db.prepare('SELECT rowid FROM assets WHERE id = ?').get(asset.id) as { rowid: number };
+                        if (row) {
+                            db.prepare('DELETE FROM vss_assets WHERE rowid = ?').run(row.rowid);
+                            db.prepare('INSERT INTO vss_assets(rowid, embedding) VALUES (?, ?)').run(row.rowid, JSON.stringify(embedding));
+                        }
+                    } catch (vssError) {
+                        console.error(`[IndexerService] Failed to update vss_assets for ${asset.id}:`, vssError);
+                    }
+
                     this.stats.embeddingsGenerated = (this.stats.embeddingsGenerated || 0) + 1;
                 }
             } catch (error) {
@@ -558,6 +573,21 @@ export class IndexerService {
             }
         }
 
+        // If we have a relatedToAssetId, ensure that asset is included and at the top
+        if (filters?.relatedToAssetId) {
+            const sourceAsset = this.assetManager.getAsset(filters.relatedToAssetId);
+            if (sourceAsset) {
+                // Remove source asset if it's already in the results
+                assets = assets.filter((a: any) => a.id !== filters.relatedToAssetId);
+
+                // Prepend source asset
+                // We need to fetch tags for it too if we are doing that below
+                // But let's just add it to the list and let the tag fetching logic handle it if possible
+                // The tag fetching logic uses `assets.map(a => a.id)`, so if we add it here, it will get tags.
+                assets.unshift(sourceAsset as any);
+            }
+        }
+
         if (assets.length > 0) {
             const assetIds = assets.map((a: any) => a.id);
             const placeholders = assetIds.map(() => '?').join(', ');
@@ -777,10 +807,17 @@ export class IndexerService {
         this.updateAssetMetadata(assetId, metadata);
     }
 
-    public updateAssetMetadata(assetId: string, metadata: any) {
-        db.prepare('UPDATE assets SET metadata = ? WHERE id = ?').run(JSON.stringify(metadata), assetId);
+    public updateAssetMetadata(id: string, metadata: any) {
+        db.prepare('UPDATE assets SET metadata = ? WHERE id = ?').run(JSON.stringify(metadata), id);
+
+        // Manual FTS Update
+        const row = db.prepare('SELECT rowid, path FROM assets WHERE id = ?').get(id) as { rowid: number, path: string };
+        if (row) {
+            db.prepare('DELETE FROM assets_fts WHERE rowid = ?').run(row.rowid);
+            db.prepare('INSERT INTO assets_fts(rowid, id, path, metadata) VALUES (?, ?, ?, ?)').run(row.rowid, id, row.path, JSON.stringify(metadata));
+        }
         if (this.mainWindow) {
-            const asset = this.assetManager.getAsset(assetId);
+            const asset = this.assetManager.getAsset(id);
             if (asset) this.mainWindow.webContents.send('asset-updated', asset);
         }
     }

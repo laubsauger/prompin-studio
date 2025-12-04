@@ -27,6 +27,11 @@ export const MediaViewer: React.FC = () => {
     const [showMetadata, setShowMetadata] = useState(false);
     const [isCreateTagDialogOpen, setIsCreateTagDialogOpen] = useState(false);
     const [isMetadataEditorOpen, setIsMetadataEditorOpen] = useState(false);
+    const [loadError, setLoadError] = useState(false);
+
+    useEffect(() => {
+        setLoadError(false);
+    }, [viewingAssetId]);
 
     const asset = assets.find(a => a.id === viewingAssetId);
 
@@ -279,7 +284,18 @@ export const MediaViewer: React.FC = () => {
 
                 {/* Media Display */}
                 <div className="flex-1 overflow-hidden flex items-center justify-center bg-black/5">
-                    {asset.type === 'image' ? (
+                    {loadError ? (
+                        <div className="flex flex-col items-center justify-center text-muted-foreground p-8 text-center">
+                            <Info className="h-12 w-12 mb-4 opacity-50" />
+                            <h3 className="text-lg font-medium mb-2">File Not Found</h3>
+                            <p className="text-sm max-w-md mb-4">
+                                The file could not be loaded. It may have been moved, deleted, or is currently inaccessible.
+                            </p>
+                            <p className="text-xs font-mono bg-muted p-2 rounded max-w-lg break-all select-all">
+                                {asset.path}
+                            </p>
+                        </div>
+                    ) : asset.type === 'image' ? (
                         <div className="w-full h-full relative">
                             <TransformWrapper
                                 minScale={0.5}
@@ -326,6 +342,7 @@ export const MediaViewer: React.FC = () => {
                                                 boxShadow: '0 0 20px rgba(0,0,0,0.5)' // Optional: add some depth
                                             }}
                                             draggable={false}
+                                            onError={() => setLoadError(true)}
                                         />
                                     </TransformComponent>
                                 )}
@@ -342,6 +359,7 @@ export const MediaViewer: React.FC = () => {
                             title={asset.path}
                             className="w-full h-full"
                             autoPlay
+                            onError={() => setLoadError(true)}
                         >
                             <MediaProvider />
                             <DefaultVideoLayout icons={defaultLayoutIcons} />
