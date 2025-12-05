@@ -24,9 +24,10 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
     const isInInspector = useStore(state => state.inspectorAsset?.id === asset.id);
     const aspectRatio = useStore(state => state.aspectRatio);
     const viewDisplay = useStore(state => state.viewDisplay);
-    const filterConfig = useStore(state => state.filterConfig);
+    const relatedToAssetId = useStore(state => state.filterConfig.relatedToAssetId);
+    const isSemantic = useStore(state => state.filterConfig.semantic);
 
-    if (asset.type === 'image' && asset.distance === undefined && filterConfig.relatedToAssetId) {
+    if (asset.type === 'image' && asset.distance === undefined && relatedToAssetId) {
         // console.log('Image missing distance:', asset.id);
     }
 
@@ -208,7 +209,7 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
                         "group relative overflow-hidden transition-all duration-200 hover:shadow-md border-border/50 bg-card/50",
                         isSelected && "ring-2 ring-primary border-primary shadow-lg bg-accent/10",
                         // Highlight source asset in similarity search
-                        asset.id === filterConfig.relatedToAssetId && !isSelected && "border-2 border-purple-500 shadow-lg",
+                        asset.id === relatedToAssetId && !isSelected && "border-2 border-purple-500 shadow-lg",
                         // Highlight asset shown in inspector
                         isInInspector && !isSelected && "border-2 border-orange-500/70 shadow-md"
                     )}
@@ -221,7 +222,7 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
                     }}
                 >
                     {/* Source Asset Label */}
-                    {asset.id === filterConfig.relatedToAssetId && (
+                    {asset.id === relatedToAssetId && (
                         <div className="absolute top-0 left-1/2 -translate-x-1/2 z-20 bg-purple-500 text-white text-[8px] px-1.5 py-0.5 rounded-b-sm font-medium shadow-sm leading-none">
                             Source
                         </div>
@@ -305,7 +306,7 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
                                         }
                                     }}
                                 >
-                                    <div className="w-full h-1 bg-white/20 group-hover/scrubber:bg-white/30 group-hover/scrubber:h-1.5 transition-all rounded-full overflow-hidden backdrop-blur-sm relative">
+                                    <div className="w-full h-1 bg-white/20 group-hover/scrubber:bg-white/30 group-hover/scrubber:h-1.5 transition-all rounded-full overflow-hidden relative">
                                         {/* Playback Progress */}
                                         <div
                                             className="absolute top-0 left-0 bottom-0 bg-primary/80 transition-all duration-75"
@@ -324,7 +325,7 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
 
                                 {/* Time Display */}
                                 {asset.type === 'video' && (
-                                    <div className="absolute bottom-2 right-2 z-30 text-[9px] font-medium text-white/90 bg-black/40 px-1.5 py-0.5 rounded-sm backdrop-blur-sm pointer-events-none tabular-nums">
+                                    <div className="absolute bottom-2 right-2 z-30 text-[9px] font-medium text-white/90 bg-black/60 px-1.5 py-0.5 rounded-sm pointer-events-none tabular-nums">
                                         {(isPlaying || isHoveringCard)
                                             ? `${formatTime((isHoveringScrubber && hoverProgress !== null) ? ((hoverProgress / 100) * (duration || asset.metadata.duration || 0)) : currentTime)} / ${formatTime(duration || asset.metadata.duration || 0)}`
                                             : formatTime(duration || asset.metadata.duration || 0)
@@ -351,7 +352,7 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
                             >
                                 <button
                                     onClick={handlePlayPauseClick}
-                                    className="rounded-full p-2.5 bg-black/50 text-white hover:bg-primary hover:text-primary-foreground backdrop-blur-sm transition-colors"
+                                    className="rounded-full p-2.5 bg-black/60 text-white hover:bg-primary hover:text-primary-foreground transition-colors"
                                 >
                                     {isPlaying ? (
                                         <Pause className="h-4 w-4 fill-current" />
@@ -370,7 +371,7 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
                                         e.stopPropagation();
                                         useStore.getState().setViewingAssetId(asset.id);
                                     }}
-                                    className="rounded-full p-2 bg-black/50 text-white hover:bg-primary hover:text-primary-foreground backdrop-blur-sm transition-colors"
+                                    className="rounded-full p-2 bg-black/60 text-white hover:bg-primary hover:text-primary-foreground transition-colors"
                                 >
                                     <ZoomIn className="h-3 w-3" />
                                 </button>
@@ -382,8 +383,8 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
                             <div className="absolute top-2 left-2 z-10 flex flex-col gap-1">
                                 <AssetStatusBadge status={asset.status} />
                                 {/* Similarity Score - Only show when in similarity search mode */}
-                                {filterConfig.relatedToAssetId && filterConfig.semantic && (
-                                    <div className="text-[10px] font-bold text-white/90 bg-black/60 px-1.5 py-0.5 rounded-sm backdrop-blur-sm tabular-nums border border-white/10 w-fit">
+                                {relatedToAssetId && isSemantic && (
+                                    <div className="text-[10px] font-bold text-white/90 bg-black/70 px-1.5 py-0.5 rounded-sm tabular-nums border border-white/10 w-fit">
                                         {asset.distance !== undefined ? `${Math.round((1 - asset.distance) * 100)}%` : 'N/A'}
                                     </div>
                                 )}
@@ -398,7 +399,7 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
                                 {/* Lineage indicator - shows if asset has input images */}
                                 {asset.metadata.inputs && asset.metadata.inputs.length > 0 && (
                                     <div
-                                        className="rounded-full p-1.5 bg-black/40 text-white/90 backdrop-blur-md"
+                                        className="rounded-full p-1.5 bg-black/60 text-white/90"
                                         title={`Has ${asset.metadata.inputs.length} input asset${asset.metadata.inputs.length > 1 ? 's' : ''}`}
                                     >
                                         <GitBranch className="h-3.5 w-3.5" />
@@ -412,10 +413,10 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
                                         toggleLike(asset.id);
                                     }}
                                     className={cn(
-                                        "rounded-full p-1.5 backdrop-blur-md transition-colors",
+                                        "rounded-full p-1.5 transition-colors",
                                         asset.metadata.liked
-                                            ? "bg-black/40 text-red-500 hover:bg-black/60"
-                                            : "bg-black/40 text-white/70 hover:bg-black/60 hover:text-white"
+                                            ? "bg-black/60 text-red-500 hover:bg-black/80"
+                                            : "bg-black/60 text-white/70 hover:bg-black/80 hover:text-white"
                                     )}
                                 >
                                     <Heart className={cn("h-3.5 w-3.5", asset.metadata.liked && "fill-current")} />
@@ -431,7 +432,7 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
                     {/* Tags section - only show in detailed view */}
                     {viewDisplay === 'detailed' && (
                         <div
-                            className="border-t border-border/50 bg-card/80 backdrop-blur-sm h-7 relative overflow-hidden group/tags cursor-pointer"
+                            className="border-t border-border/50 bg-card/90 h-7 relative overflow-hidden group/tags cursor-pointer"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 setInspectorAsset(asset);
@@ -471,7 +472,7 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
 
                             {/* Hover tooltip showing all tags */}
                             {asset.tags && asset.tags.length > 0 && (
-                                <div className="absolute inset-x-0 top-full mt-1 bg-popover/95 backdrop-blur-md border border-border rounded-md p-2 opacity-0 pointer-events-none group-hover/tags:opacity-100 group-hover/tags:pointer-events-auto transition-opacity z-50 shadow-lg">
+                                <div className="absolute inset-x-0 top-full mt-1 bg-popover/95 border border-border rounded-md p-2 opacity-0 pointer-events-none group-hover/tags:opacity-100 group-hover/tags:pointer-events-auto transition-opacity z-50 shadow-lg">
                                     <div className="flex flex-wrap gap-1">
                                         {asset.tags.map(tag => (
                                             <div key={tag.id} className="flex items-center px-2 py-1 rounded-sm bg-accent text-[11px] text-foreground gap-1.5">
