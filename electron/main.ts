@@ -7,6 +7,7 @@ import { indexerService } from './services/IndexerService.js';
 import { searchService } from './services/SearchService.js';
 import { tagService } from './services/TagService.js';
 import { folderService } from './services/FolderService.js';
+import { syncService } from './services/SyncService.js';
 import { assetService } from './services/AssetService.js';
 import os from 'os';
 
@@ -368,6 +369,22 @@ ipcMain.handle('set-folder-color', async (event, path, color) => {
 
 ipcMain.handle('get-metadata-options', async () => {
   return assetService.getMetadataOptions();
+});
+
+// Sync Debug Handlers
+ipcMain.handle('get-sync-status', () => {
+  return syncService.getStatus();
+});
+
+ipcMain.handle('get-sync-history', () => {
+  return syncService.getHistory();
+});
+
+// Forward sync events to renderer
+syncService.on('event', (event: any) => {
+  if (win) {
+    win.webContents.send('sync-event', event);
+  }
 });
 
 // Tag IPC Handlers

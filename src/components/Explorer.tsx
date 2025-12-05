@@ -182,7 +182,7 @@ export const Explorer: React.FC = () => {
                             style={{ height: '100%', width: '100%' }}
                             data={filteredAssets}
                             rangeChanged={handleRangeChanged}
-                            overscan={500}
+                            overscan={{ main: 1000, reverse: 1000 }}
                             context={{ thumbnailSize }}
                             computeItemKey={(_, asset) => asset.id}
                             components={{
@@ -206,7 +206,7 @@ export const Explorer: React.FC = () => {
                             style={{ height: '100%', width: '100%' }}
                             data={filteredAssets}
                             rangeChanged={handleRangeChanged}
-                            overscan={500}
+                            overscan={{ main: 1000, reverse: 1000 }}
                             computeItemKey={(_, asset) => asset.id}
                             itemContent={(_, asset) => {
                                 return (

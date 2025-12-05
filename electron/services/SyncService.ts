@@ -198,6 +198,7 @@ export class SyncService extends EventEmitter {
         if (event.userId === this.userId) return;
 
         this.processedEvents.add(event.id);
+        this.addToHistory(event);
         this.emit('event', event);
     }
 
@@ -214,6 +215,7 @@ export class SyncService extends EventEmitter {
 
         // Mark as processed so we don't re-emit it when watcher sees the file
         this.processedEvents.add(event.id);
+        this.addToHistory(event);
 
         const fileName = `${event.timestamp}_${event.id}.json`;
         const filePath = path.join(this.syncDir, fileName);
@@ -223,6 +225,29 @@ export class SyncService extends EventEmitter {
             // console.log(`[SyncService] Published event ${type} to ${fileName}`);
         } catch (error) {
             console.error('[SyncService] Failed to publish event:', error);
+        }
+    }
+
+    private history: SyncEvent[] = [];
+    private readonly MAX_HISTORY = 100;
+
+    getHistory(): SyncEvent[] {
+        return [...this.history].sort((a, b) => b.timestamp - a.timestamp);
+    }
+
+    getStatus() {
+        return {
+            userId: this.userId,
+            syncDir: this.syncDir,
+            eventCount: this.processedEvents.size,
+            connected: !!this.watcher
+        };
+    }
+
+    private addToHistory(event: SyncEvent) {
+        this.history.unshift(event);
+        if (this.history.length > this.MAX_HISTORY) {
+            this.history = this.history.slice(0, this.MAX_HISTORY);
         }
     }
 
