@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Asset, AssetMetadata } from '../types';
 import { useStore } from '../store';
 import { Button } from './ui/button';
@@ -13,6 +13,7 @@ import { cn } from '../lib/utils';
 import { AssetPickerDialog } from './AssetPickerDialog';
 import { CreateTagDialog } from './CreateTagDialog';
 import { InputAssetThumbnail } from './InputAssetThumbnail';
+import { SmartMetadataInput } from './SmartMetadataInput';
 
 export const STORAGE_KEYS = {
     AUTHOR: 'gs_last_author',
@@ -43,14 +44,13 @@ export const MetadataForm: React.FC<MetadataFormProps> = ({
     currentUser,
     compact = false
 }) => {
-    const assets = useStore(state => state.assets);
     const allTags = useStore(state => state.tags);
     const createTag = useStore(state => state.createTag);
+    const metadataOptions = useStore(state => state.metadataOptions);
 
     // We maintain local state for the form, initialized with props
     const [metadata, setMetadata] = useState<AssetMetadata>(initialMetadata as AssetMetadata);
     const [isAssetPickerOpen, setIsAssetPickerOpen] = useState(false);
-    const [openAuthor, setOpenAuthor] = useState(false);
     const [openTags, setOpenTags] = useState(false);
     const [isCreateTagOpen, setIsCreateTagOpen] = useState(false);
 
@@ -58,19 +58,6 @@ export const MetadataForm: React.FC<MetadataFormProps> = ({
     const [localTagIds, setLocalTagIds] = useState<string[]>([]);
 
     const selectedTagIds = propTags !== undefined ? propTags : localTagIds;
-
-    // Get unique authors from existing assets
-    const authors = useMemo(() => {
-        const unique = new Set<string>();
-        // Add current user if available
-        if (currentUser) {
-            unique.add(currentUser.username);
-        }
-        assets.forEach(a => {
-            if (a.metadata.authorId) unique.add(a.metadata.authorId);
-        });
-        return Array.from(unique).sort();
-    }, [assets, currentUser]);
 
     // Initialize with persisted values if empty, ONLY on mount
     useEffect(() => {
@@ -161,13 +148,7 @@ export const MetadataForm: React.FC<MetadataFormProps> = ({
     // We need to expose tags to the parent if it's ingestion
     // Let's add `onTagsChange` to props.
 
-    // Get display name for author
-    const getAuthorDisplay = (authorId: string) => {
-        if (currentUser && authorId === currentUser.username) {
-            return `${currentUser.username} (me)`;
-        }
-        return authorId;
-    };
+
 
     return (
         <div className={cn("space-y-6", compact && "space-y-4")}>
@@ -213,11 +194,13 @@ export const MetadataForm: React.FC<MetadataFormProps> = ({
                 <div className={cn("grid grid-cols-2 gap-4", compact && "gap-2")}>
                     <div className="space-y-2">
                         <Label htmlFor="model" className={cn(compact && "text-[10px] uppercase tracking-wider text-muted-foreground font-medium")}>Model</Label>
-                        <Input
-                            id="model"
+                        <Label htmlFor="model" className={cn(compact && "text-[10px] uppercase tracking-wider text-muted-foreground font-medium")}>Model</Label>
+                        <SmartMetadataInput
                             value={metadata.model || ''}
-                            onChange={(e) => handleInputChange('model', e.target.value)}
+                            onChange={(val) => handleInputChange('model', val)}
+                            options={metadataOptions.models}
                             placeholder="e.g. Stable Diffusion XL"
+                            title="Model"
                             className={cn(compact && "h-8 text-xs")}
                         />
                     </div>
@@ -241,55 +224,22 @@ export const MetadataForm: React.FC<MetadataFormProps> = ({
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2 flex flex-col">
                             <Label>Author</Label>
-                            <Popover open={openAuthor} onOpenChange={setOpenAuthor}>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        role="combobox"
-                                        aria-expanded={openAuthor}
-                                        className="justify-between"
-                                    >
-                                        {metadata.authorId ? getAuthorDisplay(metadata.authorId) : "Select author..."}
-                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-[200px] p-0">
-                                    <Command>
-                                        <CommandInput placeholder="Search author..." />
-                                        <CommandList>
-                                            <CommandEmpty>No author found.</CommandEmpty>
-                                            <CommandGroup>
-                                                {authors.map((author) => (
-                                                    <CommandItem
-                                                        key={author}
-                                                        value={author}
-                                                        onSelect={(currentValue) => {
-                                                            handleInputChange('authorId', currentValue);
-                                                            setOpenAuthor(false);
-                                                        }}
-                                                    >
-                                                        <Check
-                                                            className={cn(
-                                                                "mr-2 h-4 w-4",
-                                                                metadata.authorId === author ? "opacity-100" : "opacity-0"
-                                                            )}
-                                                        />
-                                                        {getAuthorDisplay(author)}
-                                                    </CommandItem>
-                                                ))}
-                                            </CommandGroup>
-                                        </CommandList>
-                                    </Command>
-                                </PopoverContent>
-                            </Popover>
+                            <SmartMetadataInput
+                                value={metadata.authorId || ''}
+                                onChange={(val) => handleInputChange('authorId', val)}
+                                options={metadataOptions.authors}
+                                placeholder="Select author..."
+                                title="Author"
+                            />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="project">Project</Label>
-                            <Input
-                                id="project"
+                            <SmartMetadataInput
                                 value={metadata.project || ''}
-                                onChange={(e) => handleInputChange('project', e.target.value)}
+                                onChange={(val) => handleInputChange('project', val)}
+                                options={metadataOptions.projects}
                                 placeholder="Project Name"
+                                title="Project"
                             />
                         </div>
                     </div>
@@ -297,20 +247,22 @@ export const MetadataForm: React.FC<MetadataFormProps> = ({
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="scene">Scene</Label>
-                            <Input
-                                id="scene"
+                            <SmartMetadataInput
                                 value={metadata.scene || ''}
-                                onChange={(e) => handleInputChange('scene', e.target.value)}
+                                onChange={(val) => handleInputChange('scene', val)}
+                                options={metadataOptions.scenes}
                                 placeholder="Scene Name"
+                                title="Scene"
                             />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="shot">Shot</Label>
-                            <Input
-                                id="shot"
+                            <SmartMetadataInput
                                 value={metadata.shot || ''}
-                                onChange={(e) => handleInputChange('shot', e.target.value)}
+                                onChange={(val) => handleInputChange('shot', val)}
+                                options={metadataOptions.shots}
                                 placeholder="Shot Name"
+                                title="Shot"
                             />
                         </div>
                     </div>

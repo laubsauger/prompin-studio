@@ -140,10 +140,15 @@ export class AssetManager {
 
             for (const asset of allAssets) {
                 const absolutePath = path.join(asset.rootPath, asset.path);
-                const isWithin = absolutePath === newRootPath || absolutePath.startsWith(newRootPath + path.sep);
+                // Normalize both paths for comparison
+                const normalizedAbsolute = absolutePath.replace(/\\/g, '/');
+                const normalizedRoot = newRootPath.replace(/\\/g, '/');
+                const isWithin = normalizedAbsolute === normalizedRoot ||
+                                normalizedAbsolute.startsWith(normalizedRoot + '/');
 
                 if (isWithin) {
-                    const newRelativePath = path.relative(newRootPath, absolutePath);
+                    // Normalize path to always use forward slashes for cross-platform compatibility
+                    const newRelativePath = path.relative(newRootPath, absolutePath).replace(/\\/g, '/');
                     if (asset.rootPath !== newRootPath || asset.path !== newRelativePath) {
                         updates.push({
                             id: asset.id,

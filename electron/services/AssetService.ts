@@ -111,6 +111,23 @@ export class AssetService {
 
         return Array.from(assets.values());
     }
+    public getMetadataOptions() {
+        // Query distinct values for each field from the JSON metadata column
+        // We use json_extract to get the values
+        const authors = db.prepare("SELECT DISTINCT json_extract(metadata, '$.authorId') as val FROM assets WHERE val IS NOT NULL AND val != '' ORDER BY val").all() as { val: string }[];
+        const projects = db.prepare("SELECT DISTINCT json_extract(metadata, '$.project') as val FROM assets WHERE val IS NOT NULL AND val != '' ORDER BY val").all() as { val: string }[];
+        const scenes = db.prepare("SELECT DISTINCT json_extract(metadata, '$.scene') as val FROM assets WHERE val IS NOT NULL AND val != '' ORDER BY val").all() as { val: string }[];
+        const shots = db.prepare("SELECT DISTINCT json_extract(metadata, '$.shot') as val FROM assets WHERE val IS NOT NULL AND val != '' ORDER BY val").all() as { val: string }[];
+        const models = db.prepare("SELECT DISTINCT json_extract(metadata, '$.model') as val FROM assets WHERE val IS NOT NULL AND val != '' ORDER BY val").all() as { val: string }[];
+
+        return {
+            authors: authors.map(r => r.val),
+            projects: projects.map(r => r.val),
+            scenes: scenes.map(r => r.val),
+            shots: shots.map(r => r.val),
+            models: models.map(r => r.val)
+        };
+    }
 }
 
 export const assetService = new AssetService();

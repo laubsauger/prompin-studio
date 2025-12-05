@@ -300,7 +300,8 @@ export class IndexerService {
     private async handleFileAdd(filePath: string, skipThumbnail: boolean = false) {
         if (!this.isMediaFile(filePath)) return;
 
-        const relativePath = path.relative(this.rootPath, filePath);
+        // Normalize path to always use forward slashes for cross-platform compatibility
+        const relativePath = path.relative(this.rootPath, filePath).replace(/\\/g, '/');
         this.stats.currentFile = relativePath;
         this.stats.processedFiles++;
 
@@ -724,8 +725,9 @@ export class IndexerService {
             relativeDestDir = metadata.targetPath;
         } else {
             const project = metadata?.project || 'default';
-            relativeDestDir = path.join('uploads', project);
-            if (metadata?.scene) relativeDestDir = path.join(relativeDestDir, metadata?.scene);
+            // Use forward slashes for consistency across platforms
+            relativeDestDir = `uploads/${project}`;
+            if (metadata?.scene) relativeDestDir = `${relativeDestDir}/${metadata.scene}`;
         }
 
         const destDir = path.join(this.rootPath, relativeDestDir);

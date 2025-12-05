@@ -366,6 +366,10 @@ ipcMain.handle('set-folder-color', async (event, path, color) => {
   return folderService.setFolderColor(path, color);
 });
 
+ipcMain.handle('get-metadata-options', async () => {
+  return assetService.getMetadataOptions();
+});
+
 // Tag IPC Handlers
 ipcMain.handle('get-folders', () => {
   return folderService.getFolders();

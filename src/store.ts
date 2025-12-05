@@ -85,6 +85,13 @@ interface AppState {
     folders: string[];
     scratchPads: { id: string; name: string; assetIds: string[] }[];
     lastInboxViewTime: number;
+    metadataOptions: {
+        authors: string[];
+        projects: string[];
+        scenes: string[];
+        shots: string[];
+        models: string[];
+    };
 
     // Ingestion State
     ingestion: {
@@ -107,6 +114,7 @@ interface AppState {
 
     // Tag Actions
     loadTags: () => Promise<void>;
+    fetchMetadataOptions: () => Promise<void>;
     loadFolders: () => Promise<void>;
     createTag: (name: string, color?: string) => Promise<{ id: string; name: string; color?: string }>;
     deleteTag: (id: string) => Promise<void>;
@@ -201,6 +209,13 @@ export const useStore = create<AppState>((set, get) => ({
     folders: [],
     scratchPads: [],
     lastInboxViewTime: 0, // Should be persisted, but for now 0
+    metadataOptions: {
+        authors: [],
+        projects: [],
+        scenes: [],
+        shots: [],
+        models: []
+    },
 
     ingestion: {
         isOpen: false,
@@ -517,6 +532,10 @@ export const useStore = create<AppState>((set, get) => ({
         console.log('[Store] Loaded tags:', tags.length);
         set({ tags });
     },
+    fetchMetadataOptions: async () => {
+        const options = await getIpcRenderer().invoke('get-metadata-options');
+        set({ metadataOptions: options });
+    },
     loadFolders: async () => {
         const folders = await getIpcRenderer().invoke('get-folders');
         set({ folders });
@@ -627,6 +646,7 @@ export const useStore = create<AppState>((set, get) => ({
         // Initial data loads
         await get().loadAssets();
         await get().loadTags();
+        await get().fetchMetadataOptions();
         await get().loadFolderColors();
         await get().loadFolders();
     },

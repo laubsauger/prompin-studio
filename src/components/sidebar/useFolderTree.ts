@@ -17,8 +17,10 @@ export const useFolderTree = () => {
 
         // First build structure from all known folders
         folders.forEach(folderPath => {
-            const parts = folderPath.split('/');
-            if (!folderPath || folderPath === '.') return;
+            // Normalize path to use forward slashes (in case of mixed separators)
+            const normalizedPath = folderPath.replace(/\\/g, '/');
+            const parts = normalizedPath.split('/');
+            if (!normalizedPath || normalizedPath === '.') return;
 
             let current = root;
             let currentPath = '';
@@ -34,7 +36,9 @@ export const useFolderTree = () => {
 
         // Then populate counts from filtered assets
         assets.forEach(asset => {
-            const parts = asset.path.split('/');
+            // Normalize path to use forward slashes (in case of mixed separators)
+            const normalizedPath = asset.path.replace(/\\/g, '/');
+            const parts = normalizedPath.split('/');
             parts.pop(); // Remove filename
 
             let current = root;

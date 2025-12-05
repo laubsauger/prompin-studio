@@ -21,6 +21,17 @@ vi.mock('./ui/command', () => ({
     CommandList: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
+// Mock SmartMetadataInput to behave like a simple input for testing purposes
+vi.mock('./SmartMetadataInput', () => ({
+    SmartMetadataInput: ({ value, onChange, placeholder }: any) => (
+        <input
+            placeholder={placeholder}
+            value={value}
+            onChange={e => onChange(e.target.value)}
+        />
+    )
+}));
+
 import { useStore } from '../store';
 
 // ... mocks ...

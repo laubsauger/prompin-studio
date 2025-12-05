@@ -93,16 +93,17 @@ export const InputAssetThumbnail: React.FC<InputAssetThumbnailProps> = ({
                     "relative group flex flex-col items-center gap-1",
                     className
                 )}>
-                    <div className={cn(
-                        "relative w-24 h-24 rounded-lg border bg-background overflow-hidden transition-all cursor-pointer",
-                        "hover:ring-2 hover:ring-primary/50",
-                        isContextMenuOpen && "ring-2 ring-primary"
-                    )}>
-                        {/* Thumbnail */}
-                        <img
-                            src={thumbnailUrl}
-                            alt={fileName}
-                            className="w-full h-full object-cover"
+                    <div className="relative">
+                        <div className={cn(
+                            "w-24 h-24 rounded-lg border bg-background overflow-hidden transition-all cursor-pointer",
+                            "hover:ring-2 hover:ring-primary/50",
+                            isContextMenuOpen && "ring-2 ring-primary"
+                        )}>
+                            {/* Thumbnail */}
+                            <img
+                                src={thumbnailUrl}
+                                alt={fileName}
+                                className="w-full h-full object-cover"
                             onError={(e) => {
                                 // Fallback for broken images
                                 e.currentTarget.style.display = 'none';
@@ -132,21 +133,22 @@ export const InputAssetThumbnail: React.FC<InputAssetThumbnailProps> = ({
                             </span>
                         </div>
 
-                        {/* Action buttons overlay */}
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleFullscreen();
-                                }}
-                                className="p-1.5 bg-white/90 hover:bg-white text-black rounded-md transition-colors"
-                                title="View fullscreen"
-                            >
-                                <Maximize2 className="h-4 w-4" />
-                            </button>
+                            {/* Action buttons overlay */}
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleFullscreen();
+                                    }}
+                                    className="p-1.5 bg-white/90 hover:bg-white text-black rounded-md transition-colors"
+                                    title="View fullscreen"
+                                >
+                                    <Maximize2 className="h-4 w-4" />
+                                </button>
+                            </div>
                         </div>
 
-                        {/* Remove button */}
+                        {/* Remove button - outside overflow container */}
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();

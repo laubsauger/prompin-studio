@@ -39,12 +39,16 @@ export class FolderService {
         const folders = new Set<string>();
 
         paths.forEach(p => {
-            const dir = path.dirname(p.path);
-            if (dir !== '.') {
-                let current = dir;
-                while (current !== '.' && current !== '') {
-                    folders.add(current);
-                    current = path.dirname(current);
+            // Since paths are stored with forward slashes, split by forward slash
+            // instead of using path.dirname which uses OS-specific separators
+            const parts = p.path.split('/');
+            parts.pop(); // Remove filename
+
+            // Build all parent folders
+            for (let i = 1; i <= parts.length; i++) {
+                const folderPath = parts.slice(0, i).join('/');
+                if (folderPath) {
+                    folders.add(folderPath);
                 }
             }
         });

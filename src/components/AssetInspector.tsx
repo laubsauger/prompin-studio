@@ -7,10 +7,10 @@ import { MetadataForm } from './MetadataForm';
 import { cn } from '../lib/utils';
 import { Button } from './ui/button';
 import { SidebarSection } from './sidebar/SidebarSection';
-import { InlineEdit } from './InlineEdit';
 import { InputAssetThumbnail } from './InputAssetThumbnail';
 import { AssetPickerDialog } from './AssetPickerDialog';
 import { CreateTagDialog } from './CreateTagDialog';
+import { SmartMetadataInput } from './SmartMetadataInput';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import {
@@ -43,6 +43,7 @@ export function AssetInspector() {
   const removeTagFromAsset = useStore(state => state.removeTagFromAsset);
   const createTag = useStore(state => state.createTag);
   const createScratchPad = useStore(state => state.createScratchPad);
+  const metadataOptions = useStore(state => state.metadataOptions);
   const setViewingAssetId = useStore(state => state.setViewingAssetId);
 
   const [isDetailsOpen, setIsDetailsOpen] = useState(true);
@@ -293,30 +294,50 @@ export function AssetInspector() {
                 >
                   <div className="px-4 py-2">
                     <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                      <InlineEdit
-                        label="Author"
-                        value={asset.metadata.authorId || ''}
-                        onSave={(val) => handleInlineSave('authorId', val)}
-                        placeholder="Add author"
-                      />
-                      <InlineEdit
-                        label="Project"
-                        value={asset.metadata.project || ''}
-                        onSave={(val) => handleInlineSave('project', val)}
-                        placeholder="Add project"
-                      />
-                      <InlineEdit
-                        label="Scene"
-                        value={asset.metadata.scene || ''}
-                        onSave={(val) => handleInlineSave('scene', val)}
-                        placeholder="Add scene"
-                      />
-                      <InlineEdit
-                        label="Shot"
-                        value={asset.metadata.shot || ''}
-                        onSave={(val) => handleInlineSave('shot', val)}
-                        placeholder="Add shot"
-                      />
+                      <div className="space-y-1">
+                        <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Author</div>
+                        <SmartMetadataInput
+                          value={asset.metadata.authorId || ''}
+                          onChange={(val) => handleInlineSave('authorId', val)}
+                          options={metadataOptions.authors}
+                          placeholder="Add author"
+                          title="Author"
+                          className="h-7 text-xs px-2 py-1"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Project</div>
+                        <SmartMetadataInput
+                          value={asset.metadata.project || ''}
+                          onChange={(val) => handleInlineSave('project', val)}
+                          options={metadataOptions.projects}
+                          placeholder="Add project"
+                          title="Project"
+                          className="h-7 text-xs px-2 py-1"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Scene</div>
+                        <SmartMetadataInput
+                          value={asset.metadata.scene || ''}
+                          onChange={(val) => handleInlineSave('scene', val)}
+                          options={metadataOptions.scenes}
+                          placeholder="Add scene"
+                          title="Scene"
+                          className="h-7 text-xs px-2 py-1"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Shot</div>
+                        <SmartMetadataInput
+                          value={asset.metadata.shot || ''}
+                          onChange={(val) => handleInlineSave('shot', val)}
+                          options={metadataOptions.shots}
+                          placeholder="Add shot"
+                          title="Shot"
+                          className="h-7 text-xs px-2 py-1"
+                        />
+                      </div>
                     </div>
                   </div>
                 </SidebarSection>
