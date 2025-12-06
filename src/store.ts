@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
 
 
-import type { Asset, SyncStats, AssetStatus, AssetMetadata } from './types';
+import type { Asset, SyncStats, AssetMetadata } from './types';
 
 // Lazily load ipcRenderer to avoid issues during test initialization if window.require is not yet mocked
 const getIpcRenderer = () => {
@@ -37,8 +37,7 @@ export interface FilterConfig {
     tagId?: string | null;  // Legacy single tag filter
     tagIds?: string[];  // New multi-select tags
     scratchPadId?: string | null;
-    status?: AssetStatus | 'all';
-    statuses?: AssetStatus[];  // New multi-select statuses
+    status: string[]; // Changed from optional AssetStatus | 'all' and statuses?: AssetStatus[]
     authorId?: string;
     project?: string;
     scene?: string;
@@ -49,6 +48,7 @@ export interface FilterConfig {
     dateTo?: number;
     relatedToAssetId?: string;
     semantic?: boolean;
+    minSimilarity?: number;
 }
 
 interface NavigationState {
@@ -69,7 +69,6 @@ interface AppState {
     currentPath: string | null;
     viewMode: 'grid' | 'list';
     aspectRatio: 'square' | 'video' | 'portrait';
-    viewDisplay: 'clean' | 'detailed';
     isLoading: boolean;
     loadingMessage: string;
 
@@ -77,7 +76,6 @@ interface AppState {
     navigationHistory: NavigationState[];
     navigationIndex: number;
 
-    sortConfig: { key: 'createdAt' | 'updatedAt' | 'path'; direction: 'asc' | 'desc' };
     filterConfig: FilterConfig;
     searchQuery: string;
     folderColors: Record<string, string>;
@@ -102,7 +100,6 @@ interface AppState {
     };
 
     // Actions
-    setSortConfig: (key: 'createdAt' | 'updatedAt' | 'path', direction: 'asc' | 'desc') => void;
     setFilterConfig: (config: Partial<AppState['filterConfig']>) => void;
     resetFilters: () => void;
     setSearchQuery: (query: string) => void;
@@ -147,9 +144,10 @@ interface AppState {
     setInspectorAsset: (asset: Asset | null) => void;
     clearInspectorAsset: () => void;
     setCurrentPath: (path: string | null) => void;
+    activeTab: 'explorer' | 'analytics';
+    setActiveTab: (tab: 'explorer' | 'analytics') => void;
     setViewMode: (mode: 'grid' | 'list') => void;
     setAspectRatio: (ratio: 'square' | 'video' | 'portrait') => void;
-    setViewDisplay: (display: 'clean' | 'detailed') => void;
 
     // Navigation History
     pushNavigationState: () => void;
@@ -193,16 +191,15 @@ export const useStore = create<AppState>((set, get) => ({
     inspectorAsset: null,
     currentPath: null, // null = root, string = relative path from root
     viewMode: 'grid',
-    isLoading: false,
-    loadingMessage: '',
+    isLoading: true,
+    loadingMessage: 'Initializing...',
 
     // Navigation History
     navigationHistory: [],
     navigationIndex: -1,
 
     // New config initial state
-    sortConfig: { key: 'createdAt', direction: 'desc' },
-    filterConfig: { likedOnly: false, type: 'all', statuses: [] },
+    filterConfig: { likedOnly: false, type: 'all', status: [], minSimilarity: 0 },
     searchQuery: '',
     folderColors: {},
     tags: [],
@@ -237,6 +234,8 @@ export const useStore = create<AppState>((set, get) => ({
             set({ currentPath: path });
         }
     },
+    activeTab: 'explorer',
+    setActiveTab: (tab) => set({ activeTab: tab }),
     setViewMode: (mode) => set({ viewMode: mode }),
     setLoading: (isLoading, message = '') => set({ isLoading, loadingMessage: message }),
 
@@ -314,12 +313,7 @@ export const useStore = create<AppState>((set, get) => ({
     aspectRatio: 'square',
     setAspectRatio: (ratio: 'square' | 'video' | 'portrait') => set({ aspectRatio: ratio }),
 
-    // View Display
-    viewDisplay: 'detailed',
-    setViewDisplay: (display: 'clean' | 'detailed') => set({ viewDisplay: display }),
-
     // New config actions
-    setSortConfig: (key, direction) => set({ sortConfig: { key, direction } }),
     setLastInboxViewTime: (time) => {
         try {
             localStorage.setItem('lastInboxViewTime', JSON.stringify(time));
@@ -414,7 +408,7 @@ export const useStore = create<AppState>((set, get) => ({
         const emptyConfig: FilterConfig = {
             likedOnly: false,
             type: 'all',
-            statuses: [],
+            status: [],
             tagId: null,
             scratchPadId: null,
             authorId: undefined,
@@ -426,14 +420,17 @@ export const useStore = create<AppState>((set, get) => ({
             dateFrom: undefined,
             dateTo: undefined,
             relatedToAssetId: undefined,
-            semantic: false
+            semantic: false,
+            minSimilarity: 0
         };
+
         try {
             localStorage.setItem('filterConfig', JSON.stringify(emptyConfig));
         } catch (e) {
             console.error('Failed to persist filterConfig', e);
         }
         set({ filterConfig: emptyConfig, filter: 'all', searchQuery: '' });
+        get().searchAssets('', emptyConfig);
     },
     setSearchQuery: (query) => set({ searchQuery: query }),
     searchAssets: async (query, filters) => {
@@ -446,7 +443,7 @@ export const useStore = create<AppState>((set, get) => ({
             // Build filters for backend
             const backendFilters: any = {};
             if (filterConfig.type && filterConfig.type !== 'all') backendFilters.type = filterConfig.type;
-            if (filterConfig.status && filterConfig.status !== 'all') backendFilters.status = filterConfig.status;
+            if (filterConfig.status && (filterConfig.status as any) !== 'all' && filterConfig.status.length > 0) backendFilters.status = filterConfig.status;
             if (filterConfig.authorId) backendFilters.authorId = filterConfig.authorId;
             if (filterConfig.project) backendFilters.project = filterConfig.project;
             if (filterConfig.scene) backendFilters.scene = filterConfig.scene;
@@ -469,10 +466,13 @@ export const useStore = create<AppState>((set, get) => ({
                 }
             }
 
-            const assets = await getIpcRenderer().invoke('search-assets', searchQuery, backendFilters);
+            console.log('[Store] searchAssets sending filters:', JSON.stringify(backendFilters, null, 2));
+
+            const results = await getIpcRenderer().invoke('search-assets', searchQuery, backendFilters);
+            console.log('[Store] searchAssets received count:', results.length);
 
             // Apply client-side filters that backend doesn't handle
-            let filteredAssets = assets;
+            let filteredAssets = results;
             if (filterConfig.likedOnly) {
                 filteredAssets = filteredAssets.filter((a: Asset) => a.metadata.liked);
             }
@@ -488,7 +488,7 @@ export const useStore = create<AppState>((set, get) => ({
             const filterConfig = get().filterConfig;
             const backendFilters: any = {};
             if (filterConfig.type && filterConfig.type !== 'all') backendFilters.type = filterConfig.type;
-            if (filterConfig.status && filterConfig.status !== 'all') backendFilters.status = filterConfig.status;
+            if (filterConfig.status && filterConfig.status.length > 0) backendFilters.status = filterConfig.status;
             // ... (copy other filters if needed, or just search by query for Command K?)
             // Command K usually searches everything, but maybe respecting filters is good?
             // Let's respect filters for consistency, or maybe Command K should be global?
@@ -607,48 +607,60 @@ export const useStore = create<AppState>((set, get) => ({
         return path;
     },
 
-    initStore: async () => {
-        // Load persisted root path first
-        try {
-            const storedRootPath = localStorage.getItem('rootPath');
-            if (storedRootPath) {
-                console.log('[Store] Restoring root path:', storedRootPath);
-                await getIpcRenderer().invoke('set-root-path', storedRootPath);
-                set({ rootPath: storedRootPath });
-            }
-        } catch (e) {
-            console.error('Failed to load rootPath', e);
-        }
 
-        // Load persisted filter config
+
+    initStore: async () => {
+        set({ isLoading: true, loadingMessage: 'Initializing...' });
+
+        // Load persisted config
         try {
             const storedFilter = localStorage.getItem('filterConfig');
-            if (storedFilter) {
-                set({ filterConfig: JSON.parse(storedFilter) });
-            }
-        } catch (e) {
-            console.error('Failed to load filterConfig', e);
-        }
+            if (storedFilter) set({ filterConfig: JSON.parse(storedFilter) });
 
-        // Load persisted inbox view time
-        try {
             const storedInbox = localStorage.getItem('lastInboxViewTime');
-            if (storedInbox) {
-                set({ lastInboxViewTime: JSON.parse(storedInbox) });
-            }
+            if (storedInbox) set({ lastInboxViewTime: JSON.parse(storedInbox) });
         } catch (e) {
-            console.error('Failed to load lastInboxViewTime', e);
+            console.error('Failed to load persisted config', e);
         }
-
-        // Fetch sync stats immediately to show counts on loading screen
-        await get().fetchSyncStats();
 
         // Initial data loads
-        await get().loadAssets();
         await get().loadTags();
         await get().fetchMetadataOptions();
         await get().loadFolderColors();
         await get().loadFolders();
+
+        // Robust Asset Loading Strategy
+        // We want to ensure we don't show an empty screen if we know there are files.
+        let retries = 0;
+        const maxRetries = 5;
+
+        while (retries < maxRetries) {
+            // 1. Fetch latest stats
+            await get().fetchSyncStats();
+            const stats = get().syncStats;
+
+            // 2. Fetch assets
+            await get().loadAssets();
+            const assets = get().assets;
+
+            // 3. Verification
+            const hasFiles = stats && stats.totalFiles > 0;
+            const hasAssets = assets.length > 0;
+
+            if (hasFiles && !hasAssets) {
+                // Mismatch: Backend says files exist, but we got none.
+                // This implies initialization/indexing is still catching up.
+                console.log(`[Store] Init: Asset mismatch(Stats: ${stats.totalFiles}, Assets: 0).Retrying(${retries + 1}/${maxRetries})...`);
+                set({ loadingMessage: `Loading assets(${retries + 1}/${maxRetries})...` });
+                await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms
+                retries++;
+            } else {
+                // Consistent state (either we have assets, or we expect none)
+                break;
+            }
+        }
+
+        set({ isLoading: false, loadingMessage: '' });
     },
 
     toggleLike: async (id) => {
@@ -712,18 +724,13 @@ export const useStore = create<AppState>((set, get) => ({
     },
 
     loadAssets: async () => {
-        // Only show loading state if we don't have assets yet (initial load)
-        if (get().assets.length === 0) {
-            set({ isLoading: true, loadingMessage: 'Loading assets...' });
-        }
         try {
             const assets = await getIpcRenderer().invoke('get-assets');
-            set({ assets, isLoading: false, loadingMessage: '' });
+            set({ assets });
             // Also load folders to ensure structure is up to date
             get().loadFolders();
         } catch (error) {
             console.error('Failed to load assets:', error);
-            set({ isLoading: false, loadingMessage: '' });
         }
     },
 
@@ -749,13 +756,13 @@ export const useStore = create<AppState>((set, get) => ({
 
         console.log('[Store] fetchSyncStats received changes:', syncStats);
 
+        set({ syncStats });
+
         // If we just finished scanning, reload assets to show new files/folders
         if (currentStats?.status === 'scanning' && syncStats.status === 'idle') {
             console.log('[Store] Sync completed, reloading assets...');
             get().loadAssets();
         }
-
-        set({ syncStats });
     },
 
     triggerResync: async () => {

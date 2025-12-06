@@ -23,7 +23,7 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
     const isSelected = useStore(state => state.selectedIds.has(asset.id));
     const isInInspector = useStore(state => state.inspectorAsset?.id === asset.id);
     const aspectRatio = useStore(state => state.aspectRatio);
-    const viewDisplay = useStore(state => state.viewDisplay);
+    const viewDisplay = useSettingsStore(state => state.viewDisplay);
     const relatedToAssetId = useStore(state => state.filterConfig.relatedToAssetId);
     const isSemantic = useStore(state => state.filterConfig.semantic);
 
@@ -50,61 +50,15 @@ export const AssetCard: React.FC<{ asset: Asset }> = React.memo(({ asset }) => {
     };
 
     const handleDragStart = (e: React.DragEvent) => {
-        e.dataTransfer.effectAllowed = 'copy';
-        e.dataTransfer.setData('application/json', JSON.stringify({ assetId: asset.id }));
-
-        // Create a custom drag image with fixed size
-        if (e.dataTransfer.setDragImage) {
-            const dragImage = document.createElement('div');
-            dragImage.style.position = 'fixed';
-            dragImage.style.top = '-1000px';
-            dragImage.style.left = '-1000px';
-            dragImage.style.width = '150px';
-            dragImage.style.height = '150px';
-            dragImage.style.background = 'rgba(0, 0, 0, 0.8)';
-            dragImage.style.borderRadius = '8px';
-            dragImage.style.display = 'flex';
-            dragImage.style.alignItems = 'center';
-            dragImage.style.justifyContent = 'center';
-            dragImage.style.flexDirection = 'column';
-            dragImage.style.padding = '12px';
-            dragImage.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.5)';
-
-            // Add thumbnail
-            const img = document.createElement('img');
-            img.src = asset.type === 'video' && asset.thumbnailPath
-                ? `thumbnail://${asset.thumbnailPath}`
-                : `media://${asset.path}`;
-            img.style.width = '100%';
-            img.style.height = '100px';
-            img.style.objectFit = 'cover';
-            img.style.borderRadius = '4px';
-            img.style.marginBottom = '8px';
-
-            // Add filename
-            const label = document.createElement('div');
-            label.textContent = asset.path.split('/').pop() || '';
-            label.style.color = 'white';
-            label.style.fontSize = '11px';
-            label.style.textAlign = 'center';
-            label.style.overflow = 'hidden';
-            label.style.textOverflow = 'ellipsis';
-            label.style.whiteSpace = 'nowrap';
-            label.style.width = '100%';
-
-            dragImage.appendChild(img);
-            dragImage.appendChild(label);
-            document.body.appendChild(dragImage);
-
-            // Set the custom drag image
-            e.dataTransfer.setDragImage(dragImage, 75, 75);
-
-            // Clean up after a short delay
-            setTimeout(() => {
-                if (document.body.contains(dragImage)) {
-                    document.body.removeChild(dragImage);
-                }
-            }, 0);
+        e.preventDefault();
+        // Use Electron's native drag-and-drop
+        // @ts-ignore
+        if (window.ipcRenderer) {
+            // @ts-ignore
+            window.ipcRenderer.send('ondragstart',
+                asset.path,
+                asset.thumbnailPath || asset.path // Use thumbnail if available, else original (for images)
+            );
         }
     };
 

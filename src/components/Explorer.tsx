@@ -42,7 +42,7 @@ export const Explorer: React.FC = () => {
     const searchQuery = useStore(state => state.searchQuery);
     const setViewingAssetId = useStore(state => state.setViewingAssetId);
     const filterConfig = useStore(state => state.filterConfig);
-    const sortConfig = useStore(state => state.sortConfig);
+    const sortConfig = useSettingsStore(state => state.sortConfig);
     const currentPath = useStore(state => state.currentPath);
     const viewMode = useStore(state => state.viewMode);
 
@@ -81,31 +81,35 @@ export const Explorer: React.FC = () => {
 
     const filteredAssets = useMemo(() => {
         let result = assets || [];
+        console.log('[Explorer] Filter Start. Total:', result.length, 'Path:', currentPath, 'Semantic:', filterConfig.semantic);
 
         // 0. Filter by Path
-        const { currentPath } = useStore.getState();
-        if (currentPath) {
-            result = result.filter(a => a.path.startsWith(currentPath + '/'));
+        const statePath = useStore.getState().currentPath;
+        if (statePath) {
+            result = result.filter(a => a.path.startsWith(statePath + '/'));
+            console.log('[Explorer] After Path Filter:', result.length);
         }
 
         // 1. Filter by Status (multi-select with OR logic)
-        if (filterConfig.statuses && filterConfig.statuses.length > 0) {
-            result = result.filter(a => filterConfig.statuses!.includes(a.status));
-        } else if (filterConfig.status && filterConfig.status !== 'all') {
-            result = result.filter(a => a.status === filterConfig.status);
+        if (filterConfig.status && filterConfig.status.length > 0) {
+            result = result.filter(a => filterConfig.status.includes(a.status));
+            console.log('[Explorer] After Status Filter:', result.length);
         } else if (filter !== 'all') {
             // Fallback to old single filter for backward compatibility
             result = result.filter(a => a.status === filter);
+            console.log('[Explorer] After Legacy Status Filter:', result.length);
         }
 
         // 2. Filter by Liked
         if (filterConfig.likedOnly) {
             result = result.filter(a => a.metadata.liked);
+            console.log('[Explorer] After Liked Filter:', result.length);
         }
 
         // 3. Filter by Type
         if (filterConfig.type && filterConfig.type !== 'all') {
             result = result.filter(a => a.type === filterConfig.type);
+            console.log('[Explorer] After Type Filter:', result.length);
         }
 
         // 4. Filter by Tags (multi-select with OR logic)
@@ -113,9 +117,11 @@ export const Explorer: React.FC = () => {
             result = result.filter(a =>
                 a.tags?.some(t => filterConfig.tagIds!.includes(t.id))
             );
+            console.log('[Explorer] After Tags Filter:', result.length);
         } else if (filterConfig.tagId) {
             // Fallback to old single tag filter for backward compatibility
             result = result.filter(a => a.tags?.some(t => t.id === filterConfig.tagId));
+            console.log('[Explorer] After Legacy Tag Filter:', result.length);
         }
 
         // 6. Filter by Scratch Pad
@@ -126,12 +132,32 @@ export const Explorer: React.FC = () => {
             } else {
                 result = [];
             }
+            console.log('[Explorer] After ScratchPad Filter:', result.length);
         }
 
-        // 6. Sort
+        // 7. Filter by Similarity Threshold (for semantic search)
+        if (filterConfig.relatedToAssetId && filterConfig.semantic) {
+            const threshold = 1 - (filterConfig.minSimilarity || 0); // Default 0
+            console.log('[Explorer] Semantic Filter. Threshold:', threshold);
+            result = result.filter(a => {
+                const dist = a.distance ?? 1;
+                // console.log(`[Explorer] Asset ${a.id} dist: ${dist}`);
+                return dist <= threshold;
+            });
+            console.log('[Explorer] After Similarity Filter:', result.length);
+        }
+
+        // 8. Sort
         const sorted = [...result].sort((a, b) => {
             // Special handling for semantic search: Sort by distance (ascending)
             if (filterConfig.relatedToAssetId && filterConfig.semantic) {
+                // Filter by similarity threshold first
+                // distance is 0 (identical) to 1 (different). Similarity = 1 - distance.
+                // We want similarity >= minSimilarity, so (1 - distance) >= minSimilarity => distance <= (1 - minSimilarity)
+                const threshold = 1 - (filterConfig.minSimilarity || 0.7);
+                if ((a.distance ?? 1) > threshold) return 1; // Filter out (push to end, effectively) - wait, filter should happen before sort?
+                // Actually, let's filter in the filter block above, not in sort.
+
                 const distA = a.distance ?? Infinity;
                 const distB = b.distance ?? Infinity;
                 return distA - distB;

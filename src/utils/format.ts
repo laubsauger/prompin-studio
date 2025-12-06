@@ -21,5 +21,16 @@ export function formatRelativeDate(date: Date): string {
   if (hours < 24) return `${hours}h ago`;
   if (days < 7) return `${days}d ago`;
 
-  return date.toLocaleDateString();
+  // For dates older than a week, show date with time
+  return formatDateTime(date, days > 365);
+}
+
+export function formatDateTime(date: Date, includeYear: boolean = true): string {
+  return date.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: includeYear ? 'numeric' : undefined,
+    hour: '2-digit',
+    minute: '2-digit'
+  });
 }

@@ -165,22 +165,25 @@ export const AssetMenuActions: React.FC<AssetMenuActionsProps> = ({
             <Item onClick={(e: any) => {
                 e.stopPropagation();
                 const name = `Similar to ${asset.path.split('/').pop()}`;
-                addActiveView(name, {
+
+                const config: any = {
                     relatedToAssetId: asset.id,
                     semantic: true,
                     type: 'all',
-                    status: 'all',
+                    status: [],
                     likedOnly: false,
-                });
-                const views = useStore.getState().activeViews;
-                const view = views.find(v => v.name === name);
-                if (view) {
-                    setCurrentPath(null);
-                    setFilterConfig(view.filterConfig);
-                    setViewMode('grid');
-                    setViewingAssetId(null);
-                    // window.scrollTo({ top: 0, behavior: 'smooth' }); // Can't easily access window here, maybe ok
-                }
+                    // minSimilarity will use default from store if not specified
+                };
+
+                // 1. Create the view for persistence
+                addActiveView(name, config);
+
+                // 2. Apply state immediately/unconditionally
+                setCurrentPath(null); // Critical: clear folder filter
+                setFilterConfig(config);
+                setViewMode('grid');
+                setViewingAssetId(null);
+
                 onClose?.();
             }}>
                 <Sparkles className="mr-2 h-4 w-4 text-purple-400" /> Find Similar
@@ -189,18 +192,19 @@ export const AssetMenuActions: React.FC<AssetMenuActionsProps> = ({
             <Item onClick={(e: any) => {
                 e.stopPropagation();
                 const name = `Derived from ${asset.path.split('/').pop()}`;
-                addActiveView(name, {
+
+                const config: any = {
                     relatedToAssetId: asset.id,
                     type: 'all',
-                    status: 'all',
+                    status: [],
                     likedOnly: false,
-                });
-                const views = useStore.getState().activeViews;
-                const view = views.find(v => v.name === name);
-                if (view) {
-                    setCurrentPath(null);
-                    setFilterConfig(view.filterConfig);
-                }
+                };
+
+                addActiveView(name, config);
+
+                setCurrentPath(null);
+                setFilterConfig(config);
+
                 onClose?.();
             }}>
                 <GitFork className="mr-2 h-4 w-4 rotate-180" /> Show Derived Assets

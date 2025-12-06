@@ -47,7 +47,7 @@ export const FilterBarUI: React.FC<FilterBarUIProps> = ({
     // Check if any filters are active
     const hasActiveFilters = filterConfig.likedOnly ||
         (filterConfig.type && filterConfig.type !== 'all') ||
-        (filterConfig.statuses && filterConfig.statuses.length > 0) ||
+        (filterConfig.status && filterConfig.status.length > 0) ||
         (filterConfig.tagIds && filterConfig.tagIds.length > 0) ||
         filter !== 'all' ||
         filterConfig.tagId ||
@@ -105,8 +105,8 @@ export const FilterBarUI: React.FC<FilterBarUIProps> = ({
 
             {/* Status filter with multi-select */}
             <StatusMultiSelect
-                selectedStatuses={filterConfig.statuses || []}
-                onStatusChange={(statuses) => onFilterConfigChange({ statuses })}
+                selectedStatuses={(filterConfig.status || []) as AssetStatus[]}
+                onStatusChange={(status) => onFilterConfigChange({ status })}
             />
 
             {/* Tags filter with multi-select */}
@@ -142,6 +142,24 @@ export const FilterBarUI: React.FC<FilterBarUIProps> = ({
                 <div className="border-r border-border h-8"></div>
 
             </div>
+
+            {/* Similarity Threshold Slider - Only shown when semantic search is active */}
+            {filterConfig.semantic && filterConfig.relatedToAssetId && (
+                <div className="flex items-center gap-2 px-2 border-r border-border h-8">
+                    <span className="text-[10px] text-muted-foreground font-medium whitespace-nowrap">
+                        Match: {Math.round((filterConfig.minSimilarity || 0) * 100)}%
+                    </span>
+                    <Slider
+                        value={[filterConfig.minSimilarity || 0]}
+                        onValueChange={(value) => onFilterConfigChange({ minSimilarity: value[0] })}
+                        min={0}
+                        max={1.0}
+                        step={0.01}
+                        className="w-20"
+                    />
+                </div>
+            )}
+
             {/* Advanced Filters */}
             <AdvancedFilters />
 
@@ -251,18 +269,20 @@ interface FilterBarProps {
     onThumbnailSizeChange: (size: number) => void;
 }
 
+import { useSettingsStore } from '../store/settings';
+
 export const FilterBar: React.FC<FilterBarProps> = ({ thumbnailSize, onThumbnailSizeChange }) => {
     const filter = useStore(state => state.filter);
-    const sortConfig = useStore(state => state.sortConfig);
-    const setSortConfig = useStore(state => state.setSortConfig);
+    const sortConfig = useSettingsStore(state => state.sortConfig);
+    const setSortConfig = useSettingsStore(state => state.setSortConfig);
     const filterConfig = useStore(state => state.filterConfig);
     const setFilterConfig = useStore(state => state.setFilterConfig);
     const viewMode = useStore(state => state.viewMode);
     const setViewMode = useStore(state => state.setViewMode);
     const aspectRatio = useStore(state => state.aspectRatio);
     const setAspectRatio = useStore(state => state.setAspectRatio);
-    const viewDisplay = useStore(state => state.viewDisplay);
-    const setViewDisplay = useStore(state => state.setViewDisplay);
+    const viewDisplay = useSettingsStore(state => state.viewDisplay);
+    const setViewDisplay = useSettingsStore(state => state.setViewDisplay);
     const resetFilters = useStore(state => state.resetFilters);
 
     return (

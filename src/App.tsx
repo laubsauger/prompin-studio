@@ -13,6 +13,8 @@ import './App.css';
 import { TitleBar } from './components/TitleBar';
 import { Sidebar } from './components/Sidebar';
 import { ChatInterface } from './components/ChatInterface';
+import { AnalyticsDashboard } from './components/AnalyticsDashboard';
+import { SettingsModal } from './components/SettingsModal';
 
 
 function App() {
@@ -46,11 +48,12 @@ function App() {
       // We need a way to just set the path without opening dialog
       // Since I didn't add a separate action for that, let's just invoke IPC directly here for now
       // or add another action. Direct IPC is fine for initialization.
-      window.ipcRenderer?.invoke('set-root-path', rootFolder);
-
-      // Load initial data
-      import('./store').then(({ useStore }) => {
-        useStore.getState().initStore();
+      window.ipcRenderer?.invoke('set-root-path', rootFolder).then(() => {
+        // Load initial data only after root path is set
+        import('./store').then(({ useStore }) => {
+          useStore.setState({ rootPath: rootFolder });
+          useStore.getState().initStore();
+        });
       });
     }
   }, [rootFolder]);
@@ -77,7 +80,11 @@ function App() {
         <Sidebar />
         <div className="flex-1 flex flex-col min-w-0">
           <div className="flex-1 overflow-hidden relative">
-            <Explorer />
+            {useStore(state => state.activeTab) === 'analytics' ? (
+              <AnalyticsDashboard />
+            ) : (
+              <Explorer />
+            )}
           </div>
         </div>
       </div>
@@ -104,6 +111,10 @@ function App() {
         />
       )}
       <ChatInterface />
+      <SettingsModal
+        open={useSettingsStore(state => state.isSettingsOpen)}
+        onOpenChange={useSettingsStore(state => state.setSettingsOpen)}
+      />
     </>
   );
 }

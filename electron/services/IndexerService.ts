@@ -24,6 +24,7 @@ import { searchService } from './SearchService.js';
 import { tagService } from './TagService.js';
 import { folderService } from './FolderService.js';
 import { assetService } from './AssetService.js';
+import { analyticsService } from './AnalyticsService.js';
 
 // Helper to setup ffmpeg
 const setupFfmpeg = async () => {
@@ -80,8 +81,8 @@ export class IndexerService {
     };
 
     constructor() {
+        // Default to userData until rootPath is set
         this.thumbnailCachePath = path.join(app.getPath('userData'), 'thumbnails');
-        fs.mkdir(this.thumbnailCachePath, { recursive: true }).catch(console.error);
 
         this.scanner = new Scanner(this.isMediaFile.bind(this));
         this.watcher = new Watcher();
@@ -92,7 +93,6 @@ export class IndexerService {
 
         this.setupWatcher();
         this.setupSync();
-        this.migrateLegacyThumbnails();
     }
 
     private setupSync() {
@@ -168,8 +168,8 @@ export class IndexerService {
                 }
             }
 
-            const imageCount = db.prepare('SELECT COUNT(*) as count FROM assets WHERE rootPath = ? AND type = "image"').get(this.rootPath) as { count: number };
-            const videoCount = db.prepare('SELECT COUNT(*) as count FROM assets WHERE rootPath = ? AND type = "video"').get(this.rootPath) as { count: number };
+            const imageCount = db.prepare("SELECT COUNT(*) as count FROM assets WHERE rootPath = ? AND type = 'image'").get(this.rootPath) as { count: number };
+            const videoCount = db.prepare("SELECT COUNT(*) as count FROM assets WHERE rootPath = ? AND type = 'video'").get(this.rootPath) as { count: number };
             const folderCount = db.prepare('SELECT COUNT(*) as count FROM folders').get() as { count: number };
 
             this.stats.totalFiles = totalCount.count;
@@ -199,6 +199,11 @@ export class IndexerService {
 
         if (this.rootPath === realPath) {
             console.log(`[IndexerService] Root path already set to ${realPath}. Skipping re-scan.`);
+            // Ensure services are aware of the root path (in case of service restart/re-init)
+            assetService.setRootPath(this.rootPath);
+            searchService.setRootPath(this.rootPath);
+            folderService.setRootPath(this.rootPath);
+
             // Ensure stats are populated even if we skip scan
             if (this.stats.totalFiles === 0) {
                 this.initializeStatsFromDB();
@@ -207,11 +212,20 @@ export class IndexerService {
         }
 
         this.rootPath = realPath;
+        this.stats.status = 'scanning'; // Set status immediately
 
-        // Propagate to services
+        // Propagate to services IMMEDIATELY so they can serve existing data while we migrate/scan
+        assetService.setRootPath(this.rootPath);
         searchService.setRootPath(this.rootPath);
         folderService.setRootPath(this.rootPath);
-        assetService.setRootPath(this.rootPath);
+
+        // Update thumbnail path to be portable
+        this.thumbnailCachePath = path.join(this.rootPath, '.prompin-studio', 'thumbnails');
+        await fs.mkdir(this.thumbnailCachePath, { recursive: true });
+
+        // Pass legacy path for lazy migration
+        const legacyPath = path.join(app.getPath('userData'), 'thumbnails');
+        this.thumbnailGenerator = new ThumbnailGenerator(this.thumbnailCachePath, legacyPath);
 
         await this.watcher.stop();
         // Watcher will be started after scan completes to avoid race conditions
@@ -219,8 +233,6 @@ export class IndexerService {
         this.resetStats();
         // Initialize totalFiles from DB so UI shows something immediately
         this.initializeStatsFromDB();
-
-        this.stats.status = 'scanning';
 
         // Initialize Sync Service
         await this.syncService.initialize(this.rootPath);
@@ -250,6 +262,9 @@ export class IndexerService {
 
         // 2. Manual Scan
         console.log('[IndexerService] Starting manual scan...');
+        // Reset processedFiles to avoid double counting from initializeStatsFromDB
+        this.stats.processedFiles = 0;
+
         await this.scanner.scanDirectory(this.rootPath, async (filePath: string) => {
             await this.handleFileAdd(filePath, true); // Skip thumbnail initially
         });
@@ -266,9 +281,6 @@ export class IndexerService {
 
         // Re-home assets (handle moves/renames of root)
         this.assetManager.rehomeAssets(this.rootPath);
-
-        // Initialize Sync Service
-        await this.syncService.initialize(this.rootPath);
 
         // Start watcher AFTER initial scan to avoid double counting
         console.log('[IndexerService] Starting watcher...');
@@ -349,12 +361,12 @@ export class IndexerService {
             let metadata = existing?.metadata || {};
             const newMetadata = await this.metadataExtractor.extract(filePath, mediaType, stats.size);
             metadata = { ...newMetadata, ...metadata };
-
             let thumbnailPath = existing?.thumbnailPath;
             if ((mediaType === 'video' || mediaType === 'image') && (!thumbnailPath) && !skipThumbnail) {
                 thumbnailPath = await this.thumbnailGenerator.generate(filePath, id);
             }
 
+            // Inside handleFileAdd method
             const asset: Asset = {
                 id,
                 path: relativePath,
@@ -367,7 +379,12 @@ export class IndexerService {
                 thumbnailPath: thumbnailPath || undefined
             };
 
+            const isNew = !existing;
             this.assetManager.upsertAsset(asset);
+
+            if (isNew) {
+                analyticsService.logEvent(id, 'create', undefined, undefined, undefined);
+            }
 
             if (this.mainWindow) {
                 this.mainWindow.webContents.send('asset-updated', asset);
@@ -428,19 +445,21 @@ export class IndexerService {
         const assets = this.assetManager.getAssets(this.rootPath);
         console.log(`[IndexerService] Found ${assets.length} assets in DB for this rootPath.`);
 
-        // 1. Identify assets that have embeddings but might be missing from vec_assets (Sync Step)
-        const assetsWithEmbeddings = assets.filter(a => a.metadata.embedding && Array.isArray(a.metadata.embedding) && a.metadata.embedding.length > 0);
+        // Ensure shared embeddings directory exists
+        const embeddingsDir = path.join(this.rootPath, '.prompin-studio', 'embeddings');
+        await fs.mkdir(embeddingsDir, { recursive: true });
+
+        // 1. Identify assets that have VALID (512-dim) embeddings for vec_assets sync
+        const assetsWithEmbeddings = assets.filter(a => a.metadata.embedding && Array.isArray(a.metadata.embedding) && a.metadata.embedding.length === 512);
 
         if (assetsWithEmbeddings.length > 0) {
             console.log(`[IndexerService] Checking ${assetsWithEmbeddings.length} assets for vec_assets sync...`);
             let syncedCount = 0;
 
             // Get all rowids currently in vec_assets
-            // Note: This might be heavy if millions of rows, but fine for thousands.
-            // For larger datasets, we should do this in chunks or using a LEFT JOIN query.
             try {
                 const vecRows = db.prepare('SELECT rowid FROM vec_assets').all() as { rowid: number | bigint }[];
-                const vecRowIds = new Set(vecRows.map(r => BigInt(r.rowid).toString())); // Use string for reliable Set comparison with BigInt
+                const vecRowIds = new Set(vecRows.map(r => BigInt(r.rowid).toString()));
 
                 for (const asset of assetsWithEmbeddings) {
                     const row = db.prepare('SELECT rowid FROM assets WHERE id = ?').get(asset.id) as { rowid: number | bigint };
@@ -468,16 +487,14 @@ export class IndexerService {
             }
         }
 
-        // 2. Identify assets that need new embeddings
-        const assetsToEmbed = assets.filter(a => !a.metadata.embedding || (Array.isArray(a.metadata.embedding) && a.metadata.embedding.length === 0));
+        // 2. Identify assets that need new embeddings (missing OR wrong dimension)
+        const assetsToEmbed = assets.filter(a => !a.metadata.embedding || (Array.isArray(a.metadata.embedding) && a.metadata.embedding.length !== 512));
 
         if (assetsToEmbed.length === 0) {
             console.log('[IndexerService] No new embeddings to generate.');
             return;
         }
 
-        // Set status to indexing
-        // Set status to indexing
         this.stats.status = 'indexing';
         this.stats.backgroundTask = {
             name: 'Generating Embeddings',
@@ -510,42 +527,67 @@ export class IndexerService {
                         this.assetManager.deleteAsset(asset.id);
                         continue;
                     }
-                    throw e; // Rethrow other errors
+                    throw e;
                 }
 
-                // Determine input for embedding (Image/Thumbnail or Text)
-                let inputForEmbedding: string;
+                // Check for SHARED embedding file first
+                const sharedEmbeddingPath = path.join(embeddingsDir, `${asset.id}.json`);
+                let embedding: number[] | null = null;
 
-                if (asset.type === 'image') {
-                    // For images, use the full image path
-                    inputForEmbedding = path.join(this.rootPath, asset.path);
-                } else if (asset.type === 'video' && asset.thumbnailPath) {
-                    // For videos, use the thumbnail path if available
-                    if (path.isAbsolute(asset.thumbnailPath)) {
-                        inputForEmbedding = asset.thumbnailPath;
-                    } else {
-                        // Check if it's in the thumbnail cache first (generated thumbnails)
-                        const cachedThumbnail = path.join(this.thumbnailCachePath, asset.thumbnailPath);
-                        try {
-                            await fs.access(cachedThumbnail);
-                            inputForEmbedding = cachedThumbnail;
-                        } catch {
-                            // Fallback to rootPath (maybe user provided a custom relative path?)
-                            inputForEmbedding = path.join(this.rootPath, asset.thumbnailPath);
-                        }
+                try {
+                    const sharedContent = await fs.readFile(sharedEmbeddingPath, 'utf-8');
+                    const sharedData = JSON.parse(sharedContent);
+                    if (Array.isArray(sharedData) && sharedData.length === 512) {
+                        embedding = sharedData;
+                        console.log(`[IndexerService] Loaded shared embedding for ${asset.id}`);
                     }
-                } else {
-                    // Fallback to text metadata
-                    inputForEmbedding = [
-                        path.basename(asset.path),
-                        ...(asset.metadata.tags || []),
-                        asset.metadata.description || '',
-                        asset.metadata.prompt || '', // GenAI metadata
-                        asset.type
-                    ].join(' ');
+                } catch (e) {
+                    // File doesn't exist or is invalid, proceed to generate
                 }
 
-                const embedding = await embeddingService.generateEmbedding(inputForEmbedding);
+                if (!embedding) {
+                    // Generate new embedding
+                    let inputForEmbedding: string;
+
+                    if (asset.type === 'image') {
+                        inputForEmbedding = path.join(this.rootPath, asset.path);
+                    } else if (asset.type === 'video' && asset.thumbnailPath) {
+                        if (path.isAbsolute(asset.thumbnailPath)) {
+                            inputForEmbedding = asset.thumbnailPath;
+                        } else {
+                            const cachedThumbnail = path.join(this.thumbnailCachePath, asset.thumbnailPath);
+                            try {
+                                await fs.access(cachedThumbnail);
+                                inputForEmbedding = cachedThumbnail;
+                            } catch {
+                                inputForEmbedding = path.join(this.rootPath, asset.thumbnailPath);
+                            }
+                        }
+                    } else {
+                        inputForEmbedding = [
+                            path.basename(asset.path),
+                            ...(asset.metadata.tags || []),
+                            asset.metadata.description || '',
+                            asset.metadata.prompt || '',
+                            asset.type
+                        ].join(' ');
+                    }
+
+                    embedding = await embeddingService.generateEmbedding(inputForEmbedding);
+
+                    // Save to shared file
+                    // Save to shared file
+                    if (embedding) {
+                        try {
+                            await fs.writeFile(sharedEmbeddingPath, JSON.stringify(embedding));
+                            console.log(`[IndexerService] Saved shared embedding to ${sharedEmbeddingPath}`);
+                        } catch (e) {
+                            console.error(`[IndexerService] Failed to save shared embedding for ${asset.id} at ${sharedEmbeddingPath}:`, e);
+                        }
+                    } else {
+                        console.warn(`[IndexerService] Generated embedding is null for ${asset.id}`);
+                    }
+                }
 
                 if (embedding) {
                     // Update metadata with embedding
@@ -558,7 +600,6 @@ export class IndexerService {
                     try {
                         const row = db.prepare('SELECT rowid FROM assets WHERE id = ?').get(asset.id) as { rowid: number | bigint };
                         if (row) {
-                            // Ensure rowid is passed as a BigInt to guarantee INTEGER binding for sqlite-vec
                             const rowId = BigInt(row.rowid);
                             db.prepare('DELETE FROM vec_assets WHERE rowid = ?').run(rowId);
                             db.prepare('INSERT INTO vec_assets(rowid, embedding) VALUES (?, ?)').run(rowId, JSON.stringify(embedding));
@@ -636,22 +677,6 @@ export class IndexerService {
             embeddingProgress: undefined,
             backgroundTask: undefined
         };
-    }
-
-    private async migrateLegacyThumbnails() {
-        const legacyPath = path.join(process.env.APP_ROOT || '', 'thumbnails');
-        try {
-            const files = await fs.readdir(legacyPath);
-            if (files.length > 0) {
-                for (const file of files) {
-                    if (file.endsWith('.jpg')) {
-                        const oldPath = path.join(legacyPath, file);
-                        const newPath = path.join(this.thumbnailCachePath, file);
-                        try { await fs.access(newPath); } catch { await fs.copyFile(oldPath, newPath); }
-                    }
-                }
-            }
-        } catch { }
     }
 
     public getStats() { return { ...this.stats }; }

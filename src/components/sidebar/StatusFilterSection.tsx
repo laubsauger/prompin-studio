@@ -30,8 +30,9 @@ export const StatusFilterSection: React.FC<StatusFilterSectionProps> = ({ isOpen
                 )}
                 onClick={() => {
                     setFilterConfig({
-                        status: filterConfig.status === 'review_requested' ? undefined : 'review_requested'
+                        status: filterConfig.status === 'review_requested' ? [] : ['review_requested']
                     });
+                    useStore.getState().setActiveTab('explorer');
                 }}
             >
                 <AlertCircle className="h-3 w-3 text-yellow-500 shrink-0" />
@@ -49,8 +50,9 @@ export const StatusFilterSection: React.FC<StatusFilterSectionProps> = ({ isOpen
                 )}
                 onClick={() => {
                     setFilterConfig({
-                        status: filterConfig.status === 'pending' ? undefined : 'pending'
+                        status: filterConfig.status === 'pending' ? [] : ['pending']
                     });
+                    useStore.getState().setActiveTab('explorer');
                 }}
             >
                 <div className="w-3 h-3 rounded-full bg-orange-500 shrink-0" />
@@ -68,8 +70,9 @@ export const StatusFilterSection: React.FC<StatusFilterSectionProps> = ({ isOpen
                 )}
                 onClick={() => {
                     setFilterConfig({
-                        status: filterConfig.status === 'approved' ? undefined : 'approved'
+                        status: filterConfig.status === 'approved' ? [] : ['approved']
                     });
+                    useStore.getState().setActiveTab('explorer');
                 }}
             >
                 <CheckCircle className="h-3 w-3 text-green-500 shrink-0" />

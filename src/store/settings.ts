@@ -28,6 +28,10 @@ interface SettingsState {
     isChatOpen: boolean;
     toggleChat: () => void;
     resetSettings: () => void;
+    viewDisplay: 'clean' | 'detailed';
+    setViewDisplay: (display: 'clean' | 'detailed') => void;
+    sortConfig: { key: 'createdAt' | 'updatedAt' | 'path'; direction: 'asc' | 'desc' };
+    setSortConfig: (key: 'createdAt' | 'updatedAt' | 'path', direction: 'asc' | 'desc') => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -60,6 +64,10 @@ export const useSettingsStore = create<SettingsState>()(
             toggleInspector: () => set((state) => ({ inspectorCollapsed: !state.inspectorCollapsed })),
             isChatOpen: false,
             toggleChat: () => set((state) => ({ isChatOpen: !state.isChatOpen })),
+            viewDisplay: 'detailed',
+            setViewDisplay: (viewDisplay) => set({ viewDisplay }),
+            sortConfig: { key: 'createdAt', direction: 'desc' },
+            setSortConfig: (key, direction) => set({ sortConfig: { key, direction } }),
             resetSettings: () => {
                 localStorage.removeItem('prompin-studio-settings');
                 localStorage.removeItem('prompin-studio-storage'); // Clear main store too if needed
@@ -75,6 +83,8 @@ export const useSettingsStore = create<SettingsState>()(
                     scrollPositions: {},
                     sidebarCollapsed: false,
                     inspectorCollapsed: true, // Default to collapsed
+                    viewDisplay: 'detailed',
+                    sortConfig: { key: 'createdAt', direction: 'desc' },
                 });
                 window.location.reload();
             },

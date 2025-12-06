@@ -49,6 +49,7 @@ export const ScratchPadSection: React.FC<ScratchPadSectionProps> = ({ isOpen, on
                         className="flex-1 justify-start gap-2 font-normal h-8 px-4 hover:bg-transparent min-w-0"
                         onClick={() => {
                             setFilterConfig({ scratchPadId: pad.id });
+                            useStore.getState().setActiveTab('explorer');
                             setCurrentPath(null);
                         }}
                     >

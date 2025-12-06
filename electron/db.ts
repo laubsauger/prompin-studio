@@ -59,12 +59,26 @@ db.exec(`
     FOREIGN KEY (tagId) REFERENCES tags(id) ON DELETE CASCADE
   );
 
+  CREATE TABLE IF NOT EXISTS asset_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    assetId TEXT NOT NULL,
+    action TEXT NOT NULL, -- 'create', 'update', 'delete', 'tag_add', 'tag_remove'
+    field TEXT, -- for updates, which field changed
+    oldValue TEXT,
+    newValue TEXT,
+    timestamp INTEGER NOT NULL,
+    userId TEXT -- optional, for future multi-user support
+    -- FOREIGN KEY removed to preserve history on delete
+  );
+
   -- Create indexes for search performance
   CREATE INDEX IF NOT EXISTS idx_assets_path ON assets(path);
   CREATE INDEX IF NOT EXISTS idx_assets_type ON assets(type);
   CREATE INDEX IF NOT EXISTS idx_assets_status ON assets(status);
   CREATE INDEX IF NOT EXISTS idx_assets_created ON assets(createdAt);
   CREATE INDEX IF NOT EXISTS idx_assets_updated ON assets(updatedAt);
+  CREATE INDEX IF NOT EXISTS idx_history_assetId ON asset_history(assetId);
+  CREATE INDEX IF NOT EXISTS idx_history_timestamp ON asset_history(timestamp);
 `);
 
 // 2. FTS Setup
@@ -403,6 +417,44 @@ try {
   db.exec('ALTER TABLE assets ADD COLUMN thumbnailPath TEXT');
 } catch (error) {
   // Column likely exists
+}
+
+// Migration to remove ON DELETE CASCADE from asset_history to preserve audit trail
+try {
+  // Check if we need to migrate by checking if we can delete a dummy asset with history?
+  // Or just force migration since we know we want to change the schema.
+  // We can check if the foreign key exists.
+  const foreignKeys = db.prepare("PRAGMA foreign_key_list(asset_history)").all() as any[];
+  const hasCascade = foreignKeys.some(fk => fk.on_delete === 'CASCADE');
+
+  if (hasCascade) {
+    console.log('[DB] Migrating asset_history to remove ON DELETE CASCADE...');
+    db.transaction(() => {
+      db.pragma('foreign_keys = OFF');
+      db.exec('ALTER TABLE asset_history RENAME TO asset_history_old');
+      db.exec(`
+              CREATE TABLE asset_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                assetId TEXT NOT NULL,
+                action TEXT NOT NULL,
+                field TEXT,
+                oldValue TEXT,
+                newValue TEXT,
+                timestamp INTEGER NOT NULL,
+                userId TEXT
+                -- Removed FOREIGN KEY to allow keeping history after asset deletion
+              )
+            `);
+      db.exec('INSERT INTO asset_history SELECT * FROM asset_history_old');
+      db.exec('DROP TABLE asset_history_old');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_history_assetId ON asset_history(assetId)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_history_timestamp ON asset_history(timestamp)');
+      db.pragma('foreign_keys = ON');
+    })();
+    console.log('[DB] asset_history migration complete.');
+  }
+} catch (error) {
+  console.error('[DB] asset_history migration failed:', error);
 }
 
 export default db;

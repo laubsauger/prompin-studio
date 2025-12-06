@@ -30,11 +30,14 @@ export function StatusMultiSelect({
 }: StatusMultiSelectProps) {
     const [open, setOpen] = useState(false);
 
+    // Safety check for legacy string value 'all'
+    const validStatuses = Array.isArray(selectedStatuses) ? selectedStatuses : [];
+
     const toggleStatus = (status: AssetStatus) => {
-        if (selectedStatuses.includes(status)) {
-            onStatusChange(selectedStatuses.filter(s => s !== status));
+        if (validStatuses.includes(status)) {
+            onStatusChange(validStatuses.filter(s => s !== status));
         } else {
-            onStatusChange([...selectedStatuses, status]);
+            onStatusChange([...validStatuses, status]);
         }
     };
 
@@ -67,23 +70,23 @@ export function StatusMultiSelect({
                         aria-expanded={open}
                         className={cn(
                             "h-8 justify-between text-xs min-w-[150px]",
-                            selectedStatuses.length > 0 && "bg-blue-500/10 border-blue-500/50"
+                            validStatuses.length > 0 && "bg-blue-500/10 border-blue-500/50"
                         )}
                     >
                         <div className="flex items-center gap-1.5">
                             <Filter className="h-3 w-3" />
-                            {selectedStatuses.length === 0 ? (
+                            {validStatuses.length === 0 ? (
                                 "Status"
-                            ) : selectedStatuses.length === 1 ? (
+                            ) : validStatuses.length === 1 ? (
                                 <>
                                     <div className={cn(
                                         "w-2 h-2 rounded-full border",
-                                        getStatusColors(selectedStatuses[0])
+                                        getStatusColors(validStatuses[0])
                                     )} />
-                                    {ASSET_STATUSES[selectedStatuses[0]].label}
+                                    {ASSET_STATUSES[validStatuses[0]].label}
                                 </>
                             ) : (
-                                `${selectedStatuses.length} statuses`
+                                `${validStatuses.length} statuses`
                             )}
                         </div>
                         <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
@@ -96,7 +99,7 @@ export function StatusMultiSelect({
                         <CommandGroup>
                             {Object.entries(ASSET_STATUSES).map(([value, config]) => {
                                 const status = value as AssetStatus;
-                                const isSelected = selectedStatuses.includes(status);
+                                const isSelected = validStatuses.includes(status);
                                 return (
                                     <CommandItem
                                         key={status}
@@ -129,7 +132,7 @@ export function StatusMultiSelect({
                 </PopoverContent>
             </Popover>
 
-            {selectedStatuses.length > 0 && (
+            {validStatuses.length > 0 && (
                 <Button
                     variant="ghost"
                     size="sm"

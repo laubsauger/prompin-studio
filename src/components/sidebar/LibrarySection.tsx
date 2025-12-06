@@ -17,6 +17,8 @@ export const LibrarySection: React.FC<LibrarySectionProps> = ({ isOpen, onToggle
     const filterConfig = useStore(state => state.filterConfig);
     const setFilterConfig = useStore(state => state.setFilterConfig);
     const lastInboxViewTime = useStore(state => state.lastInboxViewTime);
+    const activeTab = useStore(state => state.activeTab);
+    const setActiveTab = useStore(state => state.setActiveTab);
 
     return (
         <SidebarSection
@@ -29,19 +31,21 @@ export const LibrarySection: React.FC<LibrarySectionProps> = ({ isOpen, onToggle
                 variant="ghost"
                 size="sm"
                 className={cn("w-full justify-start gap-2 px-4",
+                    activeTab === 'explorer' &&
                     currentPath === null &&
                     !filterConfig.likedOnly &&
-                    !filterConfig.status &&
+                    (!filterConfig.status || filterConfig.status.length === 0) &&
                     !filterConfig.tagId &&
                     !filterConfig.scratchPadId &&
                     !filterConfig.relatedToAssetId &&
                     "bg-accent"
                 )}
                 onClick={() => {
+                    setActiveTab('explorer');
                     setCurrentPath(null);
                     setFilterConfig({
                         likedOnly: false,
-                        status: undefined,
+                        status: [],
                         relatedToAssetId: undefined,
                         tagId: undefined,
                         scratchPadId: undefined
@@ -55,11 +59,12 @@ export const LibrarySection: React.FC<LibrarySectionProps> = ({ isOpen, onToggle
             <Button
                 variant="ghost"
                 size="sm"
-                className={cn("w-full justify-start gap-2 px-4", filterConfig.status === 'unsorted' && "bg-accent")}
+                className={cn("w-full justify-start gap-2 px-4", activeTab === 'explorer' && filterConfig.status?.includes('unsorted') && "bg-accent")}
                 onClick={() => {
+                    setActiveTab('explorer');
                     setCurrentPath(null);
                     setFilterConfig({
-                        status: 'unsorted',
+                        status: ['unsorted'],
                         likedOnly: false,
                         relatedToAssetId: undefined,
                         tagId: undefined,
@@ -83,18 +88,20 @@ export const LibrarySection: React.FC<LibrarySectionProps> = ({ isOpen, onToggle
                 variant="ghost"
                 size="sm"
                 className={cn("w-full justify-start gap-2 px-4",
+                    activeTab === 'explorer' &&
                     filterConfig.likedOnly &&
                     currentPath === null &&
                     !filterConfig.tagId &&
                     !filterConfig.scratchPadId &&
-                    !filterConfig.status &&
+                    (!filterConfig.status || filterConfig.status.length === 0) &&
                     "bg-accent"
                 )}
                 onClick={() => {
+                    setActiveTab('explorer');
                     setCurrentPath(null);
                     setFilterConfig({
                         likedOnly: true,
-                        status: undefined,
+                        status: [],
                         relatedToAssetId: undefined,
                         tagId: undefined,
                         scratchPadId: undefined
@@ -107,6 +114,9 @@ export const LibrarySection: React.FC<LibrarySectionProps> = ({ isOpen, onToggle
                     {assets.filter(a => a.metadata.liked).length}
                 </span>
             </Button>
+
+
+
             {filterConfig.relatedToAssetId && (
                 <Button
                     variant="ghost"

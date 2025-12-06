@@ -64,6 +64,7 @@ export const TagListSection: React.FC<TagListSectionProps> = ({ isOpen, onToggle
                                     setFilterConfig({
                                         tagId: filterConfig.tagId === tag.id ? null : tag.id
                                     });
+                                    useStore.getState().setActiveTab('explorer');
                                 }}
                             >
                                 <Tag className="h-3 w-3 shrink-0" style={{ color: tag.color || 'currentColor' }} />

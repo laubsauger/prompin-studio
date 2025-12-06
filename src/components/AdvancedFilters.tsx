@@ -28,6 +28,7 @@ export function AdvancedFilters() {
         if (key === 'status' && value === 'all') return false;
         if (key === 'likedOnly' && !value) return false;
         if (key === 'semantic') return false; // Don't count semantic flag as separate filter
+        if (key === 'minSimilarity' && value === 0) return false; // Ignore default similarity
         // Handle empty arrays (statuses, tagIds)
         if (Array.isArray(value) && value.length === 0) return false;
         // Handle null, undefined, empty string

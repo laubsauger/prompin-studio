@@ -13,17 +13,36 @@ export interface ThumbnailProgress {
 }
 
 export class ThumbnailGenerator {
-    constructor(private thumbnailCachePath: string) { }
+    constructor(
+        private thumbnailCachePath: string,
+        private legacyCachePath?: string
+    ) { }
 
     public async generate(filePath: string, assetId: string, force: boolean = false): Promise<string | undefined> {
         const thumbnailFilename = `${assetId}.jpg`;
         const thumbnailPath = path.join(this.thumbnailCachePath, thumbnailFilename);
 
+        // 1. Check if it exists in current cache
         try {
             const stats = await fs.stat(thumbnailPath);
             if (!force && stats.size > 0) return thumbnailFilename;
         } catch {
-            // File doesn't exist
+            // File doesn't exist in current cache
+        }
+
+        // 2. Lazy Migration: Check if it exists in legacy cache
+        if (this.legacyCachePath && !force) {
+            const legacyPath = path.join(this.legacyCachePath, thumbnailFilename);
+            try {
+                const legacyStats = await fs.stat(legacyPath);
+                if (legacyStats.size > 0) {
+                    await fs.copyFile(legacyPath, thumbnailPath);
+                    // console.log(`[ThumbnailGenerator] Migrated legacy thumbnail for ${assetId}`);
+                    return thumbnailFilename;
+                }
+            } catch {
+                // Not found in legacy cache either
+            }
         }
 
         const ext = path.extname(filePath).toLowerCase();
@@ -108,7 +127,29 @@ export class ThumbnailGenerator {
         onProgress: (progress: ThumbnailProgress, currentFile: string) => void,
         onComplete: (assetId: string, thumbnailPath: string) => void
     ) {
-        const assetsNeedingThumbnails = assets.filter(a => (a.type === 'video' || a.type === 'image') && !a.thumbnailPath);
+        // Filter assets that need thumbnails: either no path, OR path points to missing file
+        const assetsNeedingThumbnails: Asset[] = [];
+
+        for (const a of assets) {
+            if (a.type !== 'image' && a.type !== 'video') continue;
+
+            if (!a.thumbnailPath) {
+                assetsNeedingThumbnails.push(a);
+            } else {
+                // Check if file exists in new location
+                // Assumes thumbnailPath is a filename like 'hash.jpg'
+                if (!path.isAbsolute(a.thumbnailPath)) {
+                    const fullPath = path.join(this.thumbnailCachePath, a.thumbnailPath);
+                    try {
+                        await fs.access(fullPath);
+                    } catch {
+                        // File missing! Needs generation (which handles migration)
+                        assetsNeedingThumbnails.push(a);
+                    }
+                }
+            }
+        }
+
         let current = 0;
         const total = assetsNeedingThumbnails.length;
 

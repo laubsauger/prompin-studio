@@ -9,7 +9,6 @@ import { LibrarySection } from './sidebar/LibrarySection';
 import { FolderTreeSection } from './sidebar/FolderTreeSection';
 import { TagListSection } from './sidebar/TagListSection';
 import { StatusFilterSection } from './sidebar/StatusFilterSection';
-import { ActiveViewsSection } from './sidebar/ActiveViewsSection';
 import { ScratchPadSection } from './sidebar/ScratchPadSection';
 
 export const Sidebar: React.FC = () => {
@@ -22,7 +21,6 @@ export const Sidebar: React.FC = () => {
     const [isFoldersOpen, setIsFoldersOpen] = useState(true);
     const [isTagsOpen, setIsTagsOpen] = useState(true);
     const [isStatusOpen, setIsStatusOpen] = useState(true);
-    const [isActiveViewsOpen, setIsActiveViewsOpen] = useState(true);
     const [isScratchPadsOpen, setIsScratchPadsOpen] = useState(true);
 
     const createTag = useStore(state => state.createTag);
@@ -57,11 +55,6 @@ export const Sidebar: React.FC = () => {
                     <LibrarySection
                         isOpen={isLibraryOpen}
                         onToggle={() => setIsLibraryOpen(!isLibraryOpen)}
-                    />
-
-                    <ActiveViewsSection
-                        isOpen={isActiveViewsOpen}
-                        onToggle={() => setIsActiveViewsOpen(!isActiveViewsOpen)}
                     />
 
                     <FolderTreeSection

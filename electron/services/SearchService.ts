@@ -18,10 +18,20 @@ export class SearchService {
     public async findSimilar(assetId: string, limit: number = 20): Promise<Asset[]> {
         if (!vectorSearchEnabled) return [];
         const asset = this.assetManager.getAsset(assetId);
-        if (!asset || !asset.metadata.embedding) return [];
+        if (!asset) {
+            console.log(`[SearchService] findSimilar: Source asset ${assetId} not found`);
+            return [];
+        }
+        if (!asset.metadata.embedding) {
+            console.log(`[SearchService] findSimilar: Source asset ${assetId} has no embedding`);
+            return [];
+        }
 
         try {
             const embedding = JSON.stringify(asset.metadata.embedding);
+            console.log(`[SearchService] findSimilar: Searching for ${asset.path} (embedding length: ${asset.metadata.embedding.length})`);
+
+
 
             const stmt = db.prepare(`
                 WITH matches AS (
@@ -39,6 +49,7 @@ export class SearchService {
             `);
 
             const results = stmt.all(embedding, limit + 1, assetId) as any[];
+            console.log(`[SearchService] findSimilar: Found ${results.length} results`);
 
             return results.map(row => ({
                 ...row,
@@ -79,13 +90,33 @@ export class SearchService {
                 // Use vector search
                 const similarAssets = await this.findSimilar(filters.relatedToAssetId, 50);
 
-                if (similarAssets.length === 0) return [];
+                if (similarAssets.length > 0) {
+                    similarAssetsMap = new Map(similarAssets.map(a => [a.id, (a as any).distance]));
 
-                similarAssetsMap = new Map(similarAssets.map(a => [a.id, (a as any).distance]));
+                    const similarIds = similarAssets.map(a => a.id);
+                    conditions.push(`a.id IN (${similarIds.map((_, i) => `@simId${i}`).join(',')})`);
+                    similarIds.forEach((id, i) => { params[`simId${i}`] = id; });
+                } else {
+                    // No similar assets found, but we will still show the source asset later
+                    // so we ensure the query returns nothing initially (false condition) unless we add source later
+                    // Actually, if we just want to show source, we can make the condition false OR rely on the append logic
+                    // logic below appends based on JS array, but the initial SQL query needs to fetch something? via IDs?
+                    // if conditions has "a.id IN ()" with empty list it fails syntactically or logic
+                    // If no similar, we just don't add the ID filter? No, then it returns ALL assets.
+                    // We want: ONLY similar OR source.
+                    // So if no similar, we add a condition that matches nothing (like 1=0) 
+                    // BUT we rely on "Prepend source asset" block which happens AFTER SQL? 
+                    // No, `SearchService` runs SQL first.
 
-                const similarIds = similarAssets.map(a => a.id);
-                conditions.push(`a.id IN (${similarIds.map((_, i) => `@simId${i}`).join(',')})`);
-                similarIds.forEach((id, i) => { params[`simId${i}`] = id; });
+                    // Wait, the "Prepend source" logic (lines 194-202) operates on `assets` returned from SQL.
+                    // If SQL returns nothing, `assets` is empty.
+                    // If similar list is empty, we must ensure SQL returns nothing (or just the source if we could).
+
+                    // Better approach: If similar list is empty, set condition to strict ID match on source (if we want to exclude others)
+                    // But `relatedToAssetId` usually excludes source in `findSimilar`.
+                    // Let's set a condition that matches nothing so `assets` from DB is empty, then we manually add source.
+                    conditions.push(`1=0`);
+                }
 
             } else {
                 // Exact match on inputs (lineage)
@@ -95,7 +126,7 @@ export class SearchService {
         }
 
         if (filters?.type) { conditions.push(`a.type = @type`); params.type = filters.type; }
-        if (filters?.status) { conditions.push(`a.status = @status`); params.status = filters.status; }
+        if (filters?.status && filters.status !== 'all' && filters.status.length > 0) { conditions.push(`a.status = @status`); params.status = filters.status; }
         if (filters?.dateFrom) { conditions.push(`a.createdAt >= @dateFrom`); params.dateFrom = filters.dateFrom; }
         if (filters?.dateTo) { conditions.push(`a.createdAt <= @dateTo`); params.dateTo = filters.dateTo; }
 

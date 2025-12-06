@@ -8,24 +8,43 @@ vi.mock('../store', () => ({
     useStore: vi.fn(),
 }));
 
+// Mock settings store
+vi.mock('../store/settings', () => ({
+    useSettingsStore: vi.fn(),
+}));
+
 describe('FilterBar', () => {
     const mockSetFilter = vi.fn();
     const mockSetFilterConfig = vi.fn();
+    const mockSetSortConfig = vi.fn();
+    const mockSetViewDisplay = vi.fn();
 
     beforeEach(() => {
-        const state = {
+        const storeState = {
             filter: 'all',
             setFilter: mockSetFilter,
             filterConfig: { type: 'all', likedOnly: false },
             setFilterConfig: mockSetFilterConfig,
             tags: [],
             scratchPads: [],
-            sortConfig: { key: 'createdAt', direction: 'desc' },
-            setSortConfig: vi.fn(),
             viewMode: 'grid',
             setViewMode: vi.fn(),
+            aspectRatio: 'square',
+            setAspectRatio: vi.fn(),
+            resetFilters: vi.fn(),
         };
-        (useStore as any).mockImplementation((selector: any) => selector ? selector(state) : state);
+
+        const settingsState = {
+            sortConfig: { key: 'createdAt', direction: 'desc' },
+            setSortConfig: mockSetSortConfig,
+            viewDisplay: 'detailed',
+            setViewDisplay: mockSetViewDisplay,
+        };
+
+        (useStore as any).mockImplementation((selector: any) => selector ? selector(storeState) : storeState);
+        // @ts-ignore
+        const { useSettingsStore } = require('../store/settings');
+        useSettingsStore.mockImplementation((selector: any) => selector ? selector(settingsState) : settingsState);
     });
 
     it('renders correctly', () => {

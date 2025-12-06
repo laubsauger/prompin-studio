@@ -86,7 +86,10 @@ export const FolderTreeSection: React.FC<FolderTreeSectionProps> = ({ isOpen, on
                             variant="ghost"
                             size="sm"
                             className="flex-1 justify-start gap-2 font-normal h-8 px-2 hover:bg-transparent min-w-0"
-                            onClick={() => setCurrentPath(node.path)}
+                            onClick={() => {
+                                useStore.getState().setActiveTab('explorer');
+                                setCurrentPath(node.path);
+                            }}
                         >
                             {isSelected ?
                                 <FolderOpen className="h-4 w-4 shrink-0" style={{ color: folderColor || 'var(--primary)' }} /> :

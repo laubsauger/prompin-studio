@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FolderOpen, Settings, Loader2, RefreshCw, CheckCircle2, AlertCircle, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
+import { FolderOpen, Settings, Loader2, RefreshCw, CheckCircle2, AlertCircle, Sparkles, ChevronLeft, ChevronRight, BarChart2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useStore } from '../store';
 import { useSettingsStore } from '../store/settings';
@@ -220,6 +220,15 @@ export const TitleBar: React.FC = () => {
                 <div className="h-4 w-px bg-border" />
 
                 <div className="flex items-center gap-1">
+                    <Button
+                        variant={useStore.getState().activeTab === 'analytics' ? "secondary" : "ghost"}
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => useStore.getState().setActiveTab(useStore.getState().activeTab === 'analytics' ? 'explorer' : 'analytics')}
+                        title="Analytics Dashboard"
+                    >
+                        <BarChart2 className="h-4 w-4" />
+                    </Button>
                     <Button
                         variant="ghost"
                         size="icon"

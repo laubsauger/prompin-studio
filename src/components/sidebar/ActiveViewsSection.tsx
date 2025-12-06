@@ -15,6 +15,7 @@ export const ActiveViewsSection: React.FC<ActiveViewsSectionProps> = ({ isOpen, 
     const filterConfig = useStore(state => state.filterConfig);
     const setFilterConfig = useStore(state => state.setFilterConfig);
     const setCurrentPath = useStore(state => state.setCurrentPath);
+    const resetFilters = useStore(state => state.resetFilters);
     const removeActiveView = useStore(state => state.removeActiveView);
 
     return (
@@ -23,39 +24,61 @@ export const ActiveViewsSection: React.FC<ActiveViewsSectionProps> = ({ isOpen, 
             isOpen={isOpen}
             onToggle={onToggle}
         >
-            {activeViews.map(view => (
-                <div
-                    key={view.id}
-                    className={cn(
-                        "flex items-center w-full hover:bg-accent/50 group pr-2 cursor-pointer",
-                        JSON.stringify(filterConfig) === JSON.stringify(view.filterConfig) && "bg-accent text-accent-foreground"
-                    )}
-                >
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className="flex-1 justify-start gap-2 font-normal h-8 px-4 hover:bg-transparent min-w-0"
-                        onClick={() => {
-                            setFilterConfig(view.filterConfig);
-                            setCurrentPath(null);
-                        }}
+            {activeViews.map(view => {
+                // Check if this view is currently active
+                // For "Find Similar" views (which have relatedToAssetId), we check if that specific ID matches
+                // For others, we fall back to JSON comparison or partial match
+                let isActive = false;
+                if (view.filterConfig.relatedToAssetId) {
+                    isActive = filterConfig.relatedToAssetId === view.filterConfig.relatedToAssetId;
+                } else if (view.filterConfig.scratchPadId) {
+                    isActive = filterConfig.scratchPadId === view.filterConfig.scratchPadId;
+                } else {
+                    isActive = JSON.stringify(filterConfig) === JSON.stringify(view.filterConfig);
+                }
+
+                return (
+                    <div
+                        key={view.id}
+                        className={cn(
+                            "flex items-center w-full hover:bg-accent/50 group pr-2 cursor-pointer",
+                            isActive && "bg-accent text-accent-foreground"
+                        )}
                     >
-                        <GitFork size={14} className="text-blue-500 rotate-180 shrink-0" />
-                        <span className="truncate flex-1 min-w-0 text-left">{view.name}</span>
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            removeActiveView(view.id);
-                        }}
-                    >
-                        <Trash2 size={12} className="text-muted-foreground hover:text-destructive" />
-                    </Button>
-                </div>
-            ))}
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="flex-1 justify-start gap-2 font-normal h-8 px-4 hover:bg-transparent min-w-0"
+                            onClick={() => {
+                                setFilterConfig(view.filterConfig);
+                                setCurrentPath(null);
+                            }}
+                        >
+                            <GitFork size={14} className="text-blue-500 rotate-180 shrink-0" />
+                            <span className="truncate flex-1 min-w-0 text-left">{view.name}</span>
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                console.log('[ActiveViews] Deleting view:', view.name, 'Is Active:', isActive);
+                                console.log('[ActiveViews] Current Config:', filterConfig);
+                                console.log('[ActiveViews] View Config:', view.filterConfig);
+
+                                if (isActive) {
+                                    console.log('[ActiveViews] Resetting filters for active view deletion');
+                                    resetFilters();
+                                }
+                                removeActiveView(view.id);
+                            }}
+                        >
+                            <Trash2 size={12} className="text-muted-foreground hover:text-destructive" />
+                        </Button>
+                    </div>
+                );
+            })}
             {activeViews.length === 0 && (
                 <div className="px-4 py-2 text-xs text-muted-foreground">
                     No active views

@@ -239,36 +239,28 @@ app.whenReady().then(() => {
   });
 
   // Register 'thumbnail' protocol
+  // Register 'thumbnail' protocol
   protocol.handle('thumbnail', async (request) => {
+    const url = request.url.replace('thumbnail://', '').replace(/\/$/, '');
+    const filename = decodeURIComponent(url);
+
     try {
-      let url = request.url.replace('thumbnail://', '');
-      // Remove trailing slash if present (browsers add this for standard protocols)
-      url = url.replace(/\/$/, '');
-      const filename = decodeURIComponent(url);
+      // Resolve path relative to the current project root
+      const rootPath = indexerService.getRootPath();
+      if (!rootPath) {
+        return new Response('Root path not set', { status: 404 });
+      }
 
-      // Use userData directory - same as IndexerService
-      const thumbnailsPath = path.join(app.getPath('userData'), 'thumbnails');
-      const filePath = path.join(thumbnailsPath, filename);
-
-      console.log('[Thumbnail Protocol] Request URL:', request.url);
-      console.log('[Thumbnail Protocol] Filename:', filename);
-      console.log('[Thumbnail Protocol] Full path:', filePath);
+      const thumbnailPath = path.join(rootPath, '.prompin-studio', 'thumbnails', filename);
 
       // Check if file exists
       const fs = await import('fs/promises');
-      try {
-        await fs.access(filePath);
-        console.log('[Thumbnail Protocol] ✓ File exists!');
-      } catch {
-        console.error('[Thumbnail Protocol] ✗ File does not exist:', filePath);
-        return new Response('Thumbnail not found', { status: 404 });
-      }
+      await fs.access(thumbnailPath);
 
-      const fileUrl = pathToFileURL(filePath).toString();
-      return net.fetch(fileUrl);
+      return net.fetch('file://' + thumbnailPath);
     } catch (error) {
-      console.error('[Thumbnail Protocol] Error:', error);
-      return new Response('Thumbnail error: ' + (error instanceof Error ? error.message : String(error)), { status: 500 });
+      console.error('Failed to load thumbnail:', filename, error);
+      return new Response('Not found', { status: 404 });
     }
   });
 
@@ -351,6 +343,10 @@ ipcMain.handle('get-asset', async (event, assetId) => {
   return assetService.getAsset(assetId);
 });
 
+ipcMain.handle('delete-asset', async (event, assetId) => {
+  return assetService.deleteAsset(assetId);
+});
+
 ipcMain.handle('regenerate-thumbnails', async () => {
   return indexerService.regenerateThumbnails();
 });
@@ -387,9 +383,12 @@ syncService.on('event', (event: any) => {
   }
 });
 
-// Tag IPC Handlers
-ipcMain.handle('get-folders', () => {
-  return folderService.getFolders();
+// Native Drag and Drop
+ipcMain.on('ondragstart', (event, filePath, iconPath) => {
+  event.sender.startDrag({
+    file: filePath,
+    icon: iconPath,
+  });
 });
 
 ipcMain.handle('get-tags', async () => {
@@ -441,4 +440,19 @@ ipcMain.handle('reveal-in-finder', async (event, relativePath) => {
 });
 ipcMain.handle('chat-message', async (event, text) => {
   return searchService.handleChatMessage(text);
+});
+
+// Analytics Handlers
+import { analyticsService } from './services/AnalyticsService.js';
+
+ipcMain.handle('get-analytics-stats', async () => {
+  return analyticsService.getStats();
+});
+
+ipcMain.handle('get-asset-history', async (event, assetId) => {
+  return analyticsService.getAssetHistory(assetId);
+});
+
+ipcMain.handle('get-folders', async () => {
+  return folderService.getFolders();
 });

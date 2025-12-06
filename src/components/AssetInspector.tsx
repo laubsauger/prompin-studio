@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Info, Clock, MessageSquare, Folder, Sparkles, Save, Plus, MoreHorizontal, X, Maximize2 } from 'lucide-react';
 import { useStore } from '../store';
 import { useSettingsStore } from '../store/settings';
-import { formatFileSize, formatRelativeDate } from '../utils/format';
+import { formatFileSize, formatRelativeDate, formatDateTime } from '../utils/format';
 import { MetadataForm } from './MetadataForm';
 import { cn } from '../lib/utils';
 import { Button } from './ui/button';
@@ -28,6 +28,7 @@ import type { AssetMetadata, Asset } from '../types';
 import { AssetMediaPreview } from './AssetMediaPreview';
 import { AssetMenuActions } from './AssetMenuActions';
 import { CreateScratchPadDialog } from './CreateScratchPadDialog';
+import { AssetHistory } from './AssetHistory';
 
 export function AssetInspector() {
   const inspectorCollapsed = useSettingsStore(state => state.inspectorCollapsed);
@@ -539,15 +540,15 @@ export function AssetInspector() {
                       <div className="space-y-1 text-xs">
                         <div className="flex justify-between py-1 border-b border-border/40">
                           <span className="text-muted-foreground">Created</span>
-                          <span title={new Date(asset.createdAt).toLocaleString()}>
-                            {formatRelativeDate(new Date(asset.createdAt))}
+                          <span title={formatRelativeDate(new Date(asset.createdAt))}>
+                            {formatDateTime(new Date(asset.createdAt))}
                           </span>
                         </div>
                         {asset.updatedAt && (
                           <div className="flex justify-between py-1">
                             <span className="text-muted-foreground">Modified</span>
-                            <span title={new Date(asset.updatedAt).toLocaleString()}>
-                              {formatRelativeDate(new Date(asset.updatedAt))}
+                            <span title={formatRelativeDate(new Date(asset.updatedAt))}>
+                              {formatDateTime(new Date(asset.updatedAt))}
                             </span>
                           </div>
                         )}
@@ -626,6 +627,17 @@ export function AssetInspector() {
                     </div>
                   </SidebarSection>
                 )}
+
+                {/* History Section */}
+                <SidebarSection
+                  title="History"
+                  isOpen={true}
+                  onToggle={() => { }}
+                >
+                  <div className="px-4 py-2">
+                    <AssetHistory assetId={asset.id} />
+                  </div>
+                </SidebarSection>
               </div>
             </div>
 
